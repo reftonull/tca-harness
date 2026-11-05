@@ -1,0 +1,881 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TCA DevTools</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #161827;
+      --panel: #1c1f31;
+      --raised: #242840;
+      --line: #2e3350;
+      --ink: #e4e6f0;
+      --quiet: #8a90ad;
+      --dim: #5d6384;
+      --accent: #a98bf5;
+      --live: #7fd18b;
+      --paused: #f0a35e;
+      --changed: #5fb3f5;
+      --string: #b5d98a;
+      --number: #f0b46e;
+      --bool: #d79bf2;
+      --bad: #f0828b;
+      --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+    }
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font: 13px/1.45 var(--mono);
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+    }
+    button,
+    select,
+    input {
+      font: inherit;
+      color: inherit;
+    }
+    button {
+      background: none;
+      border: 0;
+      cursor: pointer;
+      text-align: left;
+      padding: 0;
+    }
+    button:focus-visible,
+    select:focus-visible,
+    input:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+    header {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+    header h1 {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 0;
+      letter-spacing: 0.02em;
+    }
+    .spacer {
+      flex: 1;
+    }
+    .muted {
+      color: var(--quiet);
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 16px;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+    }
+    .status .mode {
+      color: var(--live);
+    }
+    .status[data-paused="true"] .mode {
+      color: var(--paused);
+    }
+    .status[data-state="error"] .mode {
+      color: var(--bad);
+    }
+    #resume {
+      color: var(--live);
+    }
+    #resume[hidden] {
+      display: none;
+    }
+    .tool {
+      color: var(--quiet);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 3px 9px;
+    }
+    .tool:hover {
+      color: var(--ink);
+    }
+    main {
+      display: grid;
+      grid-template-columns: minmax(320px, 44%) 1fr;
+      min-height: 0;
+    }
+    .list-pane {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 0;
+      border-right: 1px solid var(--line);
+    }
+    .filters {
+      display: flex;
+      gap: 8px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .filters select,
+    .filters input {
+      background: var(--raised);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 4px 8px;
+    }
+    .filters input {
+      flex: 1;
+      min-width: 0;
+    }
+    #rows {
+      overflow: auto;
+      min-height: 0;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 14px 44px 1fr auto auto;
+      gap: 6px;
+      align-items: center;
+      width: 100%;
+      padding: 7px 12px 7px 8px;
+      border-bottom: 1px solid var(--line);
+    }
+    .row:hover {
+      background: var(--raised);
+    }
+    .row[aria-current="true"] {
+      background: var(--raised);
+      box-shadow: inset 3px 0 var(--accent);
+    }
+    .row .index {
+      color: var(--dim);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .row .name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .row .prefix {
+      color: var(--dim);
+    }
+    .row .time {
+      color: var(--quiet);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--changed);
+      display: inline-block;
+    }
+    .badge {
+      font-size: 11px;
+      border-radius: 4px;
+      padding: 0 5px;
+      border: 1px solid currentColor;
+    }
+    .badge.agent {
+      color: var(--accent);
+    }
+    .badge.effect {
+      color: var(--number);
+    }
+    .badge.running {
+      color: var(--changed);
+    }
+    .badge.cancelled {
+      color: var(--bad);
+    }
+    .detail {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 0;
+    }
+    [role="tablist"] {
+      display: flex;
+      border-bottom: 1px solid var(--line);
+    }
+    [role="tab"] {
+      flex: 1;
+      text-align: center;
+      padding: 9px 4px;
+      color: var(--quiet);
+      border-right: 1px solid var(--line);
+      font-size: 14px;
+    }
+    [role="tab"]:last-child {
+      border-right: 0;
+    }
+    [role="tab"][aria-selected="true"] {
+      color: var(--ink);
+      background: var(--raised);
+    }
+    #panel {
+      overflow: auto;
+      padding: 10px 14px 24px;
+      min-height: 0;
+    }
+    .section {
+      display: flex;
+      justify-content: space-between;
+      color: var(--quiet);
+      margin: 4px 0 8px;
+      font-size: 12px;
+    }
+    .tree-row {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      padding: 1px 0;
+      white-space: nowrap;
+    }
+    .tree-row.changed {
+      background: color-mix(in srgb, var(--changed) 9%, transparent);
+    }
+    .tree-row .marker {
+      width: 10px;
+      flex: none;
+      text-align: center;
+    }
+    .toggle {
+      color: var(--dim);
+      width: 12px;
+      flex: none;
+    }
+    .key {
+      color: #9fb3ff;
+    }
+    .s {
+      color: var(--string);
+    }
+    .n {
+      color: var(--number);
+    }
+    .b {
+      color: var(--bool);
+    }
+    .z {
+      color: var(--dim);
+    }
+    .summary {
+      color: var(--quiet);
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    dl {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 6px 16px;
+      margin: 0 0 16px;
+    }
+    dt {
+      color: var(--quiet);
+    }
+    dd {
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+    .link {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+    .change {
+      border-bottom: 1px solid var(--line);
+      padding: 8px 0;
+    }
+    .change .path {
+      color: #9fb3ff;
+      margin-bottom: 4px;
+    }
+    .old,
+    .new {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .old {
+      background: color-mix(in srgb, var(--bad) 12%, transparent);
+    }
+    .new {
+      background: color-mix(in srgb, var(--live) 12%, transparent);
+    }
+    .mount {
+      border-bottom: 1px solid var(--line);
+      padding: 8px 0;
+    }
+    .mount.added .mount-path {
+      color: var(--live);
+    }
+    .mount.removed {
+      opacity: 0.6;
+    }
+    .mount.removed .mount-path {
+      color: var(--bad);
+      text-decoration: line-through;
+    }
+    .ops {
+      color: var(--quiet);
+      margin: 4px 0 0 14px;
+      padding: 0;
+      list-style: none;
+    }
+    .ops .added {
+      color: var(--live);
+    }
+    .ops .removed {
+      color: var(--bad);
+      text-decoration: line-through;
+    }
+    .notice {
+      color: var(--paused);
+      margin: 0 0 10px;
+    }
+    .empty {
+      color: var(--quiet);
+      padding: 24px 14px;
+    }
+    footer {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: center;
+      padding: 10px 16px;
+      border-top: 1px solid var(--line);
+      background: var(--panel);
+    }
+    #scrub {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+    #position {
+      color: var(--quiet);
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+  <body>
+    <header>
+      <h1>TCA DevTools</h1>
+      <span class="muted" id="meta"></span>
+      <span class="spacer"></span>
+      <button class="tool" id="export" type="button">Export JSON</button>
+    </header>
+    <div class="status" id="status" data-paused="false">
+      <span class="mode" id="mode">Connecting…</span>
+      <span class="muted" id="detail"></span>
+      <span class="spacer"></span>
+      <button id="resume" type="button" hidden>Resume →</button>
+    </div>
+    <main>
+      <section class="list-pane" aria-label="Actions">
+        <div class="filters">
+          <select id="source" aria-label="Filter by source">
+            <option value="">All actions</option>
+            <option value="app">App</option>
+            <option value="effect">Effects</option>
+            <option value="agent">Agent</option>
+            <option value="changed">Changed state</option>
+          </select>
+          <input id="query" type="search" placeholder="Filter by action" aria-label="Filter by action" />
+        </div>
+        <div id="rows" role="listbox" aria-label="Recorded actions" tabindex="0"></div>
+      </section>
+      <section class="detail">
+        <div role="tablist" aria-label="Selected action">
+          <button role="tab" type="button" data-tab="state" aria-selected="true">State</button>
+          <button role="tab" type="button" data-tab="action" aria-selected="false">Action</button>
+          <button role="tab" type="button" data-tab="diff" aria-selected="false">Diff</button>
+          <button role="tab" type="button" data-tab="effects" aria-selected="false">Effects</button>
+          <button role="tab" type="button" data-tab="mounts" aria-selected="false">Mounts</button>
+        </div>
+        <div id="panel" role="tabpanel"></div>
+      </section>
+    </main>
+    <footer>
+      <input id="scrub" type="range" min="0" max="0" value="0" aria-label="Scrub through history" />
+      <span id="position">000 / 000</span>
+    </footer>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const el = (tag, cls, text) => {
+        const node = document.createElement(tag);
+        if (cls) node.className = cls;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      };
+
+      const model = {
+        timelineID: null,
+        startedAt: null,
+        capacity: 0,
+        detail: "",
+        dropped: 0,
+        sequence: 0,
+        entries: new Map(),
+        paused: false,
+        selected: null,
+        tab: "state",
+        expanded: new Map(),
+        connection: "connecting",
+        error: "",
+      };
+
+      // ---- Data -----------------------------------------------------------
+
+      function ingest(page) {
+        if (page.timelineID !== model.timelineID) {
+          // A relaunched app starts a new timeline; earlier entries no longer apply.
+          model.entries.clear();
+          model.selected = null;
+          model.paused = false;
+          model.timelineID = page.timelineID;
+          model.startedAt = page.startedAt;
+        }
+        model.capacity = page.capacity;
+        model.detail = page.detail;
+        model.dropped = page.dropped;
+        model.sequence = page.sequence;
+        for (const entry of page.entries) model.entries.set(entry.index, entry);
+        const oldest = page.dropped;
+        for (const index of model.entries.keys()) if (index < oldest) model.entries.delete(index);
+      }
+
+      async function poll() {
+        try {
+          let more = true;
+          let changed = false;
+          while (more) {
+            const response = await fetch("/api/timeline?since=" + model.sequence, { cache: "no-store" });
+            const body = await response.json();
+            if (!body.ok) throw new Error(body.detail || body.error || "Harness error");
+            const page = body.timeline;
+            if (page.timelineID !== model.timelineID && model.timelineID && model.sequence) {
+              model.sequence = 0;
+              model.timelineID = null;
+              continue;
+            }
+            changed = changed || page.entries.length > 0 || page.timelineID !== model.timelineID;
+            ingest(page);
+            more = page.hasMore;
+          }
+          if (model.connection !== "live") changed = true;
+          model.connection = "live";
+          model.error = "";
+          if (changed) render();
+          setTimeout(poll, 350);
+        } catch (error) {
+          model.connection = "error";
+          model.error = String(error.message || error);
+          render();
+          setTimeout(poll, 1200);
+        }
+      }
+
+      const ordered = () => [...model.entries.values()].sort((a, b) => a.index - b.index);
+
+      function visible() {
+        const source = $("source").value;
+        const query = $("query").value.trim().toLowerCase();
+        return ordered().filter((entry) => {
+          if (source === "changed" && !entry.changes.length) return false;
+          if (source && source !== "changed" && entry.source !== source) return false;
+          return !query || entry.action.join(".").toLowerCase().includes(query);
+        });
+      }
+
+      function current(list) {
+        if (!list.length) return null;
+        if (!model.paused || model.selected === null) return list[list.length - 1];
+        return model.entries.get(model.selected) || list[list.length - 1];
+      }
+
+      function previousOf(entry) {
+        return model.entries.get(entry.index - 1) || null;
+      }
+
+      // ---- Formatting -----------------------------------------------------
+
+      const pad = (n) => String(n).padStart(3, "0");
+      const seconds = (ms) => "+" + (ms / 1000).toFixed(1) + "s";
+      const duration = (ms) => (ms < 1 ? ms.toFixed(2) : ms < 100 ? ms.toFixed(1) : Math.round(ms)) + "ms";
+
+      function compact(value, limit = 400) {
+        const text = value === undefined ? "(absent)" : JSON.stringify(value);
+        return text.length > limit ? text.slice(0, limit) + "…" : text;
+      }
+
+      function summary(value) {
+        if (Array.isArray(value)) return "[" + value.length + (value.length === 1 ? " item]" : " items]");
+        const keys = Object.keys(value);
+        if (keys.length === 0) return "{}";
+        const shown = keys.slice(0, 4).join(", ");
+        return "{ " + shown + (keys.length > 4 ? ", … }" : " }");
+      }
+
+      function scalar(value) {
+        if (value === null) return el("span", "z", "nil");
+        if (typeof value === "string") return el("span", "s", JSON.stringify(value));
+        if (typeof value === "number") return el("span", "n", String(value));
+        if (typeof value === "boolean") return el("span", "b", String(value));
+        return el("span", "z", String(value));
+      }
+
+      function touches(changes, path) {
+        if (!changes) return false;
+        return changes.some(
+          (c) => c === "(root)" || c === path || c.startsWith(path + ".") || c.startsWith(path + "["),
+        );
+      }
+
+      function valueAt(root, path) {
+        if (path === "(root)") return root;
+        let value = root;
+        for (const match of path.matchAll(/([^.[\]]+)|\[(\d+)\]/g)) {
+          if (value === null || typeof value !== "object") return undefined;
+          value = match[2] !== undefined ? value[Number(match[2])] : value[match[1]];
+        }
+        return value;
+      }
+
+      // ---- Tree -----------------------------------------------------------
+
+      function tree(value, changes, scope) {
+        const box = el("div");
+        const walk = (key, node, path, depth) => {
+          const row = el("div", "tree-row");
+          row.style.paddingLeft = depth * 16 + "px";
+          const changed = path && touches(changes, path);
+          if (changed) row.classList.add("changed");
+          const marker = el("span", "marker");
+          if (changed) marker.append(el("span", "dot"));
+          row.append(marker);
+          const nested = node !== null && typeof node === "object";
+          const remembered = model.expanded.get(scope + path);
+          const open = nested && (remembered ?? (depth === 0 || changed));
+          const toggle = el("button", "toggle", nested ? (open ? "⌄" : "›") : "");
+          toggle.type = "button";
+          if (nested) {
+            toggle.setAttribute("aria-expanded", String(open));
+            toggle.setAttribute("aria-label", (open ? "Collapse " : "Expand ") + (key ?? "root"));
+            toggle.onclick = () => {
+              model.expanded.set(scope + path, !open);
+              render();
+            };
+          } else toggle.disabled = true;
+          row.append(toggle);
+          if (key !== null) row.append(el("span", "key", key + ":"));
+          row.append(nested ? el("span", "summary", summary(node)) : scalar(node));
+          box.append(row);
+          if (!open) return;
+          const children = Array.isArray(node)
+            ? node.map((v, i) => [String(i), v, path + "[" + i + "]"])
+            : Object.keys(node)
+                .sort()
+                .map((k) => [k, node[k], path ? path + "." + k : k]);
+          for (const [k, v, p] of children) walk(k, v, p, depth + 1);
+        };
+        if (value !== null && typeof value === "object") {
+          const children = Array.isArray(value)
+            ? value.map((v, i) => [String(i), v, "[" + i + "]"])
+            : Object.keys(value)
+                .sort()
+                .map((k) => [k, value[k], k]);
+          for (const [k, v, p] of children) walk(k, v, p, 0);
+        } else walk(null, value, "", 0);
+        return box;
+      }
+
+      // ---- Panels ---------------------------------------------------------
+
+      function jump(index) {
+        if (!model.entries.has(index)) return;
+        model.paused = true;
+        model.selected = index;
+        render(true);
+      }
+
+      function entryLink(index) {
+        const entry = model.entries.get(index);
+        const link = el("button", "link", "#" + pad(index) + (entry ? " " + entry.action.join(".") : " (evicted)"));
+        link.type = "button";
+        link.disabled = !entry;
+        link.onclick = () => jump(index);
+        return link;
+      }
+
+      function definitions(pairs) {
+        const list = el("dl");
+        for (const [term, value] of pairs) {
+          if (value === null || value === undefined) continue;
+          list.append(el("dt", undefined, term));
+          const dd = el("dd");
+          dd.append(value instanceof Node ? value : document.createTextNode(String(value)));
+          list.append(dd);
+        }
+        return list;
+      }
+
+      function truncation() {
+        return el("p", "notice", "Snapshot truncated at its size or depth budget; changes inside <truncated> parts are not shown.");
+      }
+
+      const panels = {
+        state(entry) {
+          const box = el("div");
+          const head = el("div", "section");
+          head.append(el("span", undefined, "State after #" + pad(entry.index)));
+          const copy = el("button", "tool", "Copy JSON");
+          copy.type = "button";
+          copy.onclick = () => navigator.clipboard.writeText(JSON.stringify(entry.state, null, 2));
+          head.append(copy);
+          box.append(head);
+          if (entry.truncated) box.append(truncation());
+          if (entry.state === null) box.append(el("div", "empty", "No state recorded: attach store.harness(...) so the timeline can use its descriptor."));
+          else box.append(tree(entry.state, entry.changes, "state:"));
+          return box;
+        },
+        action(entry) {
+          const box = el("div");
+          box.append(
+            definitions([
+              ["Action", entry.action.join(".")],
+              ["Source", { app: "App (view or external send)", effect: "Effect", agent: "Agent dispatch" }[entry.source]],
+              ["Sent by", entry.cause !== undefined && entry.cause !== null ? entryLink(entry.cause) : null],
+              ["Operation", entry.candidateID],
+              ["Recorded", seconds(entry.timeMs)],
+              ["Reducer", duration(entry.reduceMs)],
+              ["Recorder", duration(entry.recordMs) + " in reducer · " + duration(entry.snapshotMs || 0) + " to snapshot when served"],
+            ]),
+          );
+          const head = el("div", "section");
+          head.append(el("span", undefined, model.detail === "projected"
+            ? "Payload shape · values hidden in a projected timeline" : "Payload"));
+          box.append(head, tree(entry.payload, null, "payload:" + entry.index + ":"));
+          return box;
+        },
+        diff(entry) {
+          const box = el("div");
+          if (!entry.changes.length) {
+            box.append(el("div", "empty", "No state change."));
+            return box;
+          }
+          const before = previousOf(entry);
+          if (entry.truncated || before?.truncated) box.append(truncation());
+          box.append(
+            el(
+              "div",
+              "section",
+              entry.changes.length + (entry.changes.length === 1 ? " change" : " changes") +
+                (before ? " since #" + pad(before.index) : " · previous state evicted"),
+            ),
+          );
+          for (const path of entry.changes) {
+            const row = el("div", "change");
+            row.append(el("div", "path", path));
+            if (before) row.append(el("div", "old", "− " + compact(valueAt(before.state, path))));
+            row.append(el("div", "new", "+ " + compact(valueAt(entry.state, path))));
+            box.append(row);
+          }
+          return box;
+        },
+        effects(entry) {
+          const box = el("div");
+          const effect = entry.effect;
+          const sent = ordered().filter((e) => e.cause === entry.index);
+          box.append(
+            definitions([
+              ["Effect", effect ? effect.status : "none returned"],
+              ["Ran for", effect && effect.endedMs !== undefined && effect.endedMs !== null
+                ? duration(effect.endedMs - entry.timeMs) : effect ? "still running" : null],
+              ["Triggered by", entry.cause !== undefined && entry.cause !== null ? entryLink(entry.cause) : null],
+            ]),
+          );
+          if (effect) {
+            box.append(el("div", "section", "Actions sent by this effect (" + sent.length + ")"));
+            for (const child of sent) {
+              const row = el("div", "change");
+              row.append(entryLink(child.index));
+              box.append(row);
+            }
+            if (effect.status === "ended")
+              box.append(el("p", "muted", "Ended covers completion and cancellation by an inner id."));
+          }
+          return box;
+        },
+        mounts(entry) {
+          const box = el("div");
+          if (!entry.mounts) {
+            box.append(el("div", "empty", "No descriptor attached; mounts appear when store.harness(...) shares this timeline."));
+            return box;
+          }
+          const before = previousOf(entry)?.mounts;
+          const prior = new Map((before || []).map((m) => [m.path, m]));
+          const now = new Map(entry.mounts.map((m) => [m.path, m]));
+          const operationCount = entry.mounts.reduce((n, m) => n + m.operations.length, 0);
+          box.append(el("div", "section", entry.mounts.length + " features · " + operationCount + " agent operations available"));
+          const rows = [...entry.mounts.map((m) => [m, prior.has(m.path) || !before ? "" : "added"])];
+          for (const [path, m] of prior) if (!now.has(path)) rows.push([m, "removed"]);
+          for (const [mount, state] of rows) {
+            const row = el("div", "mount " + state);
+            const title = el("div");
+            title.append(el("span", "mount-path", mount.path), el("span", "muted", "  " + mount.name));
+            row.append(title);
+            const ops = el("ul", "ops");
+            const old = new Set(prior.get(mount.path)?.operations || []);
+            const fresh = new Set(mount.operations);
+            for (const op of mount.operations)
+              ops.append(el("li", before && state === "" && !old.has(op) ? "added" : "", op));
+            if (state === "") for (const op of old) if (!fresh.has(op)) ops.append(el("li", "removed", op));
+            row.append(ops);
+            box.append(row);
+          }
+          return box;
+        },
+      };
+
+      // ---- Render ---------------------------------------------------------
+
+      function row(entry, selected) {
+        const button = el("button", "row");
+        button.type = "button";
+        button.setAttribute("role", "option");
+        button.setAttribute("aria-current", String(selected));
+        button.dataset.index = entry.index;
+        const mark = el("span");
+        if (entry.changes.length) mark.append(el("span", "dot"));
+        mark.title = entry.changes.length ? "State changed" : "No state change";
+        const name = el("span", "name");
+        const last = entry.action[entry.action.length - 1] || "?";
+        if (entry.action.length > 1) name.append(el("span", "prefix", entry.action.slice(0, -1).join(".") + "."));
+        name.append(document.createTextNode(last));
+        const tags = el("span");
+        if (entry.source !== "app") tags.append(el("span", "badge " + entry.source, entry.source));
+        if (entry.effect && entry.effect.status !== "ended") {
+          tags.append(document.createTextNode(" "));
+          tags.append(el("span", "badge " + entry.effect.status, entry.effect.status === "running" ? "effect…" : "cancelled"));
+        }
+        button.append(mark, el("span", "index", pad(entry.index)), name, tags, el("span", "time", seconds(entry.timeMs)));
+        button.onclick = () => jump(entry.index);
+        return button;
+      }
+
+      function render(scrollToSelection) {
+        const list = visible();
+        const entry = current(list);
+        if (entry && model.paused) model.selected = entry.index;
+
+        const status = $("status");
+        status.dataset.paused = String(model.paused);
+        status.dataset.state = model.connection;
+        if (model.connection === "error") {
+          $("mode").textContent = "Disconnected";
+          $("detail").textContent = model.error + " · retrying";
+        } else if (model.connection === "connecting") {
+          $("mode").textContent = "Connecting…";
+          $("detail").textContent = "";
+        } else {
+          $("mode").textContent = model.paused && entry ? "Paused (" + entry.index + ")" : "Live";
+          $("detail").textContent = model.paused ? "the app keeps running; new actions are still recorded" : "";
+        }
+        $("resume").hidden = !model.paused;
+        const total = model.entries.size;
+        const all = ordered();
+        const average = (field) => (all.length ? all.reduce((sum, e) => sum + (e[field] || 0), 0) / all.length : 0);
+        $("meta").textContent = model.timelineID
+          ? [model.detail + " state", total + " retained of " + (model.dropped + total),
+             "recorder " + duration(average("recordMs")) + " in reducer, " + duration(average("snapshotMs")) + " to snapshot (avg)"].join(" · ")
+          : "";
+
+        const rows = $("rows");
+        const keepScroll = rows.scrollTop;
+        rows.replaceChildren();
+        if (!list.length) rows.append(
+            el("div", "empty", model.entries.size ? "No actions match the filter."
+              : "Waiting for actions… If none appear after interacting, apply .harnessTimeline() to the root reducer."),
+          );
+        // Newest first, like a message log.
+        for (let i = list.length - 1; i >= 0; i--) rows.append(row(list[i], entry && list[i].index === entry.index));
+        rows.scrollTop = model.paused ? keepScroll : 0;
+        if (scrollToSelection) rows.querySelector('[aria-current="true"]')?.scrollIntoView({ block: "nearest" });
+
+        for (const tab of document.querySelectorAll('[role="tab"]'))
+          tab.setAttribute("aria-selected", String(tab.dataset.tab === model.tab));
+        const panel = $("panel");
+        const scroll = panel.scrollTop;
+        panel.replaceChildren(entry ? panels[model.tab](entry) : el("div", "empty", "Select an action."));
+        panel.scrollTop = scroll;
+
+        const scrub = $("scrub");
+        const position = entry ? list.indexOf(entry) : 0;
+        scrub.max = Math.max(list.length - 1, 0);
+        scrub.value = position;
+        $("position").textContent = pad(list.length ? position + 1 : 0) + " / " + pad(list.length);
+      }
+
+      // ---- Interaction ----------------------------------------------------
+
+      function step(delta) {
+        const list = visible();
+        if (!list.length) return;
+        const entry = current(list);
+        const next = list[Math.min(Math.max(list.indexOf(entry) + delta, 0), list.length - 1)];
+        jump(next.index);
+      }
+
+      function resume() {
+        model.paused = false;
+        model.selected = null;
+        render();
+      }
+
+      $("resume").onclick = resume;
+      $("source").onchange = () => render(true);
+      $("query").oninput = () => render(true);
+      $("scrub").oninput = (event) => {
+        const list = visible();
+        const entry = list[Number(event.target.value)];
+        if (entry) jump(entry.index);
+      };
+      for (const tab of document.querySelectorAll('[role="tab"]'))
+        tab.onclick = () => {
+          model.tab = tab.dataset.tab;
+          render();
+        };
+      $("export").onclick = () => {
+        const blob = new Blob(
+          [JSON.stringify({ timelineID: model.timelineID, startedAt: model.startedAt, entries: ordered() }, null, 2)],
+          { type: "application/json" },
+        );
+        const link = el("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "tca-timeline-" + (model.timelineID || "empty").slice(0, 8) + ".json";
+        link.click();
+        URL.revokeObjectURL(link.href);
+      };
+      document.addEventListener("keydown", (event) => {
+        if (event.target instanceof Element && event.target.matches("input, select")) return;
+        // The list renders newest first, so ↑ moves toward newer actions.
+        if (event.key === "ArrowUp" || event.key === "k") (step(1), event.preventDefault());
+        else if (event.key === "ArrowDown" || event.key === "j") (step(-1), event.preventDefault());
+        else if (event.key === "Escape") resume();
+      });
+
+      render();
+      poll();
+    </script>
+  </body>
+</html>

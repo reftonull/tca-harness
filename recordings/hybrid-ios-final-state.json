@@ -1,0 +1,390 @@
+{
+  "accessibility" : {
+    "element_count" : 21,
+    "frame_space" : "points",
+    "orientation" : "portrait",
+    "screen_hash" : "e69587f84c03529c",
+    "tree" : [
+      {
+        "center" : {
+          "x" : 201,
+          "y" : 437
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 874,
+          "width" : 402,
+          "x" : 0,
+          "y" : 0
+        },
+        "label" : "DecisionsTCA",
+        "ref" : "e0",
+        "role" : "Application",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 348,
+          "y" : 84
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 36,
+          "width" : 67,
+          "x" : 314,
+          "y" : 66
+        },
+        "label" : "Reset",
+        "ref" : "e1",
+        "role" : "Button",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 94,
+          "y" : 140
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 40,
+          "width" : 155,
+          "x" : 15,
+          "y" : 119
+        },
+        "label" : "Decisions",
+        "ref" : "e2",
+        "role" : "Heading",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 201,
+          "y" : 437
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 874,
+          "width" : 402,
+          "x" : 0,
+          "y" : 0
+        },
+        "ref" : "e3",
+        "role" : "Group",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 201,
+          "y" : 188
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 40,
+          "width" : 370,
+          "x" : 16,
+          "y" : 168
+        },
+        "label" : "Tasks",
+        "ref" : "e4",
+        "role" : "Heading",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 201,
+          "y" : 234
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 52,
+          "width" : 370,
+          "x" : 16,
+          "y" : 208
+        },
+        "label" : "Buy groceries",
+        "ref" : "e5",
+        "role" : "Button",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 201,
+          "y" : 286
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 52,
+          "width" : 370,
+          "x" : 16,
+          "y" : 260
+        },
+        "label" : "Do laundry",
+        "ref" : "e6",
+        "role" : "Button",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 201,
+          "y" : 338
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 52,
+          "width" : 370,
+          "x" : 16,
+          "y" : 312
+        },
+        "label" : "Try action classification",
+        "ref" : "e7",
+        "role" : "Button",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 201,
+          "y" : 409
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 89,
+          "width" : 370,
+          "x" : 16,
+          "y" : 364
+        },
+        "label" : "Email Sarah about launch, Personal · Low priority · 2026-11-02, Checklist: [ ] Prepare slides [ ] Send agenda",
+        "ref" : "e8",
+        "role" : "Button",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 201,
+          "y" : 491
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 40,
+          "width" : 370,
+          "x" : 16,
+          "y" : 471
+        },
+        "label" : "Available actions",
+        "ref" : "e9",
+        "role" : "Heading",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 201,
+          "y" : 537
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 51,
+          "width" : 370,
+          "x" : 16,
+          "y" : 511
+        },
+        "label" : "Complete: Buy groceries",
+        "ref" : "e10",
+        "role" : "Button",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 201,
+          "y" : 589
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 52,
+          "width" : 370,
+          "x" : 16,
+          "y" : 563
+        },
+        "label" : "Complete: Do laundry",
+        "ref" : "e11",
+        "role" : "Button",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 201,
+          "y" : 641
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 52,
+          "width" : 370,
+          "x" : 16,
+          "y" : 615
+        },
+        "label" : "Complete: Try action classification",
+        "ref" : "e12",
+        "role" : "Button",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 201,
+          "y" : 690
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 45,
+          "width" : 370,
+          "x" : 16,
+          "y" : 667
+        },
+        "label" : "Each choice dispatches the same action as the task above. A classifier can select these IDs directly.",
+        "ref" : "e13",
+        "role" : "StaticText",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 201,
+          "y" : 733
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 40,
+          "width" : 370,
+          "x" : 16,
+          "y" : 712
+        },
+        "label" : "Agent harness",
+        "ref" : "e14",
+        "role" : "Heading",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 201,
+          "y" : 779
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 52,
+          "width" : 370,
+          "x" : 16,
+          "y" : 753
+        },
+        "label" : "Listening on 127.0.0.1:8765 · 32 calls",
+        "ref" : "e15",
+        "role" : "StaticText",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 201,
+          "y" : 723
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 20,
+          "width" : 203,
+          "x" : 99,
+          "y" : 712
+        },
+        "label" : "Archive: 1 completed tasks",
+        "ref" : "e16",
+        "role" : "StaticText",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 201,
+          "y" : 755
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 20,
+          "width" : 47,
+          "x" : 177,
+          "y" : 745
+        },
+        "label" : "Saved",
+        "ref" : "e17",
+        "role" : "StaticText",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 146,
+          "y" : 788
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 20,
+          "width" : 111,
+          "x" : 90,
+          "y" : 777
+        },
+        "label" : "Save snapshot",
+        "ref" : "e18",
+        "role" : "Button",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 261,
+          "y" : 788
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 20,
+          "width" : 102,
+          "x" : 209,
+          "y" : 777
+        },
+        "label" : "Close archive",
+        "ref" : "e19",
+        "role" : "Button",
+        "visible" : true
+      },
+      {
+        "center" : {
+          "x" : 201,
+          "y" : 817
+        },
+        "enabled" : true,
+        "frame" : {
+          "height" : 14,
+          "width" : 273,
+          "x" : 64,
+          "y" : 809
+        },
+        "label" : "Prototype: save runs asynchronously in memory.",
+        "ref" : "e20",
+        "role" : "StaticText",
+        "visible" : true
+      }
+    ],
+    "tree_mode" : "full"
+  },
+  "schema" : "flowdeck.ui",
+  "schemaVersion" : "1.0.0",
+  "screenshot" : {
+    "captured" : true,
+    "height" : 874,
+    "optimized" : false,
+    "path" : "recordings\/hybrid-ios-final.png",
+    "pixel_height" : 874,
+    "pixel_width" : 402,
+    "point_height" : 874,
+    "point_width" : 402,
+    "size_bytes" : 106239,
+    "unit" : "points",
+    "width" : 402
+  },
+  "simulator" : {
+    "name" : "Simulator",
+    "runtime" : "iOS",
+    "udid" : "F5B2A758-F55B-4980-A3D9-DC7546F158B2"
+  },
+  "success" : true,
+  "timestamp" : "2026-10-24T05:53:15Z",
+  "type" : "ui_snapshot"
+}

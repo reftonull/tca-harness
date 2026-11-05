@@ -1,0 +1,20 @@
+[
+  {
+    "dueDate": "",
+    "id": "new-1",
+    "isComplete": false,
+    "notes": "Friday, 7 pm — ask for a window seat.\nConfirm by Thursday.",
+    "priority": "high",
+    "project": "personal",
+    "title": "Book a table for Zoë & 李 🍜"
+  },
+  {
+    "dueDate": "",
+    "id": "new-2",
+    "isComplete": false,
+    "notes": "1. Build the package and confirm the install step completes without errors.\n2. Exercise nested routes, including back navigation and deep links two levels down.\n3. Check Unicode input with accented text, emoji, and right-to-left strings.\n4. Test cancellation by starting a long request and confirming it stops cleanly.\n5. Record the simulator run and save the video for the demo review.",
+    "priority": "high",
+    "project": "work",
+    "title": "Prepare harness demo"
+  }
+]

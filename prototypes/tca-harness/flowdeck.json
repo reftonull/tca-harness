@@ -1,0 +1,7 @@
+{
+  "workspace": "TCAHarnessPrototype.xcodeproj",
+  "scheme": "TCAHarnessPrototype",
+  "configuration": "Debug",
+  "device": "My Mac",
+  "simulator": "none"
+}

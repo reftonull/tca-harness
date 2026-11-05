@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tca-harness"
+version = "0.1.0"
+description = "Inspect and drive TCA apps through an embedded agent harness"
+readme = "cli/README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = []
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Environment :: Console",
+  "Topic :: Software Development :: Testing",
+]
+
+[project.scripts]
+tca = "tca_harness.tca:entry"
+
+# The client lives in cli/ so ./scripts/tca and the example scripts can run it from a checkout;
+# the wheel installs that directory as the `tca_harness` package, HTML assets included.
+[tool.hatch.build.targets.wheel]
+only-include = ["cli"]
+exclude = ["cli/tests", "cli/README.md"]
+sources = { "cli" = "tca_harness" }
+
+[tool.hatch.build.targets.sdist]
+only-include = ["cli", "scripts/tca", "pyproject.toml", "LICENSE"]

@@ -1,0 +1,11 @@
+{
+  "workspace": "IsowordsEmbedded.xcodeproj",
+  "scheme": "IsowordsEmbedded",
+  "configuration": "Debug",
+  "derivedDataPath": ".build",
+  "appLaunch": {
+    "env": {
+      "TCA_HARNESS": "1"
+    }
+  }
+}

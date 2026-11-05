@@ -1,0 +1,3512 @@
+[
+  {
+    "step": "initial",
+    "response": {
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/settingsButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "settingsButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          }
+        ],
+        "revision": 0,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": null,
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": true
+    }
+  },
+  {
+    "step": "initial-inspection",
+    "response": {
+      "features": [
+        {
+          "instanceID": "DB7B00A8-2C8F-456C-A488-7D9C6DD2DFEC",
+          "name": "IsowordsRoot",
+          "operations": [],
+          "path": "root"
+        },
+        {
+          "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+          "name": "Home",
+          "operations": [
+            {
+              "feature": "root/home",
+              "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+              "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+              "label": "cubeButtonTapped"
+            },
+            {
+              "feature": "root/home",
+              "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+              "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+              "label": "dailyChallengeButtonTapped"
+            },
+            {
+              "feature": "root/home",
+              "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+              "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+              "label": "howToPlayButtonTapped"
+            },
+            {
+              "feature": "root/home",
+              "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+              "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+              "label": "leaderboardButtonTapped"
+            },
+            {
+              "feature": "root/home",
+              "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+              "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+              "label": "multiplayerButtonTapped"
+            },
+            {
+              "feature": "root/home",
+              "id": "root/home/settingsButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+              "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+              "label": "settingsButtonTapped"
+            },
+            {
+              "feature": "root/home",
+              "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+              "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+              "label": "soloButtonTapped"
+            }
+          ],
+          "path": "root/home"
+        }
+      ],
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/settingsButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "settingsButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          }
+        ],
+        "revision": 0,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": null,
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": true,
+      "protocolVersion": 2
+    }
+  },
+  {
+    "step": "settingsClosed",
+    "response": {
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/settingsButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "settingsButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          }
+        ],
+        "revision": 0,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": null,
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": true,
+      "verified": true
+    }
+  },
+  {
+    "step": "settingsButtonTapped",
+    "response": {
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dismissSettings@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dismissSettings"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/dark@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to dark"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/light@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to light"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableGyroMotion/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableGyroMotion to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableHaptics/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableHaptics to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableNotifications/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableNotifications to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableReducedAnimation/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableReducedAnimation to true"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/musicVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set musicVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeReminder/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeReminder to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeSummary/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeSummary to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/soundEffectsVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set soundEffectsVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/vocabButtonTapped@8B2A41D5-6556-4573-BE09-4CE5790E96FC",
+            "instanceID": "8B2A41D5-6556-4573-BE09-4CE5790E96FC",
+            "label": "Open vocabulary"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/backButtonTapped@8B2A41D5-6556-4573-BE09-4CE5790E96FC",
+            "instanceID": "8B2A41D5-6556-4573-BE09-4CE5790E96FC",
+            "label": "backButtonTapped"
+          }
+        ],
+        "revision": 1,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": {
+              "case": "settings",
+              "value": {
+                "alert": null,
+                "buildNumber": null,
+                "developer": {
+                  "currentBaseUrl": "production"
+                },
+                "fullGameProduct": null,
+                "fullGamePurchasedAt": null,
+                "isPurchasing": false,
+                "isRestoring": false,
+                "stats": {
+                  "averageWordLength": null,
+                  "destination": null,
+                  "gamesPlayed": 0,
+                  "highScoreTimed": null,
+                  "highScoreUnlimited": null,
+                  "highestScoringWord": null,
+                  "isAnimationReduced": false,
+                  "longestWord": null,
+                  "secondsPlayed": 0,
+                  "wordsFound": 0
+                },
+                "userNotificationSettings": null,
+                "userSettings": {
+                  "appIcon": null,
+                  "colorScheme": "system",
+                  "enableGyroMotion": true,
+                  "enableHaptics": true,
+                  "enableNotifications": false,
+                  "enableReducedAnimation": false,
+                  "musicVolume": 1,
+                  "sendDailyChallengeReminder": true,
+                  "sendDailyChallengeSummary": true,
+                  "soundEffectsVolume": 1
+                }
+              }
+            },
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": true,
+      "receipt": {
+        "candidateID": "root/home/settingsButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+        "requestID": "6ca86a05-1cee-4440-9e87-98b5a5513d81",
+        "status": "succeeded"
+      }
+    }
+  },
+  {
+    "step": "settingsOpen",
+    "response": {
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dismissSettings@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dismissSettings"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/dark@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to dark"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/light@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to light"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableGyroMotion/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableGyroMotion to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableHaptics/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableHaptics to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableNotifications/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableNotifications to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableReducedAnimation/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableReducedAnimation to true"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/musicVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set musicVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeReminder/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeReminder to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeSummary/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeSummary to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/soundEffectsVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set soundEffectsVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/vocabButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "Open vocabulary"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/backButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "backButtonTapped"
+          }
+        ],
+        "revision": 2,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": {
+              "case": "settings",
+              "value": {
+                "alert": null,
+                "buildNumber": {
+                  "rawValue": 0
+                },
+                "developer": {
+                  "currentBaseUrl": "production"
+                },
+                "fullGameProduct": null,
+                "fullGamePurchasedAt": null,
+                "isPurchasing": false,
+                "isRestoring": false,
+                "stats": {
+                  "averageWordLength": null,
+                  "destination": null,
+                  "gamesPlayed": 0,
+                  "highScoreTimed": null,
+                  "highScoreUnlimited": null,
+                  "highestScoringWord": null,
+                  "isAnimationReduced": false,
+                  "longestWord": null,
+                  "secondsPlayed": 0,
+                  "wordsFound": 0
+                },
+                "userNotificationSettings": null,
+                "userSettings": {
+                  "appIcon": null,
+                  "colorScheme": "system",
+                  "enableGyroMotion": true,
+                  "enableHaptics": true,
+                  "enableNotifications": false,
+                  "enableReducedAnimation": false,
+                  "musicVolume": 1,
+                  "sendDailyChallengeReminder": true,
+                  "sendDailyChallengeSummary": true,
+                  "soundEffectsVolume": 1
+                }
+              }
+            },
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": true,
+      "verified": true
+    }
+  },
+  {
+    "step": "mounted-inspection",
+    "response": {
+      "features": [
+        {
+          "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+          "name": "Settings",
+          "operations": [
+            {
+              "feature": "root/home/settings",
+              "id": "root/home/settings/binding/userSettings/colorScheme/dark@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "label": "Set colorScheme to dark"
+            },
+            {
+              "feature": "root/home/settings",
+              "id": "root/home/settings/binding/userSettings/colorScheme/light@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "label": "Set colorScheme to light"
+            },
+            {
+              "feature": "root/home/settings",
+              "id": "root/home/settings/binding/userSettings/enableGyroMotion/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "label": "Set enableGyroMotion to false"
+            },
+            {
+              "feature": "root/home/settings",
+              "id": "root/home/settings/binding/userSettings/enableHaptics/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "label": "Set enableHaptics to false"
+            },
+            {
+              "feature": "root/home/settings",
+              "id": "root/home/settings/binding/userSettings/enableNotifications/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "label": "Set enableNotifications to true"
+            },
+            {
+              "feature": "root/home/settings",
+              "id": "root/home/settings/binding/userSettings/enableReducedAnimation/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "label": "Set enableReducedAnimation to true"
+            },
+            {
+              "argumentSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "value": {
+                    "maximum": 1,
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "value"
+                ],
+                "type": "object"
+              },
+              "feature": "root/home/settings",
+              "id": "root/home/settings/binding/userSettings/musicVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "label": "Set musicVolume numeric value"
+            },
+            {
+              "feature": "root/home/settings",
+              "id": "root/home/settings/binding/userSettings/sendDailyChallengeReminder/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "label": "Set sendDailyChallengeReminder to false"
+            },
+            {
+              "feature": "root/home/settings",
+              "id": "root/home/settings/binding/userSettings/sendDailyChallengeSummary/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "label": "Set sendDailyChallengeSummary to false"
+            },
+            {
+              "argumentSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "value": {
+                    "maximum": 1,
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "value"
+                ],
+                "type": "object"
+              },
+              "feature": "root/home/settings",
+              "id": "root/home/settings/binding/userSettings/soundEffectsVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+              "label": "Set soundEffectsVolume numeric value"
+            }
+          ],
+          "path": "root/home/settings"
+        },
+        {
+          "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+          "name": "Stats",
+          "operations": [
+            {
+              "feature": "root/home/settings/stats",
+              "id": "root/home/settings/stats/vocabButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+              "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+              "label": "Open vocabulary"
+            },
+            {
+              "feature": "root/home/settings/stats",
+              "id": "root/home/settings/stats/backButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+              "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+              "label": "backButtonTapped"
+            }
+          ],
+          "path": "root/home/settings/stats"
+        }
+      ],
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dismissSettings@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dismissSettings"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/dark@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to dark"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/light@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to light"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableGyroMotion/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableGyroMotion to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableHaptics/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableHaptics to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableNotifications/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableNotifications to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableReducedAnimation/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableReducedAnimation to true"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/musicVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set musicVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeReminder/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeReminder to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeSummary/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeSummary to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/soundEffectsVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set soundEffectsVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/vocabButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "Open vocabulary"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/backButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "backButtonTapped"
+          }
+        ],
+        "revision": 3,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": {
+              "case": "settings",
+              "value": {
+                "alert": null,
+                "buildNumber": {
+                  "rawValue": 0
+                },
+                "developer": {
+                  "currentBaseUrl": "production"
+                },
+                "fullGameProduct": null,
+                "fullGamePurchasedAt": null,
+                "isPurchasing": false,
+                "isRestoring": false,
+                "stats": {
+                  "averageWordLength": null,
+                  "destination": null,
+                  "gamesPlayed": 0,
+                  "highScoreTimed": null,
+                  "highScoreUnlimited": null,
+                  "highestScoringWord": null,
+                  "isAnimationReduced": false,
+                  "longestWord": null,
+                  "secondsPlayed": 0,
+                  "wordsFound": 0
+                },
+                "userNotificationSettings": {
+                  "authorizationStatus": "UNAuthorizationStatus(rawValue: 0)"
+                },
+                "userSettings": {
+                  "appIcon": null,
+                  "colorScheme": "system",
+                  "enableGyroMotion": true,
+                  "enableHaptics": true,
+                  "enableNotifications": false,
+                  "enableReducedAnimation": false,
+                  "musicVolume": 1,
+                  "sendDailyChallengeReminder": true,
+                  "sendDailyChallengeSummary": true,
+                  "soundEffectsVolume": 1
+                }
+              }
+            },
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": true,
+      "protocolVersion": 2
+    }
+  },
+  {
+    "step": "binding/userSettings/enableHaptics/false",
+    "response": {
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dismissSettings@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dismissSettings"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/dark@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to dark"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/light@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to light"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableGyroMotion/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableGyroMotion to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableHaptics/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableHaptics to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableNotifications/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableNotifications to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableReducedAnimation/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableReducedAnimation to true"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/musicVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set musicVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeReminder/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeReminder to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeSummary/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeSummary to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/soundEffectsVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set soundEffectsVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/vocabButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "Open vocabulary"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/backButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "backButtonTapped"
+          }
+        ],
+        "revision": 4,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": {
+              "case": "settings",
+              "value": {
+                "alert": null,
+                "buildNumber": {
+                  "rawValue": 0
+                },
+                "developer": {
+                  "currentBaseUrl": "production"
+                },
+                "fullGameProduct": null,
+                "fullGamePurchasedAt": null,
+                "isPurchasing": false,
+                "isRestoring": false,
+                "stats": {
+                  "averageWordLength": null,
+                  "destination": null,
+                  "gamesPlayed": 0,
+                  "highScoreTimed": null,
+                  "highScoreUnlimited": null,
+                  "highestScoringWord": null,
+                  "isAnimationReduced": false,
+                  "longestWord": null,
+                  "secondsPlayed": 0,
+                  "wordsFound": 0
+                },
+                "userNotificationSettings": {
+                  "authorizationStatus": "UNAuthorizationStatus(rawValue: 0)"
+                },
+                "userSettings": {
+                  "appIcon": null,
+                  "colorScheme": "system",
+                  "enableGyroMotion": true,
+                  "enableHaptics": false,
+                  "enableNotifications": false,
+                  "enableReducedAnimation": false,
+                  "musicVolume": 1,
+                  "sendDailyChallengeReminder": true,
+                  "sendDailyChallengeSummary": true,
+                  "soundEffectsVolume": 1
+                }
+              }
+            },
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": true,
+      "receipt": {
+        "candidateID": "root/home/settings/binding/userSettings/enableHaptics/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+        "requestID": "5016f7e7-5f3b-480d-ae35-00676e9baa80",
+        "status": "succeeded"
+      }
+    }
+  },
+  {
+    "step": "hapticsOff",
+    "response": {
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dismissSettings@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dismissSettings"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/dark@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to dark"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/light@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to light"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableGyroMotion/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableGyroMotion to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableHaptics/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableHaptics to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableNotifications/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableNotifications to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableReducedAnimation/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableReducedAnimation to true"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/musicVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set musicVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeReminder/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeReminder to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeSummary/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeSummary to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/soundEffectsVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set soundEffectsVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/vocabButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "Open vocabulary"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/backButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "backButtonTapped"
+          }
+        ],
+        "revision": 4,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": {
+              "case": "settings",
+              "value": {
+                "alert": null,
+                "buildNumber": {
+                  "rawValue": 0
+                },
+                "developer": {
+                  "currentBaseUrl": "production"
+                },
+                "fullGameProduct": null,
+                "fullGamePurchasedAt": null,
+                "isPurchasing": false,
+                "isRestoring": false,
+                "stats": {
+                  "averageWordLength": null,
+                  "destination": null,
+                  "gamesPlayed": 0,
+                  "highScoreTimed": null,
+                  "highScoreUnlimited": null,
+                  "highestScoringWord": null,
+                  "isAnimationReduced": false,
+                  "longestWord": null,
+                  "secondsPlayed": 0,
+                  "wordsFound": 0
+                },
+                "userNotificationSettings": {
+                  "authorizationStatus": "UNAuthorizationStatus(rawValue: 0)"
+                },
+                "userSettings": {
+                  "appIcon": null,
+                  "colorScheme": "system",
+                  "enableGyroMotion": true,
+                  "enableHaptics": false,
+                  "enableNotifications": false,
+                  "enableReducedAnimation": false,
+                  "musicVolume": 1,
+                  "sendDailyChallengeReminder": true,
+                  "sendDailyChallengeSummary": true,
+                  "soundEffectsVolume": 1
+                }
+              }
+            },
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": true,
+      "verified": true
+    }
+  },
+  {
+    "step": "binding/userSettings/enableReducedAnimation/true",
+    "response": {
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dismissSettings@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dismissSettings"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/dark@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to dark"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/light@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to light"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableGyroMotion/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableGyroMotion to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableHaptics/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableHaptics to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableNotifications/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableNotifications to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableReducedAnimation/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableReducedAnimation to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/musicVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set musicVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeReminder/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeReminder to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeSummary/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeSummary to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/soundEffectsVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set soundEffectsVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/vocabButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "Open vocabulary"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/backButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "backButtonTapped"
+          }
+        ],
+        "revision": 5,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": {
+              "case": "settings",
+              "value": {
+                "alert": null,
+                "buildNumber": {
+                  "rawValue": 0
+                },
+                "developer": {
+                  "currentBaseUrl": "production"
+                },
+                "fullGameProduct": null,
+                "fullGamePurchasedAt": null,
+                "isPurchasing": false,
+                "isRestoring": false,
+                "stats": {
+                  "averageWordLength": null,
+                  "destination": null,
+                  "gamesPlayed": 0,
+                  "highScoreTimed": null,
+                  "highScoreUnlimited": null,
+                  "highestScoringWord": null,
+                  "isAnimationReduced": false,
+                  "longestWord": null,
+                  "secondsPlayed": 0,
+                  "wordsFound": 0
+                },
+                "userNotificationSettings": {
+                  "authorizationStatus": "UNAuthorizationStatus(rawValue: 0)"
+                },
+                "userSettings": {
+                  "appIcon": null,
+                  "colorScheme": "system",
+                  "enableGyroMotion": true,
+                  "enableHaptics": false,
+                  "enableNotifications": false,
+                  "enableReducedAnimation": true,
+                  "musicVolume": 1,
+                  "sendDailyChallengeReminder": true,
+                  "sendDailyChallengeSummary": true,
+                  "soundEffectsVolume": 1
+                }
+              }
+            },
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": true,
+      "receipt": {
+        "candidateID": "root/home/settings/binding/userSettings/enableReducedAnimation/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+        "requestID": "00569ccf-26eb-457c-9b7d-646145020b81",
+        "status": "succeeded"
+      }
+    }
+  },
+  {
+    "step": "reducedAnimationOn",
+    "response": {
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dismissSettings@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dismissSettings"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/dark@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to dark"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/light@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to light"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableGyroMotion/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableGyroMotion to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableHaptics/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableHaptics to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableNotifications/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableNotifications to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableReducedAnimation/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableReducedAnimation to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/musicVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set musicVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeReminder/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeReminder to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeSummary/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeSummary to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/soundEffectsVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set soundEffectsVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/vocabButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "Open vocabulary"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/backButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "backButtonTapped"
+          }
+        ],
+        "revision": 5,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": {
+              "case": "settings",
+              "value": {
+                "alert": null,
+                "buildNumber": {
+                  "rawValue": 0
+                },
+                "developer": {
+                  "currentBaseUrl": "production"
+                },
+                "fullGameProduct": null,
+                "fullGamePurchasedAt": null,
+                "isPurchasing": false,
+                "isRestoring": false,
+                "stats": {
+                  "averageWordLength": null,
+                  "destination": null,
+                  "gamesPlayed": 0,
+                  "highScoreTimed": null,
+                  "highScoreUnlimited": null,
+                  "highestScoringWord": null,
+                  "isAnimationReduced": false,
+                  "longestWord": null,
+                  "secondsPlayed": 0,
+                  "wordsFound": 0
+                },
+                "userNotificationSettings": {
+                  "authorizationStatus": "UNAuthorizationStatus(rawValue: 0)"
+                },
+                "userSettings": {
+                  "appIcon": null,
+                  "colorScheme": "system",
+                  "enableGyroMotion": true,
+                  "enableHaptics": false,
+                  "enableNotifications": false,
+                  "enableReducedAnimation": true,
+                  "musicVolume": 1,
+                  "sendDailyChallengeReminder": true,
+                  "sendDailyChallengeSummary": true,
+                  "soundEffectsVolume": 1
+                }
+              }
+            },
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": true,
+      "verified": true
+    }
+  },
+  {
+    "step": "out-of-range-volume",
+    "response": {
+      "detail": "arguments.value: wrong JSON type",
+      "error": "invalid_arguments",
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dismissSettings@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dismissSettings"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/dark@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to dark"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/light@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to light"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableGyroMotion/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableGyroMotion to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableHaptics/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableHaptics to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableNotifications/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableNotifications to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableReducedAnimation/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableReducedAnimation to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/musicVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set musicVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeReminder/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeReminder to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeSummary/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeSummary to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/soundEffectsVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set soundEffectsVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/vocabButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "Open vocabulary"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/backButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "backButtonTapped"
+          }
+        ],
+        "revision": 5,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": {
+              "case": "settings",
+              "value": {
+                "alert": null,
+                "buildNumber": {
+                  "rawValue": 0
+                },
+                "developer": {
+                  "currentBaseUrl": "production"
+                },
+                "fullGameProduct": null,
+                "fullGamePurchasedAt": null,
+                "isPurchasing": false,
+                "isRestoring": false,
+                "stats": {
+                  "averageWordLength": null,
+                  "destination": null,
+                  "gamesPlayed": 0,
+                  "highScoreTimed": null,
+                  "highScoreUnlimited": null,
+                  "highestScoringWord": null,
+                  "isAnimationReduced": false,
+                  "longestWord": null,
+                  "secondsPlayed": 0,
+                  "wordsFound": 0
+                },
+                "userNotificationSettings": {
+                  "authorizationStatus": "UNAuthorizationStatus(rawValue: 0)"
+                },
+                "userSettings": {
+                  "appIcon": null,
+                  "colorScheme": "system",
+                  "enableGyroMotion": true,
+                  "enableHaptics": false,
+                  "enableNotifications": false,
+                  "enableReducedAnimation": true,
+                  "musicVolume": 1,
+                  "sendDailyChallengeReminder": true,
+                  "sendDailyChallengeSummary": true,
+                  "soundEffectsVolume": 1
+                }
+              }
+            },
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": false
+    }
+  },
+  {
+    "step": "binding/userSettings/musicVolume",
+    "response": {
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dismissSettings@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dismissSettings"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/dark@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to dark"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/light@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to light"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableGyroMotion/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableGyroMotion to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableHaptics/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableHaptics to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableNotifications/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableNotifications to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableReducedAnimation/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableReducedAnimation to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/musicVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set musicVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeReminder/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeReminder to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeSummary/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeSummary to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/soundEffectsVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set soundEffectsVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/vocabButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "Open vocabulary"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/backButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "backButtonTapped"
+          }
+        ],
+        "revision": 6,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": {
+              "case": "settings",
+              "value": {
+                "alert": null,
+                "buildNumber": {
+                  "rawValue": 0
+                },
+                "developer": {
+                  "currentBaseUrl": "production"
+                },
+                "fullGameProduct": null,
+                "fullGamePurchasedAt": null,
+                "isPurchasing": false,
+                "isRestoring": false,
+                "stats": {
+                  "averageWordLength": null,
+                  "destination": null,
+                  "gamesPlayed": 0,
+                  "highScoreTimed": null,
+                  "highScoreUnlimited": null,
+                  "highestScoringWord": null,
+                  "isAnimationReduced": false,
+                  "longestWord": null,
+                  "secondsPlayed": 0,
+                  "wordsFound": 0
+                },
+                "userNotificationSettings": {
+                  "authorizationStatus": "UNAuthorizationStatus(rawValue: 0)"
+                },
+                "userSettings": {
+                  "appIcon": null,
+                  "colorScheme": "system",
+                  "enableGyroMotion": true,
+                  "enableHaptics": false,
+                  "enableNotifications": false,
+                  "enableReducedAnimation": true,
+                  "musicVolume": 0,
+                  "sendDailyChallengeReminder": true,
+                  "sendDailyChallengeSummary": true,
+                  "soundEffectsVolume": 1
+                }
+              }
+            },
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": true,
+      "receipt": {
+        "candidateID": "root/home/settings/binding/userSettings/musicVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+        "requestID": "e333282d-789f-44e0-ab0e-6d881361e11f",
+        "status": "succeeded"
+      }
+    }
+  },
+  {
+    "step": "musicMuted",
+    "response": {
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dismissSettings@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dismissSettings"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/dark@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to dark"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/light@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to light"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableGyroMotion/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableGyroMotion to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableHaptics/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableHaptics to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableNotifications/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableNotifications to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableReducedAnimation/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableReducedAnimation to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/musicVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set musicVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeReminder/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeReminder to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeSummary/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeSummary to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/soundEffectsVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set soundEffectsVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/vocabButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "Open vocabulary"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/backButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "backButtonTapped"
+          }
+        ],
+        "revision": 6,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": {
+              "case": "settings",
+              "value": {
+                "alert": null,
+                "buildNumber": {
+                  "rawValue": 0
+                },
+                "developer": {
+                  "currentBaseUrl": "production"
+                },
+                "fullGameProduct": null,
+                "fullGamePurchasedAt": null,
+                "isPurchasing": false,
+                "isRestoring": false,
+                "stats": {
+                  "averageWordLength": null,
+                  "destination": null,
+                  "gamesPlayed": 0,
+                  "highScoreTimed": null,
+                  "highScoreUnlimited": null,
+                  "highestScoringWord": null,
+                  "isAnimationReduced": false,
+                  "longestWord": null,
+                  "secondsPlayed": 0,
+                  "wordsFound": 0
+                },
+                "userNotificationSettings": {
+                  "authorizationStatus": "UNAuthorizationStatus(rawValue: 0)"
+                },
+                "userSettings": {
+                  "appIcon": null,
+                  "colorScheme": "system",
+                  "enableGyroMotion": true,
+                  "enableHaptics": false,
+                  "enableNotifications": false,
+                  "enableReducedAnimation": true,
+                  "musicVolume": 0,
+                  "sendDailyChallengeReminder": true,
+                  "sendDailyChallengeSummary": true,
+                  "soundEffectsVolume": 1
+                }
+              }
+            },
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": true,
+      "verified": true
+    }
+  },
+  {
+    "step": "/stats/vocabButtonTapped",
+    "response": {
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dismissSettings@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dismissSettings"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/dark@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to dark"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/light@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set colorScheme to light"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableGyroMotion/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableGyroMotion to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableHaptics/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableHaptics to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableNotifications/true@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableNotifications to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableReducedAnimation/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set enableReducedAnimation to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/musicVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set musicVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeReminder/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeReminder to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeSummary/false@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set sendDailyChallengeSummary to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/soundEffectsVolume@52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "instanceID": "52871B6D-4F0C-48BE-9C27-3D3750D00272",
+            "label": "Set soundEffectsVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/vocabButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "Open vocabulary"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/backButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "instanceID": "D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+            "label": "backButtonTapped"
+          }
+        ],
+        "revision": 7,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": {
+              "case": "settings",
+              "value": {
+                "alert": null,
+                "buildNumber": {
+                  "rawValue": 0
+                },
+                "developer": {
+                  "currentBaseUrl": "production"
+                },
+                "fullGameProduct": null,
+                "fullGamePurchasedAt": null,
+                "isPurchasing": false,
+                "isRestoring": false,
+                "stats": {
+                  "averageWordLength": null,
+                  "destination": {
+                    "case": "vocab",
+                    "value": {
+                      "destination": null,
+                      "isAnimationReduced": false,
+                      "vocab": null
+                    }
+                  },
+                  "gamesPlayed": 0,
+                  "highScoreTimed": null,
+                  "highScoreUnlimited": null,
+                  "highestScoringWord": null,
+                  "isAnimationReduced": false,
+                  "longestWord": null,
+                  "secondsPlayed": 0,
+                  "wordsFound": 0
+                },
+                "userNotificationSettings": {
+                  "authorizationStatus": "UNAuthorizationStatus(rawValue: 0)"
+                },
+                "userSettings": {
+                  "appIcon": null,
+                  "colorScheme": "system",
+                  "enableGyroMotion": true,
+                  "enableHaptics": false,
+                  "enableNotifications": false,
+                  "enableReducedAnimation": true,
+                  "musicVolume": 0,
+                  "sendDailyChallengeReminder": true,
+                  "sendDailyChallengeSummary": true,
+                  "soundEffectsVolume": 1
+                }
+              }
+            },
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": true,
+      "receipt": {
+        "candidateID": "root/home/settings/stats/vocabButtonTapped@D4EB6B46-EE0D-48A5-8BDD-6697CA65BB8A",
+        "requestID": "e208ea99-beb6-4d3a-864d-00882807d923",
+        "status": "succeeded"
+      }
+    }
+  },
+  {
+    "step": "dismiss",
+    "response": {
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/settingsButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "settingsButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          }
+        ],
+        "revision": 8,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": null,
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": true,
+      "receipt": {
+        "candidateID": "root/home/dismissSettings@266300C2-3364-4D98-829F-E703863FB789",
+        "requestID": "0aab04c7-c31d-46f9-8ca7-659b7e4a3d28",
+        "status": "succeeded"
+      }
+    }
+  },
+  {
+    "step": "settingsClosed",
+    "response": {
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/settingsButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "settingsButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          }
+        ],
+        "revision": 8,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": null,
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": true,
+      "verified": true
+    }
+  },
+  {
+    "step": "settingsButtonTapped",
+    "response": {
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dismissSettings@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dismissSettings"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/dark@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set colorScheme to dark"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/light@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set colorScheme to light"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableGyroMotion/false@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set enableGyroMotion to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableHaptics/false@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set enableHaptics to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableNotifications/true@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set enableNotifications to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableReducedAnimation/true@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set enableReducedAnimation to true"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/musicVolume@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set musicVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeReminder/false@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set sendDailyChallengeReminder to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeSummary/false@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set sendDailyChallengeSummary to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/soundEffectsVolume@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set soundEffectsVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/vocabButtonTapped@D244E7D4-77E5-48E7-ABC8-FF008D2EA6D4",
+            "instanceID": "D244E7D4-77E5-48E7-ABC8-FF008D2EA6D4",
+            "label": "Open vocabulary"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/backButtonTapped@D244E7D4-77E5-48E7-ABC8-FF008D2EA6D4",
+            "instanceID": "D244E7D4-77E5-48E7-ABC8-FF008D2EA6D4",
+            "label": "backButtonTapped"
+          }
+        ],
+        "revision": 9,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": {
+              "case": "settings",
+              "value": {
+                "alert": null,
+                "buildNumber": null,
+                "developer": {
+                  "currentBaseUrl": "production"
+                },
+                "fullGameProduct": null,
+                "fullGamePurchasedAt": null,
+                "isPurchasing": false,
+                "isRestoring": false,
+                "stats": {
+                  "averageWordLength": null,
+                  "destination": null,
+                  "gamesPlayed": 0,
+                  "highScoreTimed": null,
+                  "highScoreUnlimited": null,
+                  "highestScoringWord": null,
+                  "isAnimationReduced": false,
+                  "longestWord": null,
+                  "secondsPlayed": 0,
+                  "wordsFound": 0
+                },
+                "userNotificationSettings": null,
+                "userSettings": {
+                  "appIcon": null,
+                  "colorScheme": "system",
+                  "enableGyroMotion": true,
+                  "enableHaptics": true,
+                  "enableNotifications": false,
+                  "enableReducedAnimation": false,
+                  "musicVolume": 1,
+                  "sendDailyChallengeReminder": true,
+                  "sendDailyChallengeSummary": true,
+                  "soundEffectsVolume": 1
+                }
+              }
+            },
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": true,
+      "receipt": {
+        "candidateID": "root/home/settingsButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+        "requestID": "e970936f-b905-4af8-8f2c-ea4b6d9bab0b",
+        "status": "succeeded"
+      }
+    }
+  },
+  {
+    "step": "old-child-id",
+    "response": {
+      "error": "unavailable_candidate",
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dismissSettings@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dismissSettings"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/dark@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set colorScheme to dark"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/light@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set colorScheme to light"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableGyroMotion/false@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set enableGyroMotion to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableHaptics/false@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set enableHaptics to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableNotifications/true@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set enableNotifications to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableReducedAnimation/true@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set enableReducedAnimation to true"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/musicVolume@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set musicVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeReminder/false@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set sendDailyChallengeReminder to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeSummary/false@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set sendDailyChallengeSummary to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/soundEffectsVolume@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set soundEffectsVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/vocabButtonTapped@D244E7D4-77E5-48E7-ABC8-FF008D2EA6D4",
+            "instanceID": "D244E7D4-77E5-48E7-ABC8-FF008D2EA6D4",
+            "label": "Open vocabulary"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/backButtonTapped@D244E7D4-77E5-48E7-ABC8-FF008D2EA6D4",
+            "instanceID": "D244E7D4-77E5-48E7-ABC8-FF008D2EA6D4",
+            "label": "backButtonTapped"
+          }
+        ],
+        "revision": 9,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": {
+              "case": "settings",
+              "value": {
+                "alert": null,
+                "buildNumber": null,
+                "developer": {
+                  "currentBaseUrl": "production"
+                },
+                "fullGameProduct": null,
+                "fullGamePurchasedAt": null,
+                "isPurchasing": false,
+                "isRestoring": false,
+                "stats": {
+                  "averageWordLength": null,
+                  "destination": null,
+                  "gamesPlayed": 0,
+                  "highScoreTimed": null,
+                  "highScoreUnlimited": null,
+                  "highestScoringWord": null,
+                  "isAnimationReduced": false,
+                  "longestWord": null,
+                  "secondsPlayed": 0,
+                  "wordsFound": 0
+                },
+                "userNotificationSettings": null,
+                "userSettings": {
+                  "appIcon": null,
+                  "colorScheme": "system",
+                  "enableGyroMotion": true,
+                  "enableHaptics": true,
+                  "enableNotifications": false,
+                  "enableReducedAnimation": false,
+                  "musicVolume": 1,
+                  "sendDailyChallengeReminder": true,
+                  "sendDailyChallengeSummary": true,
+                  "soundEffectsVolume": 1
+                }
+              }
+            },
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": false
+    }
+  },
+  {
+    "step": "settingsOpen",
+    "response": {
+      "observation": {
+        "candidates": [
+          {
+            "feature": "root/home",
+            "id": "root/home/cubeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "cubeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dailyChallengeButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dailyChallengeButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/howToPlayButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "howToPlayButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/leaderboardButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "leaderboardButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/multiplayerButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "multiplayerButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/soloButtonTapped@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "soloButtonTapped"
+          },
+          {
+            "feature": "root/home",
+            "id": "root/home/dismissSettings@266300C2-3364-4D98-829F-E703863FB789",
+            "instanceID": "266300C2-3364-4D98-829F-E703863FB789",
+            "label": "dismissSettings"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/dark@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set colorScheme to dark"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/colorScheme/light@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set colorScheme to light"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableGyroMotion/false@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set enableGyroMotion to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableHaptics/false@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set enableHaptics to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableNotifications/true@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set enableNotifications to true"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/enableReducedAnimation/true@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set enableReducedAnimation to true"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/musicVolume@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set musicVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeReminder/false@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set sendDailyChallengeReminder to false"
+          },
+          {
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/sendDailyChallengeSummary/false@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set sendDailyChallengeSummary to false"
+          },
+          {
+            "argumentSchema": {
+              "additionalProperties": false,
+              "properties": {
+                "value": {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "type": "object"
+            },
+            "feature": "root/home/settings",
+            "id": "root/home/settings/binding/userSettings/soundEffectsVolume@1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "instanceID": "1F2143D8-88F3-4F7C-97A0-2EF52165D4A8",
+            "label": "Set soundEffectsVolume numeric value"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/vocabButtonTapped@BF532475-934D-4AF9-BF97-683236A160BF",
+            "instanceID": "BF532475-934D-4AF9-BF97-683236A160BF",
+            "label": "Open vocabulary"
+          },
+          {
+            "feature": "root/home/settings/stats",
+            "id": "root/home/settings/stats/backButtonTapped@BF532475-934D-4AF9-BF97-683236A160BF",
+            "instanceID": "BF532475-934D-4AF9-BF97-683236A160BF",
+            "label": "backButtonTapped"
+          }
+        ],
+        "revision": 10,
+        "sessionID": "ED736863-B16B-4D16-8A0F-A38221214B68",
+        "state": {
+          "home": {
+            "dailyChallenges": null,
+            "destination": {
+              "case": "settings",
+              "value": {
+                "alert": null,
+                "buildNumber": {
+                  "rawValue": 0
+                },
+                "developer": {
+                  "currentBaseUrl": "production"
+                },
+                "fullGameProduct": null,
+                "fullGamePurchasedAt": null,
+                "isPurchasing": false,
+                "isRestoring": false,
+                "stats": {
+                  "averageWordLength": null,
+                  "destination": null,
+                  "gamesPlayed": 0,
+                  "highScoreTimed": null,
+                  "highScoreUnlimited": null,
+                  "highestScoringWord": null,
+                  "isAnimationReduced": false,
+                  "longestWord": null,
+                  "secondsPlayed": 0,
+                  "wordsFound": 0
+                },
+                "userNotificationSettings": null,
+                "userSettings": {
+                  "appIcon": null,
+                  "colorScheme": "system",
+                  "enableGyroMotion": true,
+                  "enableHaptics": true,
+                  "enableNotifications": false,
+                  "enableReducedAnimation": false,
+                  "musicVolume": 1,
+                  "sendDailyChallengeReminder": true,
+                  "sendDailyChallengeSummary": true,
+                  "soundEffectsVolume": 1
+                }
+              }
+            },
+            "hasChangelog": false,
+            "hasPastTurnBasedGames": false,
+            "nagBanner": null,
+            "savedGames": {
+              "dailyChallengeUnlimited": null,
+              "unlimited": null
+            },
+            "turnBasedMatches": [],
+            "weekInReview": null
+          }
+        }
+      },
+      "ok": true,
+      "verified": true
+    }
+  }
+]

@@ -1,0 +1,15 @@
+$ ./scripts/tca run --goal "Complete every task, then open and save the archive" --verify allCompletedAndArchived
+LIVE Jev 1.14 via Ramp Router | headless TCA store | save simulated in memory
+[1] Jev -> tasks/complete/groceries  (232 ms; probability 0.65)
+    dispatch: succeeded | tasks 1/3 | archive closed | revision 1
+[2] Jev -> tasks/complete/laundry  (203 ms; probability 0.88)
+    dispatch: succeeded | tasks 2/3 | archive closed | revision 2
+[3] Jev -> tasks/complete/prototype  (189 ms; probability 1.0)
+    dispatch: succeeded | tasks 3/3 | archive closed | revision 3
+[4] Jev -> tasks/archive/open  (180 ms; probability 1.0)
+    dispatch: succeeded | tasks 3/3 | archive idle | revision 4
+[5] Jev -> archive/1/save  (201 ms; probability 0.98)
+    dispatch: running | tasks 3/3 | archive saving | revision 5
+    wait: succeeded | tasks 3/3 | archive saved | revision 6
+VERIFIED allCompletedAndArchived | 5 decisions | 1370 ms end to end
+Process exited 0. No simulator was used for this run.

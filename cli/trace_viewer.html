@@ -1,0 +1,1141 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TCA run explorer</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --ink: var(--foreground, light-dark(#22252c, #e8eaf0));
+      --quiet: var(--muted-foreground, light-dark(#626872, #a9b1bf));
+      --line: var(--border, light-dark(#dce0e6, #363c47));
+      --surface: var(--card, light-dark(#f5f6f8, #20242c));
+      --active: var(--accent-surface, light-dark(#e9eef9, #293951));
+      --bad: color-mix(
+        in srgb,
+        var(--destructive, light-dark(#a52c37, #ff9ca6)) 70%,
+        var(--ink)
+      );
+      --good: color-mix(
+        in srgb,
+        var(--success, light-dark(#287452, #88d1a9)) 65%,
+        var(--ink)
+      );
+      --j: var(--chart-1, #7895e8);
+      --a: var(--chart-2, #b39bdc);
+      --x: var(--chart-3, #71bfa9);
+      --w: var(--chart-4, #e3b66e);
+      --p: var(--chart-5, #a3acbb);
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font: 14px/1.5 var(--font-sans, system-ui, sans-serif);
+      background: transparent;
+    }
+    main {
+      max-width: 1250px;
+      margin: auto;
+      padding: 0;
+    }
+    button {
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+    }
+    button:focus-visible,
+    summary:focus-visible {
+      outline: 2px solid var(--j);
+      outline-offset: 3px;
+    }
+    button {
+      background: none;
+      border: 0;
+      text-align: left;
+    }
+    h1 {
+      font-size: 21px;
+      font-weight: 600;
+      margin: 0 0 4px;
+    }
+    h2 {
+      font-size: 16px;
+      margin: 0;
+      font-weight: 600;
+    }
+    h3 {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 18px 0 8px;
+    }
+    p {
+      margin: 6px 0;
+    }
+    .muted {
+      color: var(--quiet);
+    }
+    .small {
+      font-size: 12px;
+    }
+    .top {
+      display: flex;
+      gap: 16px;
+      align-items: start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      padding: 16px 0;
+    }
+    .top code {
+      overflow-wrap: anywhere;
+    }
+    .totals {
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+    }
+    .pass {
+      color: var(--good);
+    }
+    .fail {
+      color: var(--bad);
+    }
+    .goals {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 4px 14px;
+      margin: 12px 0 20px;
+    }
+    .goal {
+      padding: 10px 8px;
+      border-bottom: 2px solid var(--line);
+      min-width: 0;
+    }
+    .goal[aria-pressed="true"] {
+      background: var(--active);
+      border-bottom-color: var(--j);
+    }
+    .goal-name {
+      display: block;
+      font-weight: 500;
+      overflow-wrap: anywhere;
+    }
+    .goal-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--quiet);
+      margin-top: 5px;
+    }
+    .detail-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .status {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .reason {
+      color: var(--bad);
+      margin: 8px 0;
+    }
+    .timing {
+      margin: 18px 0 14px;
+    }
+    .timing svg {
+      width: 100%;
+      height: 150px;
+      overflow: visible;
+    }
+    .timeline-label {
+      fill: var(--quiet);
+      font-size: 11px;
+    }
+    .tick {
+      stroke: var(--line);
+      stroke-width: 1;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 12px;
+      margin: 8px 0;
+    }
+    .legend i {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      margin-right: 5px;
+    }
+    .explore {
+      display: grid;
+      grid-template-columns: minmax(190px, 0.8fr) minmax(0, 1.2fr);
+      gap: 22px;
+      border-top: 1px solid var(--line);
+      padding-top: 16px;
+    }
+    .events {
+      display: flex;
+      flex-direction: column;
+      max-height: 470px;
+      overflow: auto;
+      gap: 2px;
+      padding: 2px;
+    }
+    .event {
+      width: 100%;
+      padding: 9px 8px;
+      display: grid;
+      grid-template-columns: 24px minmax(0, 1fr);
+      gap: 8px;
+      border-radius: 4px;
+    }
+    .event[aria-current="true"] {
+      background: var(--active);
+    }
+    .event:hover {
+      background: var(--surface);
+    }
+    .event-code {
+      font: 11px/22px var(--font-mono, monospace);
+      width: 24px;
+      text-align: center;
+      background: var(--surface);
+      border-left: 3px solid var(--event-color, var(--line));
+    }
+    .event-title {
+      display: block;
+      overflow-wrap: anywhere;
+      font-weight: 500;
+    }
+    .event-meta {
+      font-size: 11px;
+      color: var(--quiet);
+      display: block;
+      margin-top: 3px;
+    }
+    .inspector {
+      min-width: 0;
+    }
+    .inspector header {
+      margin-bottom: 10px;
+    }
+    .instruction {
+      font-size: 14px;
+      margin: 10px 0;
+      padding-left: 10px;
+      border-left: 2px solid var(--line);
+    }
+    .facts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px 15px;
+      margin: 10px 0;
+      color: var(--quiet);
+      font-size: 12px;
+    }
+    .field {
+      overflow-wrap: anywhere;
+    }
+    pre {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      background: var(--surface);
+      padding: 12px;
+      border-radius: 6px;
+      font: 12px/1.55 var(--font-mono, monospace);
+      max-height: 310px;
+      overflow: auto;
+      margin: 8px 0;
+    }
+    code {
+      font-family: var(--font-mono, monospace);
+    }
+    details {
+      border-top: 1px solid var(--line);
+      padding-top: 8px;
+      margin-top: 15px;
+    }
+    summary {
+      cursor: pointer;
+      color: var(--quiet);
+      font-size: 12px;
+    }
+    .state-list {
+      display: grid;
+      gap: 9px;
+    }
+    .change {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 3px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 8px;
+    }
+    .change-path {
+      font: 11px var(--font-mono, monospace);
+      color: var(--quiet);
+      overflow-wrap: anywhere;
+    }
+    .change-value {
+      font: 12px/1.5 var(--font-mono, monospace);
+      overflow-wrap: anywhere;
+    }
+    .changed-from {
+      color: var(--quiet);
+    }
+    .alternatives {
+      display: grid;
+      gap: 5px;
+      font-size: 12px;
+    }
+    .alternative {
+      padding: 5px 0;
+      border-bottom: 1px solid var(--line);
+      overflow-wrap: anywhere;
+    }
+    .chosen {
+      font-weight: 600;
+    }
+    .warning {
+      color: var(--bad);
+      font-size: 12px;
+    }
+    .footer {
+      margin-top: 20px;
+      padding: 12px 0;
+      border-top: 1px solid var(--line);
+      color: var(--quiet);
+      font-size: 12px;
+    }
+    .empty {
+      color: var(--quiet);
+      font-size: 13px;
+      padding: 8px 0;
+    }
+    .stepper {
+      display: flex;
+      gap: 8px;
+    }
+    .stepper button {
+      padding: 4px 9px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      font-size: 12px;
+    }
+    .stepper button:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .event-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .skipped {
+      font-size: 12px;
+      color: var(--quiet);
+      margin: 10px 0;
+    }
+    .linklike {
+      color: var(--ink);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      font-size: 12px;
+    }
+    @media (max-width: 850px) {
+      .goals {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 560px) {
+      .explore {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .events {
+        max-height: 230px;
+      }
+      .goals {
+        gap: 4px 6px;
+      }
+      .goal {
+        padding: 9px 5px;
+      }
+      .top {
+        padding-top: 8px;
+      }
+      .explore {
+        gap: 18px;
+      }
+      .detail-head {
+        align-items: start;
+      }
+      .goal-name {
+        font-size: 12px;
+      }
+      .goal-meta {
+        font-size: 11px;
+      }
+      .timing svg {
+        height: 145px;
+      }
+    }
+  </style>
+  <main id="run-explorer">
+    <header class="top">
+      <div>
+        <h1>Run explorer</h1>
+        <code id="source" class="small muted"></code>
+      </div>
+      <div id="totals" class="totals"></div>
+    </header>
+    <div id="warnings"></div>
+    <nav id="goals" class="goals" aria-label="Run goals"></nav>
+    <section aria-labelledby="goal-title">
+      <div class="detail-head">
+        <h2 id="goal-title"></h2>
+        <span id="goal-status" class="status"></span>
+      </div>
+      <p id="description" class="muted"></p>
+      <p id="reason" class="reason"></p>
+    </section>
+    <section class="timing" aria-label="Goal timing">
+      <div id="timing"></div>
+    </section>
+    <div class="explore">
+      <section aria-label="Event sequence">
+        <div class="event-toolbar">
+          <h2>Event sequence</h2>
+          <span id="event-count" class="small muted"></span>
+        </div>
+        <div id="events" class="events"></div>
+        <button id="mechanical" class="linklike" type="button"></button>
+      </section>
+      <section
+        id="inspector"
+        class="inspector"
+        aria-live="polite"
+        aria-label="Selected event evidence"
+      ></section>
+    </div>
+    <footer class="footer">
+      Recorded evidence, not model reasoning. State differences compare
+      observations; later effects may appear in the next snapshot. This viewer
+      runs offline and makes no model or app calls.
+    </footer>
+  </main>
+  <script id="trace-data" type="application/gzip+base64">
+    __TRACE_DATA__
+  </script>
+  <script>
+    window.traceReady = (async () => {
+      "use strict";
+      const compressed = Uint8Array.from(
+        atob(document.getElementById("trace-data").textContent.trim()),
+        (c) => c.charCodeAt(0),
+      );
+      const decoded = new Blob([compressed])
+        .stream()
+        .pipeThrough(new DecompressionStream("gzip"));
+      const data = JSON.parse(await new Response(decoded).text());
+      let priorState = null;
+      for (const g of data.goals)
+        for (const e of g.events) {
+          const observation = e.raw.observation;
+          e.alternatives =
+            observation && typeof observation === "object"
+              ? observation.candidates || []
+              : null;
+          e.after =
+            observation && Object.hasOwn(observation, "state")
+              ? observation.state
+              : e.stateEvidence === "summary"
+                ? e.raw.state
+                : null;
+          e.before =
+            e.after !== null &&
+            priorState !== null &&
+            e.stateEvidence !== "summary"
+              ? priorState
+              : null;
+          if (e.after !== null && e.stateEvidence !== "summary")
+            priorState = e.after;
+        }
+      const $ = (id) => document.getElementById(id);
+      const colors = {
+        model: "var(--j)",
+        arguments: "var(--a)",
+        action: "var(--x)",
+        wait: "var(--w)",
+        pacing: "var(--p)",
+      };
+      const symbols = {
+        model: "J",
+        arguments: "LL",
+        action: "→",
+        wait: "…",
+        pacing: "Ⅱ",
+        verification: "✓",
+        guard: "⊣",
+        planner: "P",
+        mechanical: "M",
+        boundary: "·",
+        evidence: "·",
+      };
+      const pretty = (value) => JSON.stringify(value, null, 2);
+      const compact = (value) =>
+        value === undefined ? "not present" : JSON.stringify(value);
+      const fmt = (ms) =>
+        typeof ms !== "number"
+          ? "not recorded"
+          : ms >= 1000
+            ? (ms / 1000).toFixed(2) + " s"
+            : Math.round(ms) + " ms";
+      const human = (value) =>
+        String(value || "")
+          .replaceAll("_", " ")
+          .replaceAll("-", " ");
+      const short = (value) => String(value || "").replace(/@[\w-]+$/, "");
+      const el = (tag, text, cls) => {
+        const node = document.createElement(tag);
+        if (text !== undefined) node.textContent = text;
+        if (cls) node.className = cls;
+        return node;
+      };
+      let selectedGoal = Math.max(
+          0,
+          data.goals.findIndex((g) => g.status === "failed"),
+        ),
+        selectedEvent = null,
+        showMechanical = false;
+      function title(e) {
+        const r = e.raw;
+        switch (e.name) {
+          case "decision":
+          case "unsupported_decision":
+            return r.choice === "none" ? "No action selected" : short(r.choice);
+          case "arguments_generated":
+            return "Generated action arguments";
+          case "dispatch":
+            return short(e.candidate) || "Dispatch action";
+          case "word_plan":
+            return "Plan word: " + r.word;
+          case "word_verified":
+            return r.word + " accepted · " + r.score + " total points";
+          case "predicate_verified":
+            return "State predicate satisfied";
+          case "presentation_settle":
+            return "Allow navigation transition to settle";
+          case "pacing":
+            return "Runner pacing";
+          case "readiness_wait_started":
+            return "Wait for game initialization";
+          case "readiness_wait_finished":
+            return r.ready ? "Game ready" : "Readiness timed out";
+          case "invalid_volume_probe":
+            return "Out-of-range argument probe";
+          case "stale_scope_probe":
+            return "Dismissed feature probe";
+          case "goal_started":
+            return "Goal started";
+          case "goal_finished":
+            return "Goal " + r.status;
+          case "verified":
+            return "Verified: " + r.condition;
+          case "stopped":
+            return "Run stopped: " + human(r.reason);
+          default:
+            return human(e.name);
+        }
+      }
+      function metadata(e) {
+        const r = e.raw;
+        let parts = [];
+        if (r.model) parts.push(r.model);
+        if (typeof r.latencyMs === "number") parts.push(fmt(r.latencyMs));
+        if (r.receipt) parts.push("receipt: " + r.receipt.status);
+        if (r.ok === false) parts.push("rejected: " + r.error);
+        return parts.join(" · ") || human(e.kind);
+      }
+      function detail(parent, label, value) {
+        if (value === undefined || value === null) return;
+        parent.append(el("h3", label));
+        parent.append(
+          el("pre", typeof value === "string" ? value : pretty(value)),
+        );
+      }
+      function disclosure(parent, label, value) {
+        const d = el("details");
+        d.append(el("summary", label), el("pre", pretty(value)));
+        parent.append(d);
+      }
+      function diffs(a, b, path = "$", out = []) {
+        if (Object.is(a, b)) return out;
+        const ao = a !== null && typeof a === "object",
+          bo = b !== null && typeof b === "object";
+        if (ao && bo && Array.isArray(a) === Array.isArray(b)) {
+          for (const key of new Set([...Object.keys(a), ...Object.keys(b)]))
+            diffs(
+              a[key],
+              b[key],
+              Array.isArray(a) ? path + "[" + key + "]" : path + "." + key,
+              out,
+            );
+        } else out.push({ path, before: a, after: b });
+        return out;
+      }
+      function goalNav() {
+        const nav = $("goals");
+        nav.replaceChildren();
+        data.goals.forEach((g, i) => {
+          const b = el("button", undefined, "goal");
+          b.type = "button";
+          b.setAttribute("aria-pressed", String(i === selectedGoal));
+          b.append(el("span", human(g.name), "goal-name"));
+          const meta = el("span", undefined, "goal-meta");
+          meta.append(
+            el(
+              "span",
+              (g.status === "passed"
+                ? "✓ "
+                : g.status === "failed"
+                  ? "× "
+                  : "· ") + g.status,
+              g.status === "failed"
+                ? "fail"
+                : g.status === "passed"
+                  ? "pass"
+                  : "",
+            ),
+            el(
+              "span",
+              g.durationMs === null
+                ? g.events.length + " events"
+                : fmt(g.durationMs),
+            ),
+          );
+          b.append(meta);
+          b.onclick = () => {
+            selectedGoal = i;
+            selectedEvent = null;
+            showMechanical = false;
+            render();
+          };
+          nav.append(b);
+        });
+      }
+      function renderTiming(g) {
+        const target = $("timing");
+        target.replaceChildren();
+        const timed = g.events.filter((e) => e.timing);
+        if (!timed.length) {
+          target.append(
+            el(
+              "p",
+              "Event order only · this trace did not record timestamps. Per-call latencies are shown where available.",
+              "small muted",
+            ),
+          );
+          return;
+        }
+        const start = Math.min(...timed.map((e) => e.timing.startMs)),
+          end = Math.max(...timed.map((e) => e.timing.endMs)),
+          span = end - start;
+        if (span <= 0) {
+          target.append(
+            el(
+              "p",
+              "Single timestamp · elapsed duration was not recorded.",
+              "small muted",
+            ),
+          );
+          return;
+        }
+        target.append(
+          el(
+            "div",
+            "Measured event times · " + fmt(span) + " goal window",
+            "small muted",
+          ),
+        );
+        const width = Math.max(280, target.getBoundingClientRect().width),
+          chartWidth = width - 90;
+        const NS = "http://www.w3.org/2000/svg",
+          svg = document.createElementNS(NS, "svg");
+        svg.setAttribute("viewBox", "0 0 " + width + " 150");
+        svg.setAttribute("role", "img");
+        svg.setAttribute(
+          "aria-label",
+          "Shared time axis for model, arguments, dispatch, waiting and configured pacing",
+        );
+        const lanes = ["model", "arguments", "action", "wait", "pacing"];
+        const names = ["Choice", "Arguments", "Dispatch", "Wait", "Pacing"];
+        function node(name, attrs, text) {
+          const n = document.createElementNS(NS, name);
+          for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+          if (text) n.textContent = text;
+          svg.append(n);
+          return n;
+        }
+        lanes.forEach((kind, i) => {
+          const y = 16 + i * 23;
+          node("text", { x: 0, y: y + 8, class: "timeline-label" }, names[i]);
+          node("line", {
+            x1: 78,
+            y1: y + 4,
+            x2: width - 10,
+            y2: y + 4,
+            class: "tick",
+          });
+          g.events
+            .filter((e) => e.kind === kind && e.timing)
+            .forEach((e) => {
+              const x = 78 + ((e.timing.startMs - start) / span) * chartWidth,
+                w = Math.max(
+                  2,
+                  ((e.timing.endMs - e.timing.startMs) / span) * chartWidth,
+                );
+              const n = node("rect", {
+                x,
+                y: y - 3,
+                width: w,
+                height: 14,
+                rx: 2,
+                fill: colors[kind],
+                opacity: e.timing.configured ? 0.42 : 0.86,
+              });
+              const t = document.createElementNS(NS, "title");
+              t.textContent =
+                title(e) +
+                " · " +
+                fmt(e.timing.endMs - e.timing.startMs) +
+                (e.timing.configured ? " configured duration" : "");
+              n.append(t);
+              n.style.cursor = "pointer";
+              n.onclick = () => {
+                selectedEvent = e.id;
+                if (e.kind === "pacing") showMechanical = true;
+                renderEvents(g);
+                renderInspector(g);
+              };
+            });
+        });
+        [0, 0.25, 0.5, 0.75, 1].forEach((t) =>
+          node(
+            "text",
+            {
+              x: 78 + t * chartWidth,
+              y: 145,
+              "text-anchor": t === 1 ? "end" : t === 0 ? "start" : "middle",
+              class: "timeline-label",
+            },
+            span < 1000
+              ? Math.round(span * t) + "ms"
+              : ((span * t) / 1000).toFixed(1) + "s",
+          ),
+        );
+        target.append(svg);
+        target.append(
+          el(
+            "p",
+            "Pale spans show configured pacing/transition delays. Empty time is uninstrumented; it is not assigned to an LLM.",
+            "small muted",
+          ),
+        );
+      }
+      function visibleEvents(g) {
+        return g.events.filter(
+          (e) =>
+            showMechanical ||
+            (!["mechanical", "pacing"].includes(e.kind) &&
+              !(e.kind === "action" && /\/release@/.test(e.candidate || ""))),
+        );
+      }
+      function renderEvents(g) {
+        const list = $("events"),
+          visible = visibleEvents(g);
+        list.replaceChildren();
+        $("event-count").textContent = g.events.length + " recorded";
+        visible.forEach((e) => {
+          const b = el("button", undefined, "event");
+          b.type = "button";
+          b.setAttribute("aria-current", String(e.id === selectedEvent));
+          b.style.setProperty("--event-color", colors[e.kind] || "var(--line)");
+          b.append(el("span", symbols[e.kind] || "·", "event-code"));
+          const content = el("span");
+          content.append(
+            el("span", title(e), "event-title"),
+            el("span", metadata(e), "event-meta"),
+          );
+          b.append(content);
+          b.onclick = () => {
+            selectedEvent = e.id;
+            renderEvents(g);
+            renderInspector(g);
+          };
+          list.append(b);
+        });
+        const current = list.querySelector("[aria-current=true]");
+        if (current) {
+          const row = current.getBoundingClientRect(),
+            bounds = list.getBoundingClientRect();
+          if (row.top < bounds.top || row.bottom > bounds.bottom)
+            list.scrollTop +=
+              row.top - bounds.top - list.clientHeight / 2 + row.height / 2;
+        }
+        const hidden = g.events.length - visible.length;
+        $("mechanical").textContent = showMechanical
+          ? "Hide pacing and mechanical releases"
+          : hidden
+            ? "Show " + hidden + " pacing / mechanical events"
+            : "";
+        $("mechanical").hidden = !showMechanical && !hidden;
+        $("mechanical").onclick = () => {
+          showMechanical = !showMechanical;
+          renderEvents(g);
+        };
+      }
+      function renderInspector(g) {
+        const e =
+            g.events.find((e) => e.id === selectedEvent) ||
+            g.events[g.events.length - 1],
+          r = e.raw,
+          p = $("inspector");
+        p.replaceChildren();
+        const header = el("header");
+        header.append(
+          el("span", human(e.kind), "small muted"),
+          el("h2", title(e)),
+        );
+        p.append(header);
+        const vis = visibleEvents(g),
+          idx = vis.findIndex((v) => v.id === e.id),
+          stepper = el("div", undefined, "stepper");
+        for (const [delta, label] of [
+          [-1, "← Previous"],
+          [1, "Next →"],
+        ]) {
+          const b = el("button", label);
+          b.type = "button";
+          b.disabled = idx < 0 || !vis[idx + delta];
+          b.onclick = () => {
+            selectedEvent = vis[idx + delta].id;
+            renderEvents(g);
+            renderInspector(g);
+          };
+          stepper.append(b);
+        }
+        p.append(stepper);
+        if (r.instruction) p.append(el("p", r.instruction, "instruction"));
+        const facts = el("div", undefined, "facts");
+        if (r.model) facts.append(el("span", r.model));
+        if (r.latencyMs !== undefined)
+          facts.append(el("span", fmt(r.latencyMs)));
+        if (r.confidence !== undefined && r.confidence !== null)
+          facts.append(el("span", "Confidence " + r.confidence));
+        if (r.probability !== undefined && r.probability !== null)
+          facts.append(el("span", "Selected probability " + r.probability));
+        if (r.tMs !== undefined) facts.append(el("span", "Run +" + fmt(r.tMs)));
+        p.append(facts);
+        if (e.candidate) p.append(el("p", e.candidate, "field small muted"));
+        if (r.reason)
+          p.append(el("p", r.reason, r.status === "failed" ? "fail" : "muted"));
+        if (r.error)
+          p.append(el("p", "Runtime response: " + r.error, "warning"));
+        if (e.kind === "model") {
+          const next = g.events
+            .slice(g.events.indexOf(e) + 1)
+            .find(
+              (other) => other.kind === "model" || other.name === "dispatch",
+            );
+          const dispatched =
+            next?.name === "dispatch" && next.candidate === r.choice;
+          p.append(
+            el(
+              "p",
+              e.name === "unsupported_decision"
+                ? "Probe only: the runner did not dispatch this choice."
+                : r.choice === "none"
+                  ? "The model selected no operation."
+                  : dispatched
+                    ? "A matching dispatch appears later in this goal."
+                    : "No matching dispatch recorded after this choice.",
+              "small muted",
+            ),
+          );
+          p.append(
+            el(
+              "p",
+              "Confidence is provider-reported. This trace contains no model reasoning or calibrated correctness estimate.",
+              "small muted",
+            ),
+          );
+        }
+        if (e.kind === "arguments") {
+          detail(p, "Generated arguments", r.arguments);
+          p.append(
+            el(
+              "p",
+              "Generated data is separate from choosing the operation and executing it.",
+              "small muted",
+            ),
+          );
+        }
+        if (e.kind === "action") {
+          detail(p, "Arguments", r.arguments);
+          if (r.receipt) {
+            p.append(el("h3", "Execution receipt"));
+            p.append(el("p", r.receipt.status, "field"));
+            if (r.receipt.status === "cancelled")
+              p.append(
+                el(
+                  "p",
+                  "A cancelled receipt does not establish that navigation failed. Inspect destination state and the goal verifier.",
+                  "warning",
+                ),
+              );
+            else
+              p.append(
+                el(
+                  "p",
+                  "Receipt status describes execution, not whether the user’s goal was satisfied.",
+                  "small muted",
+                ),
+              );
+          }
+        }
+        if (["arguments", "action"].includes(e.kind) && r.arguments) {
+          const prior = g.events.slice(0, g.events.indexOf(e) + 1).reverse();
+          const offering = prior.find((item) =>
+            item.alternatives?.some((c) => c.id === e.candidate),
+          );
+          const schema = offering?.alternatives.find(
+            (c) => c.id === e.candidate,
+          )?.argumentSchema;
+          if (schema) disclosure(p, "Argument schema", schema);
+        }
+        if (e.kind === "verification") {
+          detail(p, "Checked condition", r.condition);
+          if (r.word)
+            p.append(el("p", r.word + " · " + r.score + " total points"));
+          if (r.score !== undefined && !r.word)
+            p.append(el("p", "Score " + r.score));
+          p.append(
+            el(
+              "p",
+              "Runner-reported verification against application state. Read the raw event for the available evidence.",
+              "small muted",
+            ),
+          );
+        }
+        if (e.kind === "planner") {
+          p.append(
+            el("p", "Source: " + (r.source || "not recorded"), "small muted"),
+          );
+          if (r.path || r.faces) {
+            const path = r.path || r.faces;
+            if (Array.isArray(path) && typeof path[0] === "string")
+              detail(p, "Planned face path", path.join(" → "));
+          }
+        }
+        if (e.kind === "wait" || e.kind === "pacing") {
+          if (r.durationMs !== undefined)
+            p.append(
+              el(
+                "p",
+                fmt(r.durationMs) +
+                  (e.kind === "pacing" ? " configured" : " measured"),
+              ),
+            );
+          if (r.seconds !== undefined)
+            p.append(el("p", r.seconds + " s configured delay"));
+          if (r.ready !== undefined) p.append(el("p", "Ready: " + r.ready));
+        }
+        if (e.kind === "guard")
+          p.append(
+            el(
+              "p",
+              r.ok === false
+                ? "The runtime rejected this probe. Goal verification checks whether state stayed unchanged."
+                : "Inspect the response; rejection was not recorded.",
+              "small muted",
+            ),
+          );
+        if (e.after !== null) {
+          p.append(
+            el(
+              "h3",
+              e.stateEvidence === "summary"
+                ? "Goal-end state summary"
+                : e.before !== null
+                  ? e.kind === "model"
+                    ? "Changes since previous observation"
+                    : "Observed state changes"
+                  : "Observed state",
+            ),
+          );
+          if (e.before !== null) {
+            const changes = diffs(e.before, e.after);
+            const list = el("div", undefined, "state-list");
+            if (!changes.length)
+              list.append(
+                el(
+                  "p",
+                  "No projected state changes between these snapshots.",
+                  "empty",
+                ),
+              );
+            changes.slice(0, 24).forEach((c) => {
+              const row = el("div", undefined, "change");
+              row.append(el("div", c.path, "change-path"));
+              const value = el("div", undefined, "change-value");
+              value.append(
+                el("span", compact(c.before), "changed-from"),
+                document.createTextNode(" → "),
+                el("span", compact(c.after)),
+              );
+              row.append(value);
+              list.append(row);
+            });
+            if (changes.length > 24)
+              list.append(
+                el(
+                  "p",
+                  changes.length - 24 + " more changes in the full snapshots.",
+                  "muted small",
+                ),
+              );
+            p.append(list);
+            disclosure(p, "Full before / after snapshots", {
+              before: e.before,
+              after: e.after,
+            });
+          } else detail(p, "Snapshot", e.after);
+        } else
+          p.append(
+            el(
+              "p",
+              "State snapshot not recorded for this event. No state changes are inferred.",
+              "empty",
+            ),
+          );
+        if (e.kind === "model") {
+          const alternatives = e.alternatives;
+          if (alternatives !== null) {
+            const d = el("details");
+            d.append(
+              el("summary", alternatives.length + " offered operations"),
+            );
+            const list = el("div", undefined, "alternatives");
+            alternatives.forEach((c) => {
+              const n = el(
+                "div",
+                (c.id === r.choice ? "✓ " : "") + (c.label || short(c.id)),
+                c.id === r.choice ? "alternative chosen" : "alternative",
+              );
+              n.append(el("div", c.id, "small muted"));
+              list.append(n);
+            });
+            d.append(list);
+            d.append(
+              el(
+                "p",
+                "Only offered operations are recorded. Reasons that other actions were unavailable are not present.",
+                "small muted",
+              ),
+            );
+            p.append(d);
+          } else
+            p.append(
+              el(
+                "p",
+                "Offered alternatives were not recorded in this older trace.",
+                "small muted",
+              ),
+            );
+        }
+        disclosure(p, "Raw event", r);
+      }
+      function render() {
+        const g = data.goals[selectedGoal];
+        if (!selectedEvent) {
+          const chosen =
+            g.status === "failed"
+              ? g.events.find((e) => e.name === "unsupported_decision") ||
+                g.events.find((e) => e.raw.ok === false) ||
+                g.events[g.events.length - 1]
+              : g.events.find((e) => e.kind === "model") || g.events[0];
+          selectedEvent = chosen.id;
+        }
+        goalNav();
+        $("goal-title").textContent = human(g.name);
+        $("description").textContent = g.description;
+        $("goal-status").textContent =
+          g.status + (g.durationMs !== null ? " · " + fmt(g.durationMs) : "");
+        $("goal-status").className =
+          "status " +
+          (g.status === "failed"
+            ? "fail"
+            : g.status === "passed"
+              ? "pass"
+              : "");
+        $("reason").textContent = g.reason || "";
+        $("reason").hidden = !g.reason;
+        renderTiming(g);
+        renderEvents(g);
+        renderInspector(g);
+      }
+      $("source").textContent = data.source;
+      const passed = data.goals.filter((g) => g.status === "passed").length,
+        failed = data.goals.filter((g) => g.status === "failed").length;
+      $("totals").append(
+        el("span", passed + " passed", "pass"),
+        document.createTextNode(" · "),
+        el("span", failed + " failed", failed ? "fail" : ""),
+        el(
+          "div",
+          data.eventCount +
+            " events · " +
+            data.snapshotCount +
+            " state snapshots",
+          "small muted",
+        ),
+      );
+      data.warnings.forEach((w) => $("warnings").append(el("p", w, "warning")));
+      render();
+      window.runExplorer = {
+        data,
+        selectGoal(index) {
+          selectedGoal = index;
+          selectedEvent = null;
+          render();
+        },
+        selectEvent(id) {
+          selectedEvent = id;
+          renderEvents(data.goals[selectedGoal]);
+          renderInspector(data.goals[selectedGoal]);
+        },
+        stateDiff: diffs,
+      };
+      let lastWidth = 0;
+      new ResizeObserver((entries) => {
+        const width = entries[0].contentRect.width;
+        if (Math.abs(width - lastWidth) > 1) {
+          lastWidth = width;
+          renderTiming(data.goals[selectedGoal]);
+        }
+      }).observe(document.getElementById("run-explorer"));
+    })().catch((error) => {
+      document.getElementById("warnings").textContent =
+        "Unable to load run evidence: " + error.message;
+      throw error;
+    });
+  </script>
+</html>

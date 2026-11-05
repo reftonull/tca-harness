@@ -1,0 +1,10 @@
+{
+  "fields": {
+    "title": "Email Sarah about launch",
+    "priority": "low",
+    "project": "personal",
+    "dueDate": "2026-11-02"
+  },
+  "notesMinLength": 20,
+  "notesContain": ["slides", "agenda"]
+}
