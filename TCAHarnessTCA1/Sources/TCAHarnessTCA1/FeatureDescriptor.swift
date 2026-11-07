@@ -92,7 +92,7 @@ public struct FeatureDescriptor<State, Action> {
     for child in childInvariants { child(state, path, &results) }
   }
 
-  private func addingChildInvariants<ChildState, ChildAction>(_ descriptor: FeatureDescriptor<ChildState, ChildAction>,
+  func addingChildInvariants<ChildState, ChildAction>(_ descriptor: FeatureDescriptor<ChildState, ChildAction>,
     _ children: @escaping (State) -> [(segment: String, state: ChildState)]) -> Self {
     guard descriptor.hasInvariants else { return self }
     var copy = self
@@ -102,7 +102,7 @@ public struct FeatureDescriptor<State, Action> {
     return copy
   }
 
-  private func adding(_ operation: DescriptorOperation<State, Action>) -> Self {
+  func adding(_ operation: DescriptorOperation<State, Action>) -> Self {
     var copy = self; copy.operations.append(operation); return copy
   }
 
@@ -212,7 +212,10 @@ public struct FeatureDescriptor<State, Action> {
         guard let state = read(), operation.available(state) else { throw HarnessArgumentError("Feature or operation is no longer available") }
         let action = try operation.build(state, data)
         send(action)
+        // Actions that carry their own progress (model operations) report it directly.
+        let tracked = operation.track?(action)
         return HarnessOperation(cancel: operation.cancel.map { cancel in { send(cancel) } }, status: {
+          if let tracked { return tracked() }
           guard let state = read() else { return .cancelled }
           return operation.completion?(state) ?? .succeeded
         })
@@ -234,6 +237,8 @@ struct DescriptorOperation<State, Action> {
   let build: (State, Data) throws -> Action
   let completion: ((State) -> HarnessOperationStatus)?
   let cancel: Action?
+  /// Status for one dispatched action, when the action itself knows (see `ModelAction`).
+  var track: ((Action) -> () -> HarnessOperationStatus)? = nil
 }
 
 @MainActor

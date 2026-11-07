@@ -262,11 +262,15 @@ extension Effect {
   }
 }
 
+/// A non-enum action payload that names itself in timeline paths, e.g. a model call's operation id.
+protocol HarnessActionSegment { var harnessActionSegment: String { get } }
+
 /// Enum case path of an action, descending through identified and stack elements.
 func actionPath(_ action: Any) -> [String] {
   var path: [String] = []
   var current = action
   while path.count < 16 {
+    if let named = current as? HarnessActionSegment { path.append(named.harnessActionSegment); break }
     let mirror = Mirror(reflecting: current)
     guard mirror.displayStyle == .enum else { break }
     guard let child = mirror.children.first else {

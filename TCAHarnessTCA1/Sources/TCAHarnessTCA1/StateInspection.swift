@@ -59,8 +59,12 @@ func stateAtPath(_ root: Any, _ path: [String]) -> Any? {
 }
 
 public enum StateInspection {
-  public static func snapshot(_ state: Any, depth: Int = 7, budget: Int = 1800, redacting: Set<String> = ["token", "accessToken", "refreshToken", "password", "apiKey", "authorization"]) -> HarnessValue {
+  /// A bounded structural snapshot of `state`. Class instances are opaque unless `reflectingObjects`
+  /// is set, which reads their stored properties (as for `@Observable` models), once per object.
+  public static func snapshot(_ state: Any, depth: Int = 7, budget: Int = 1800, redacting: Set<String> = ["token", "accessToken", "refreshToken", "password", "apiKey", "authorization"],
+    reflectingObjects: Bool = false) -> HarnessValue {
     var budget = budget
+    var visited = Set<ObjectIdentifier>()
     let redacted = Set(redacting.map { $0.lowercased() })
     func visit(_ raw: Any, _ remaining: Int) -> HarnessValue {
       budget -= 1
@@ -81,7 +85,12 @@ public enum StateInspection {
       default: break
       }
       let mirror = Mirror(reflecting: value)
-      if mirror.displayStyle == .class { return .string("<opaque \(String(describing: type(of: value)))>") }
+      if mirror.displayStyle == .class {
+        guard reflectingObjects else { return .string("<opaque \(String(describing: type(of: value)))>") }
+        guard visited.insert(ObjectIdentifier(value as AnyObject)).inserted else {
+          return .string("<cycle \(String(describing: type(of: value)))>")
+        }
+      }
       if mirror.displayStyle == .enum {
         guard let child = mirror.children.first else { return .string(String(describing: value)) }
         return .object(["case": .string(child.label ?? "unknown"), "value": visit(child.value, remaining - 1)])
@@ -102,7 +111,8 @@ public enum StateInspection {
       }
       var result: [String: HarnessValue] = [:]
       for child in mirror.children.prefix(100) {
-        guard let label = child.label, !label.contains("observationRegistrar") else { continue }
+        // Skip macro bookkeeping such as `_$observationRegistrar`.
+        guard let label = child.label, !label.contains("observationRegistrar"), !label.hasPrefix("_$") else { continue }
         let key = fieldName(label)
         result[key] = redacted.contains(key.lowercased()) ? .string("<redacted>") : visit(child.value, remaining - 1)
       }

@@ -165,6 +165,34 @@ let store = Store(initialState: App.State()) { App().harnessTimeline() } withDep
 
 When the process has `TCA_HARNESS_SEED` (as `tca determinism` and `--seed` set it), this makes `uuid` incrementing, `date` the constant 2026-01-01T00:00:00Z (`HarnessDeterministic.startDate`), and `withRandomNumberGenerator` a SplitMix64 generator seeded with the value. Without the variable, and in builds without `DEBUG`, it does nothing. `harnessDeterministic(seed:)` applies a seed directly, for tests. Code that calls `Date()`, `UUID()` or unseeded randomness directly stays nondeterministic; that is what `tca determinism` finds.
 
+## Vanilla SwiftUI models
+
+Screens built on plain `@Observable` models use the same descriptors, CLI and testing patterns. A model descriptor's state is the model object, and its operations call the model's methods. Receipts stay `running` until an async method returns, and an error that escapes a method is recorded as an issue.
+
+```swift
+extension ExpensesModel {
+  static var harnessDescriptor: ModelDescriptor<ExpensesModel> {
+    .model("Expenses")                                       // observes stored properties by reflection
+      .operation("load", label: "Load expenses", available: { !$0.isLoading }) { await $0.load() }
+      .operation("approve", label: "Approve", arguments: ApproveInput.self) { try await $0.approve(id: $1.id) }
+      .invariant("pending count matches unapproved") { $0.pendingCount == $0.expenses.filter { !$0.approved }.count }
+      .model("receipt", { $0.receipt }, descriptor: ReceiptModel.harnessDescriptor)   // nested model, mounted while non-nil
+  }
+}
+```
+
+There are three ways to host one, depending on how much of TCA you want around it:
+
+| Host | How | You get |
+| --- | --- | --- |
+| App root | `ModelHarness(appModel, descriptor:)`, then `startIfEnabled()` or `runHeadless(port:)` | `tca ls`/`do`, journeys, explore, chaos, invariants, issues, network |
+| Inside a TCA app | `.model("settings", { $0.settings }, descriptor:)` on any feature descriptor | The same, mounted at `root/…/settings`; its state appears in the parent's observation |
+| Wrapped in TCA | `Hosted<Model>` as a child reducer, with `Hosted.descriptor(Model.harnessDescriptor)` | Calls run as `perform` actions and effects: the devtools timeline shows `settings.perform.load` and `settings.finished.load`, dismissal cancels them, and `TestStore` can test them |
+
+`Hosted` is the gradual path from vanilla SwiftUI to TCA: the model and its view stay as they are, while the store owns its lifecycle and records every call. Models must be `Sendable` to be hosted, which `@MainActor` models are.
+
+Reflection reads stored properties, skips `_$` bookkeeping such as the observation registrar, follows nested model objects once each, and redacts credential-like names. SwiftData `@Model` classes keep their values in backing data that reflection can't see; give them an explicit `observation:`.
+
 ## Validate
 
 ```

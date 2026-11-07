@@ -106,17 +106,7 @@ public final class StoreHarness<State, Action> {
   @discardableResult
   public func startIfEnabled(environment: [String: String] = ProcessInfo.processInfo.environment,
     defaultPort: UInt16 = 8765) throws -> Bool {
-    guard HarnessServer.isAvailable, environment["TCA_HARNESS"] == "1" else { return false }
-    let port: UInt16
-    if let text = environment["TCA_HARNESS_PORT"] {
-      guard let value = UInt16(text), value != 0 else {
-        throw HarnessArgumentError("TCA_HARNESS_PORT must be an integer from 1 to 65535")
-      }
-      port = value
-    } else {
-      guard defaultPort != 0 else { throw HarnessArgumentError("Harness port must be from 1 to 65535") }
-      port = defaultPort
-    }
+    guard let port = try harnessPort(environment: environment, defaultPort: defaultPort) else { return false }
     try start(port: port)
     return true
   }
