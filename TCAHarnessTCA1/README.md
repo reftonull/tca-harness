@@ -57,6 +57,29 @@ try harness.startIfEnabled()
 
 For an explicit descriptor, use `store.harness(descriptor: descriptor, verify: { state, condition in ... })`. Lower-level `HarnessRuntime` remains available for custom transports.
 
+## Run headless
+
+The same descriptors and the same `tca` CLI work with or without a UI. A small executable can host your real reducers with no app, window or simulator, and agents and tests drive it through the same operations they use against the app. There is no rendering or animation to wait for, which keeps agent loops and behavior tests fast.
+
+```swift
+@main struct Host {
+  static func main() async throws {
+    let store = Store(initialState: Feature.State()) { Feature().harnessTimeline() } withDependencies: { ... }
+    try await store.harness(Feature.self).runHeadless(port: 8790)
+  }
+}
+```
+
+`runHeadless(port:)` starts the loopback listener, prints `TCA harness listening on 127.0.0.1:<port>` to standard error once it accepts connections, and suspends until `stop()` is called or the calling task is cancelled. Calling it is the opt-in, so `TCA_HARNESS` is not consulted. The `.shared` timeline still records only with `TCA_HARNESS=1`; to record without that, pass `HarnessTimeline(isEnabled: true)` to both `.harnessTimeline(_:)` and `harness(_:timeline:)`. `HarnessServer.run(port:onReady:)` is the transport-level form.
+
+Things a headless host has to do itself:
+
+- **View lifecycle.** Nothing sends the actions your views send (`.task`, `.onAppear`). Send them from the host, for example with a reducer `.onChange(of:)` that sends a child's `.task` when it is presented. Effects started that way are cancelled on dismissal, like SwiftUI's `.task`.
+- **Run loop.** `async main` services the main actor but not `RunLoop.main`. If your features schedule timers on `RunLoop.main` (for example a `mainRunLoop` dependency), start `runHeadless` in a `Task` and call `RunLoop.main.run()` instead.
+- **Platform.** The host must compile your feature modules. Features that import UIKit can be built for Mac Catalyst (`swift build --triple arm64-apple-ios-macabi`), which runs as a plain macOS process.
+
+**Release builds.** Like `start(port:)`, `runHeadless` exists in every build but throws in builds compiled without `DEBUG`, because the listener is compiled out. The error says how to fix it: build with the debug configuration (`swift build`), or add `-Xswiftc -DDEBUG` to an optimized build. A headless host is a development tool, and this keeps release builds free of the listener. The [isowords headless example](../examples/isowords/README.md#headless) plays a full game this way.
+
 ## Record a timeline for devtools
 
 ```swift

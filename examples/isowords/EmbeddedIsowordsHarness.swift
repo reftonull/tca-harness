@@ -6,12 +6,14 @@ import SharedModels
 import SoloFeature
 import SettingsFeature
 import TCAHarnessTCA1
+#if canImport(UIKit)
 import UIKit
+#endif
 
 /// App-specific capabilities for the original upstream root store.
 @MainActor
 enum EmbeddedIsowordsHarness {
-  static func attach(to store: StoreOf<AppReducer>) -> StoreHarness<AppReducer.State, AppReducer.Action> {
+  static func attach(to store: StoreOf<AppReducer>, timeline: HarnessTimeline? = .shared) -> StoreHarness<AppReducer.State, AppReducer.Action> {
     let settings = FeatureDescriptor<Settings.State, Settings.Action>("Settings", observation: Self.settingsSnapshot)
       .operation("darkMode", label: "Set color scheme to dark", action: .binding(.set(\.userSettings.colorScheme, .dark)),
         available: { $0.userSettings.colorScheme != .dark })
@@ -73,7 +75,7 @@ enum EmbeddedIsowordsHarness {
         }
         return nil
       }
-    })
+    }, timeline: timeline)
   }
 
 

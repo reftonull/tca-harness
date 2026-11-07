@@ -32,8 +32,35 @@ public final class StoreHarness<State, Action> {
   /// - Throws: If the port is invalid or unavailable, and always in builds compiled without `DEBUG`.
   public func start(port: UInt16 = 8765) throws { try server.start(port: port) }
 
-  /// Stops the listener and closes open connections.
+  /// Stops the listener and closes open connections. Also ends a pending ``runHeadless(port:)``.
   public func stop() { server.stop() }
+
+  /// Serves this store with no UI: starts the loopback listener, prints
+  /// `TCA harness listening on 127.0.0.1:<port>` to standard error once it accepts connections,
+  /// and suspends until ``stop()`` is called or the calling task is cancelled.
+  ///
+  /// The same descriptor, `tca` CLI and agents work against a headless host as against the app.
+  /// Unlike ``startIfEnabled(environment:defaultPort:)`` it does not consult `TCA_HARNESS`:
+  /// calling it is the opt-in. The timeline still follows its own `isEnabled`; pass
+  /// `HarnessTimeline(isEnabled: true)` to both the reducer and the harness to record without
+  /// `TCA_HARNESS=1`.
+  ///
+  /// ```swift
+  /// @main struct Host {
+  ///   static func main() async throws {
+  ///     let store = Store(initialState: Feature.State()) { Feature().harnessTimeline() }
+  ///     try await store.harness(Feature.self).runHeadless(port: 8790)
+  ///   }
+  /// }
+  /// ```
+  ///
+  /// - Throws: If the port is invalid or in use, and always in builds compiled without `DEBUG`,
+  ///   where the listener does not exist; the error says how to build with it.
+  public func runHeadless(port: UInt16 = 8765) async throws {
+    try await server.run(port: port) {
+      FileHandle.standardError.write(Data("TCA harness listening on 127.0.0.1:\(port)\n".utf8))
+    }
+  }
 
   /// Starts the loopback listener when the process was launched with `TCA_HARNESS=1`.
   ///
