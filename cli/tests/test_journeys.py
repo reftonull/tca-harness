@@ -95,6 +95,14 @@ class JourneyRunTests(unittest.TestCase):
         self.assertEqual(trace['goals'][0]['status'], 'passed')
         self.assertEqual(trace['goals'][0]['name'], 'Add a book')
 
+    def test_pace_waits_after_each_step_and_before_the_checks(self):
+        started = time.monotonic()
+        code, out, err = self.workspace.cli('journey', 'run', 'journeys/add-book.toml', '--pace', '0.25')
+        elapsed = time.monotonic() - started
+        self.assertEqual(code, 0, out + err)
+        self.assertGreaterEqual(elapsed, 5 * 0.25)  # 4 steps + once before the checks
+        self.assertEqual(journeys.build_parser().parse_args(['journey', 'run', 'x.toml']).pace, 0)
+
     def test_each_run_is_a_fresh_process(self):
         code, out, _ = self.workspace.cli('journey', 'run', 'journeys/add-book.toml', 'journeys/add-book.toml')
         self.assertEqual(code, 0, out)
@@ -155,6 +163,13 @@ class JourneyRunTests(unittest.TestCase):
         self.assertIn('late response sent to the closed editor', out)
         code, out, _ = self.workspace.cli('journey', 'run', 'journeys/late.toml', '--target', 'headless')
         self.assertEqual(code, 0, out)
+
+    def test_fixtures_path_is_absolute_when_nothing_but_the_root_is_shared(self):
+        journey = journeys.Journey(path=None, name='x', fixtures=str(self.workspace.root / 'fixtures' / 'shelf'))
+        near = journeys.journey_document(journey, self.workspace.root / 'journeys' / 'x.toml')
+        self.assertEqual(near['fixtures'], '../fixtures/shelf')
+        far = journeys.journey_document(journey, Path('/') / 'x.toml')
+        self.assertEqual(far['fixtures'], str(self.workspace.root / 'fixtures' / 'shelf'))
 
     def test_rejected_operations(self):
         self.workspace.journey('invalid', 'name = "invalid"\n[[steps]]\ndo = "Add book"\n'

@@ -78,9 +78,10 @@ The CLI finds `harness.toml` by searching upward from the journey file, then the
 ```sh
 tca journey run journeys/*.toml [--target headless] [--network replay] [--seed 0] [--report run.jsonl]
 tca journey run journeys/add-book.toml --port 8790      # attach to a running app instead of launching
+tca journey run journeys/add-book.toml --target ui --pace 1.2   # pause 1.2s after each step, e.g. to record it
 ```
 
-Each step is resolved exactly like `tca do` (label, name or ID among the focused and lent operations), dispatched and waited for. After each step the oracles run and the step's `expect` is checked; at the end every `[checks]` expression must hold and `[budget] requests` is compared with the app's request log. Output is one line per passing journey and the first problem for a failing one:
+Each step is resolved exactly like `tca do` (label, name or ID among the focused and lent operations), dispatched and waited for. After each step the oracles run and the step's `expect` is checked; at the end every `[checks]` expression must hold and `[budget] requests` is compared with the app's request log. `--pace SECONDS` (default 0) sleeps after each step and once more before the final checks, so a person or a screen recording can follow the run; it doesn't change what is checked. Output is one line per passing journey and the first problem for a failing one:
 
 ```text
 FAIL  Add a book  (journeys/add-book.toml)

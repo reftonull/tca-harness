@@ -198,7 +198,10 @@ def journey_document(journey, destination=None):
         document['goal'] = journey.goal
     if journey.fixtures:
         base = Path(destination).resolve().parent if destination else Path.cwd()
-        document['fixtures'] = os.path.relpath(journey.fixtures, base)
+        fixtures = Path(journey.fixtures).resolve()
+        # Relative when the two share a directory below the root; absolute otherwise (e.g. findings in /tmp).
+        shared = os.path.commonpath([fixtures, base])
+        document['fixtures'] = str(fixtures) if shared == fixtures.anchor else os.path.relpath(fixtures, base)
     if journey.network:
         document['network'] = journey.network
     if journey.seed is not None:
@@ -644,8 +647,11 @@ class RunResult:
 
 
 def run_journey(session, journey, reporter=None, wait_ms=DEFAULT_WAIT_MS, *, checks=True, tolerate_failed_receipts=False,
-                after_step=None, steps=None, stop_on_finding=True, label=None):
-    """Run a journey's steps (or `steps`) on an open session; never raises for app behaviour."""
+                after_step=None, steps=None, stop_on_finding=True, label=None, pace=0):
+    """Run a journey's steps (or `steps`) on an open session; never raises for app behaviour.
+
+    `pace` sleeps that many seconds after each step and once before the final checks, so a person (or a
+    screen recording) can follow along."""
     reporter = reporter or Reporter()
     steps = journey.steps if steps is None else steps
     result = RunResult(journey)
@@ -706,10 +712,14 @@ def run_journey(session, journey, reporter=None, wait_ms=DEFAULT_WAIT_MS, *, che
                     break
             if after_step and after_step(number, outcome, runner) == 'stop':
                 break
+            if pace:
+                time.sleep(pace)
         else:
             result.completed = result.passed or not stop_on_finding
         if result.completed:
             result.problems += runner.quiesce(len(steps))
+            if pace:
+                time.sleep(pace)
         if result.completed and checks:
             for name, expression in journey.checks.items():
                 holds, error = runner.settle(expression)
@@ -797,7 +807,7 @@ def journey_run(arguments):
                 print(f'FAIL  {journey.name}  ({label})\n  could not start {opener.name}: {error}')
                 continue
             try:
-                result = run_journey(session, journey, reporter, arguments.wait_ms)
+                result = run_journey(session, journey, reporter, arguments.wait_ms, pace=arguments.pace)
             finally:
                 session.close()
             failed += not result.passed
@@ -936,6 +946,8 @@ def build_parser():
     run.add_argument('files', nargs='+', type=Path, metavar='FILE')
     add_run_options(run)
     run.add_argument('--port', type=int, help='Attach to an app already running on this port instead of launching')
+    run.add_argument('--pace', type=float, default=0, metavar='SECONDS',
+                     help='Pause after each step and before the final checks, e.g. for a screen recording (default 0)')
 
     record = commands.add_parser('record', help='Record `tca do` steps into a journey')
     record_commands = record.add_subparsers(dest='action', required=True, metavar='start|stop')

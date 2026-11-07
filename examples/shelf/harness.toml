@@ -12,7 +12,7 @@ restart = "per-run"
 # FlowDeck replaces any running copy, then the app listens once its first load finishes; ready
 # means both (the line, then the port), so a run never talks to the previous instance.
 [targets.ui]
-launch = "flowdeck run --no-build --config flowdeck.json --launch-env 'TCA_HARNESS=1 SHELF_BUGS=${SHELF_BUGS:-} {env}'"
+launch = 'flowdeck run --no-build --config flowdeck.json --launch-env "TCA_HARNESS=1 SHELF_BUGS=${SHELF_BUGS:-} {env}"'
 port = 8792
 ready = "App Launched Successfully"
 restart = "per-run"
