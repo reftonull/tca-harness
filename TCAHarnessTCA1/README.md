@@ -113,6 +113,56 @@ Operations can supply `available`, `validate`, `completion`, and a typed cancell
 
 Lifecycle identity defaults to TCA ObservableState's public underscored `_$id`, an isolated experimental seam. Supply the descriptor's `identity` closure for an application-owned lifetime token. For non-observable state without an identity, removal/recreation between observations cannot be detected. Collection IDs identify routes, while instance identity distinguishes replacement at the same ID. Duplicate feature/operation routes fail closed and appear in `runtime.diagnostics`.
 
+## Invariants
+
+Declare what must always be true of a feature's state on its descriptor:
+
+```swift
+let descriptor = Shelf.harnessDescriptor
+  .invariant("unread badge matches the list") { $0.unreadCount == $0.books.filter { !$0.isRead }.count }
+  .invariant("no duplicate books") { Set($0.books.map(\.id)).count == $0.books.count }
+```
+
+For a `@HarnessFeature`, add them in `customizeHarnessDescriptor(_:)`. The generated `harnessDescriptor` passes through it, so parents that compose the feature get the invariants too:
+
+```swift
+extension Shelf {
+  @MainActor static func customizeHarnessDescriptor(_ descriptor: FeatureDescriptor<State, Action>)
+    -> FeatureDescriptor<State, Action> {
+    descriptor.invariant("no duplicate books") { Set($0.books.map(\.id)).count == $0.books.count }
+  }
+}
+```
+
+Names are prefixed with the feature's path, e.g. `root/shelf: no duplicate books`; identified and stack elements include the element id (`root/items/3: ...`). Invariants are checked after every reduced action when the root reducer has `.harnessTimeline()` (and the timeline is enabled), and on every observation and dispatch through the session. When one goes from holding to violated, an `invariant` issue is recorded once; it is recorded again only after it has held in between. Keep checks cheap: they run on the main actor.
+
+## Issues
+
+While a `StoreHarness` exists (in `DEBUG` builds), it adds a `HarnessIssueReporter` to `IssueReporters.current`, next to the existing reporters, so Xcode still shows purple warnings. Every `reportIssue`, TCA runtime warning (an action sent to a nil `ifLet` child, a dismissed presentation, ...) and `unimplemented` dependency call is recorded in the attachment's `HarnessIssueLog` (`.shared` by default; pass `issues:` to `store.harness(...)`) with the file, line and, when a timeline is attached, the case path of the action being reduced (`shelf.deleteResponse`). Agents read the log with the `issues` method; each observation carries `issueCount`. The reporter is removed when the attachment is released.
+
+In tests, IssueReporting's default reporter fails the test on any issue. To check capture without failing, scope the reporters: `withIssueReporters([]) { let harness = store.harness(...); ... }`.
+
+## Network
+
+Route the app's URLSession traffic through the harness so runs can block, replay, record or fault it:
+
+```swift
+HarnessNetwork.install()                                                        // URLSession.shared
+let session = URLSession(configuration: HarnessNetwork.configure(.ephemeral))   // custom sessions
+```
+
+`TCA_HARNESS_NETWORK` picks the mode (`live` by default, which passes requests through and logs them) and `TCA_HARNESS_CASSETTES` the cassette directory. The session's `network` method reads the request log and changes the mode and faults at run time. Interception is compiled only with `DEBUG`. Formats and fault kinds are in [Testing with the harness](../docs/testing.md#wire-protocol-additions-protocol-version-3) and the [core README](../TCAHarness/README.md#issues-invariants-and-network-protocol-v3).
+
+## Deterministic dependencies
+
+```swift
+let store = Store(initialState: App.State()) { App().harnessTimeline() } withDependencies: {
+  $0.harnessDeterministic()
+}
+```
+
+When the process has `TCA_HARNESS_SEED` (as `tca determinism` and `--seed` set it), this makes `uuid` incrementing, `date` the constant 2026-01-01T00:00:00Z (`HarnessDeterministic.startDate`), and `withRandomNumberGenerator` a SplitMix64 generator seeded with the value. Without the variable, and in builds without `DEBUG`, it does nothing. `harnessDeterministic(seed:)` applies a seed directly, for tests. Code that calls `Date()`, `UUID()` or unseeded randomness directly stays nondeterministic; that is what `tca determinism` finds.
+
 ## Validate
 
 ```

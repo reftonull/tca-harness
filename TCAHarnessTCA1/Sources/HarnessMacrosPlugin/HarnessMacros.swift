@@ -137,7 +137,8 @@ public struct HarnessFeatureMacro: MemberMacro, ExtensionMacro {
         }
       }
     }
-    return [DeclSyntax(stringLiteral: "@MainActor public static var harnessDescriptor: FeatureDescriptor<State, Action> {\n\(expression)\n}")]
+    // `customizeHarnessDescriptor` defaults to identity; features override it to add invariants.
+    return [DeclSyntax(stringLiteral: "@MainActor public static var harnessDescriptor: FeatureDescriptor<State, Action> {\ncustomizeHarnessDescriptor(\n\(expression)\n)\n}")]
   }
 }
 

@@ -48,7 +48,7 @@ descriptors ([TCAHarnessTCA2](../TCAHarnessTCA2/README.md)).
 
 `HarnessServer` accepts newline-delimited JSON on IPv4 loopback only. The same
 `HarnessSession.handleJSON` can be attached to another transport, including stdio.
-The protocol supports `observe`, `dispatch`, `wait`, and `verify`; see the
+The protocol supports `observe`, `dispatch`, `wait`, and `verify` (plus `inspect`, `cancel`, `timeline`, `issues` and `network`, below); see the
 [prototype commands](../prototypes/tca-harness/README.md).
 
 The listener is unauthenticated and intended only for a trusted development
@@ -110,3 +110,13 @@ operations with no schema skip the generative call entirely.
 ## Typed capability runtime
 
 The `TCAHarnessTCA1` package adds generated/explicit feature descriptors and a runtime over the app's existing store. Protocol v2 accepts nested JSON argument objects and supports `inspect` (optional feature `path`) and `cancel` (operation `requestID`) in addition to existing session operations. Inspection returns mounted features, their instance IDs, and currently available operations. The shared schema validator checks types, fields, choices and supported constraints before application decoding. Explicit cancellation hooks are optional; unsupported cancellation returns an error.
+
+## Issues, invariants and network (protocol v3)
+
+Protocol v3 adds two methods and an `issueCount` on every observation; v2 requests and fields are unchanged. The full contract, including how `tca journey`, `tca chaos` and the other commands use it, is in [Testing with the harness](../docs/testing.md#wire-protocol-additions-protocol-version-3).
+
+- **Issues.** `HarnessIssueLog` is a thread-safe, bounded log of `issue`, `invariant` and `network` entries (`seq`, `kind`, `message`, `file`, `line`, `action`). `{"method":"issues","since":N}` returns entries after `N`. Sessions use `HarnessIssueLog.shared` unless given `issues:`. Adapters feed it: the TCA 1 adapter records reported issues and invariant violations, and `HarnessNetwork` records blocked or unmatched requests. Pass `beforeObserve:` to run checks (such as invariants) before each observation.
+- **Network.** `HarnessNetwork.install()` routes `URLSession.shared` through `HarnessURLProtocol`; `HarnessNetwork.configure(_:)` prepends it to a configuration for sessions you create. The mode comes from `TCA_HARNESS_NETWORK` (`block`, `replay`, `record`, `live`; default `live`, which passes requests through and logs them) and cassettes from `TCA_HARNESS_CASSETTES`. `{"method":"network"}` reads the mode, cassette directory, request log (`seq`, `method`, `url`, `status`, `source`, `fault`, `ms`) and pending faults; `{"method":"network","network":{"mode":...,"faults":[...]}}` changes them first. Faults (`status`, `timeout`, `offline`, `malformed`, `delay`) match by method and path and apply `times` times (`-1` for always). Cassettes are one editable JSON file per exchange, `<METHOD>_<path with / as _>_<n>.json`. Sessions read `HarnessNetwork.shared` unless given `network:`.
+
+Like the listener, interception is compiled only with `DEBUG`: in other builds `install()` returns `false`, `configure(_:)` returns the configuration unchanged, and `HarnessNetwork.isAvailable` is `false`.
+

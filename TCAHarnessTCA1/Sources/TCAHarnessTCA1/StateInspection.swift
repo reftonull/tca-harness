@@ -72,7 +72,11 @@ public enum StateInspection {
       case let x as Int: return .number(Double(x))
       case let x as Double: return x.isFinite ? .number(x) : .string(String(x))
       case let x as Float: return x.isFinite ? .number(Double(x)) : .string(String(x))
-      case let x as Date: return .string(ISO8601DateFormatter().string(from: x))
+      case let x as Date:
+        // Milliseconds, so two different instants within the same second still differ.
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return .string(formatter.string(from: x))
       case let x as UUID: return .string(x.uuidString)
       default: break
       }

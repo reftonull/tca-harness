@@ -140,7 +140,7 @@ struct TimelineFeature {
 }
 
 @MainActor
-private final class Client {
+final class Client {
   let session: HarnessSession<HarnessValue>
   var observation: [String: Any] = [:]
   init(_ session: HarnessSession<HarnessValue>) { self.session = session }

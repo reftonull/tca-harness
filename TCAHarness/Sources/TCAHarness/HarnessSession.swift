@@ -83,6 +83,14 @@ private struct Request: Decodable {
   var path: String?
   var since: Int?
   var arguments: [String: HarnessJSON]?
+  var network: NetworkUpdate?
+}
+
+/// `{"network":{"mode":"replay","faults":[...],"cassettes":"/abs/dir"}}`; every field is optional.
+private struct NetworkUpdate: Decodable {
+  var mode: String?
+  var faults: [HarnessFault]?
+  var cassettes: String?
 }
 
 public struct HarnessFeatureInfo: Codable, Sendable {
@@ -100,6 +108,8 @@ private struct Observation<State: Encodable>: Encodable {
   let revision: Int
   let state: State
   let candidates: [HarnessCandidate]
+  /// Issues recorded so far (the latest issue `seq`); fetch them with the `issues` method.
+  let issueCount: Int
 }
 
 private struct Receipt: Encodable {
@@ -119,6 +129,8 @@ private struct Response<State: Encodable>: Encodable {
   var protocolVersion: Int?
   var diagnostics: [String]?
   var timeline: HarnessTimelinePage?
+  var issues: [HarnessIssue]?
+  var network: HarnessNetworkSnapshot?
 }
 
 /// Embeddable, model-independent execution session. Closures must address the
@@ -131,6 +143,9 @@ public final class HarnessSession<State: Codable & Equatable> {
   private let inspect: (() -> [HarnessFeatureInfo])?
   private let diagnostics: () -> [String]
   private let timeline: ((Int) -> HarnessTimelinePage?)?
+  private let issueLog: HarnessIssueLog
+  private let networkState: HarnessNetworkState
+  private let beforeObserve: () -> Void
   private let sessionID = UUID().uuidString
   private var revision = 0
   private var previous: State?
@@ -150,7 +165,10 @@ public final class HarnessSession<State: Codable & Equatable> {
     verify: @escaping (String) -> Bool? = { _ in nil },
     inspect: (() -> [HarnessFeatureInfo])? = nil,
     diagnostics: @escaping () -> [String] = { [] },
-    timeline: ((Int) -> HarnessTimelinePage?)? = nil
+    timeline: ((Int) -> HarnessTimelinePage?)? = nil,
+    issues: HarnessIssueLog = .shared,
+    network: HarnessNetworkState = HarnessNetwork.shared,
+    beforeObserve: @escaping () -> Void = {}
   ) {
     readState = snapshot
     readOffers = offers
@@ -158,7 +176,13 @@ public final class HarnessSession<State: Codable & Equatable> {
     self.inspect = inspect
     self.diagnostics = diagnostics
     self.timeline = timeline
+    self.issueLog = issues
+    self.networkState = network
+    self.beforeObserve = beforeObserve
   }
+
+  /// The protocol version reported by `inspect`. Version 3 added `issues`, `network` and `issueCount`.
+  public static var protocolVersion: Int { 3 }
 
   /// One JSON request in; one JSON response out. Transport is kept separate.
   public func handleJSON(_ data: Data) async -> Data {
@@ -174,10 +198,13 @@ public final class HarnessSession<State: Codable & Equatable> {
   }
 
   private func observe() -> Observation<State> {
+    // Evaluates invariants, so violations are logged before issueCount is read.
+    beforeObserve()
     let state = readState()
     if let previous, previous != state { revision += 1 }
     previous = state
-    return Observation(sessionID: sessionID, revision: revision, state: state, candidates: readOffers().map(\.candidate))
+    return Observation(sessionID: sessionID, revision: revision, state: state, candidates: readOffers().map(\.candidate),
+      issueCount: issueLog.count)
   }
 
   private func receipt(_ id: String) -> Receipt {
@@ -196,9 +223,26 @@ public final class HarnessSession<State: Codable & Equatable> {
     case "inspect":
       guard let inspect else { return failure("inspection_unavailable") }
       let features = inspect().filter { request.path == nil || $0.path == request.path || $0.path.hasPrefix(request.path! + "/") }
-      return Response(observation: observe(), features: features, protocolVersion: 2, diagnostics: diagnostics())
+      return Response(observation: observe(), features: features, protocolVersion: Self.protocolVersion, diagnostics: diagnostics())
     case "observe":
       return Response(observation: observe())
+    case "issues":
+      let observation = observe()
+      return Response(observation: observation, issues: issueLog.issues(since: max(request.since ?? 0, 0)))
+    case "network":
+      if let update = request.network {
+        var mode: HarnessNetworkMode?
+        if let text = update.mode {
+          guard let value = HarnessNetworkMode(rawValue: text.lowercased()) else {
+            return failure("invalid_network_mode", detail: "mode must be one of block, replay, record, live")
+          }
+          mode = value
+        }
+        if let mode { networkState.mode = mode }
+        if let faults = update.faults { networkState.faults = faults }
+        if let cassettes = update.cassettes { networkState.cassettes = cassettes.isEmpty ? nil : URL(fileURLWithPath: cassettes) }
+      }
+      return Response(observation: observe(), network: networkState.snapshot(since: max(request.since ?? 0, 0)))
     case "timeline":
       // Read-only development history; omits the observation to keep pages small.
       guard let page = timeline?(max(request.since ?? 0, 0)) else { return Response(ok: false, error: "timeline_unavailable") }

@@ -12,6 +12,10 @@ public struct FeatureDescriptor<State, Action> {
   var operations: [DescriptorOperation<State, Action>] = []
   var children: [(MountContext<State, Action>, RuntimeGraph) -> Void] = []
   var extraOffers: [(State, @escaping (Action) -> Void) -> [HarnessOffer]] = []
+  var invariants: [(name: String, check: (State) -> Bool)] = []
+  /// Evaluates mounted children's invariants; only children that declare some are kept.
+  var childInvariants: [(State, String, inout [(name: String, holds: Bool)]) -> Void] = []
+  var hasInvariants: Bool { !invariants.isEmpty || !childInvariants.isEmpty }
 
   public init(_ name: String, observation: @escaping (State) -> HarnessValue = { StateInspection.snapshot($0) },
     identity: @escaping (State) -> AnyHashable? = { ($0 as? any ObservableState).map { AnyHashable($0._$id) } }) {
@@ -54,6 +58,40 @@ public struct FeatureDescriptor<State, Action> {
     operation(id, label: label, arguments: HarnessValueInput<Value>.self, action: { action($0.value) })
   }
 
+  /// Declares something that must always be true of this feature's state, such as
+  /// "no duplicate books". Invariants are checked after every reduced action when the root reducer
+  /// has `.harnessTimeline()`, and on every observation and dispatch through the session. When one
+  /// changes from holding to violated, an `invariant` issue is recorded whose message is the
+  /// feature path and the name, e.g. `root/shelf: no duplicate books`. Composed children keep their
+  /// invariants under their own path; identified and stack elements include the element id.
+  ///
+  /// `check` runs often, on the main actor; keep it cheap and free of side effects.
+  public func invariant(_ name: String, _ check: @escaping (State) -> Bool) -> Self {
+    var copy = self; copy.invariants.append((name, check)); return copy
+  }
+
+  /// Every invariant of this feature and its mounted children for `state`, named `<path>: <name>`.
+  public func evaluateInvariants(_ state: State, path: String = "root") -> [(name: String, holds: Bool)] {
+    var results: [(name: String, holds: Bool)] = []
+    collectInvariants(state, path: path, into: &results)
+    return results
+  }
+
+  func collectInvariants(_ state: State, path: String, into results: inout [(name: String, holds: Bool)]) {
+    for invariant in invariants { results.append((path + ": " + invariant.name, invariant.check(state))) }
+    for child in childInvariants { child(state, path, &results) }
+  }
+
+  private func addingChildInvariants<ChildState, ChildAction>(_ descriptor: FeatureDescriptor<ChildState, ChildAction>,
+    _ children: @escaping (State) -> [(segment: String, state: ChildState)]) -> Self {
+    guard descriptor.hasInvariants else { return self }
+    var copy = self
+    copy.childInvariants.append { state, path, results in
+      for child in children(state) { descriptor.collectInvariants(child.state, path: path + "/" + child.segment, into: &results) }
+    }
+    return copy
+  }
+
   private func adding(_ operation: DescriptorOperation<State, Action>) -> Self {
     var copy = self; copy.operations.append(operation); return copy
   }
@@ -68,7 +106,9 @@ public struct FeatureDescriptor<State, Action> {
       descriptor.mount(MountContext(path: context.path + "/" + routeSegment(name), parent: context.instance,
         read: read, send: { context.send(action($0)) }), graph: graph)
     }
-    return copy
+    return copy.addingChildInvariants(descriptor) { parent in
+      state(parent).map { [(routeSegment(name), $0)] } ?? []
+    }
   }
 
   public func child<ChildState, ChildAction>(_ name: String, state: KeyPath<State, ChildState>,
@@ -102,7 +142,12 @@ public struct FeatureDescriptor<State, Action> {
           send: { context.send(AnyCasePath(action).embed(.element(id: id, action: $0))) }), graph: graph)
       }
     }
-    return copy
+    return copy.addingChildInvariants(descriptor) { parent in
+      let elements = parent[keyPath: state]
+      return elements.ids.compactMap { id in
+        elements[id: id].map { (routeSegment(name) + "/" + routeSegment(String(describing: id)), $0) }
+      }
+    }
   }
 
   public func stack<ChildState, ChildAction>(_ name: String, state: KeyPath<State, StackState<ChildState>>,
@@ -117,7 +162,12 @@ public struct FeatureDescriptor<State, Action> {
           send: { context.send(AnyCasePath(action).embed(.element(id: id, action: $0))) }), graph: graph)
       }
     }
-    return copy
+    return copy.addingChildInvariants(descriptor) { parent in
+      let elements = parent[keyPath: state]
+      return elements.ids.compactMap { id in
+        elements[id: id].map { (routeSegment(name) + "/" + routeSegment(String(describing: id)), $0) }
+      }
+    }
   }
 
   public func bindings<Value: Codable & Equatable & Sendable>(_ field: WritableKeyPath<State, Value> & Sendable,

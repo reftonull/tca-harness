@@ -35,13 +35,15 @@ struct HarnessMacroTests {
         }
 
         @MainActor public static var harnessDescriptor: FeatureDescriptor<State, Action> {
-          FeatureDescriptor<State, Action>("Parent", observation: { state in
-              .object(["child": state.child.map {
-                      Child.harnessDescriptor.snapshot($0)
-                    } ?? .null])
-            })
-          .operation("openButtonTapped", label: "openButtonTapped", action: .openButtonTapped)
-          .optional("child", state: \.child, action: \.child, descriptor: Child.harnessDescriptor)
+          customizeHarnessDescriptor(
+            FeatureDescriptor<State, Action>("Parent", observation: { state in
+                .object(["child": state.child.map {
+                        Child.harnessDescriptor.snapshot($0)
+                      } ?? .null])
+              })
+            .operation("openButtonTapped", label: "openButtonTapped", action: .openButtonTapped)
+            .optional("child", state: \.child, action: \.child, descriptor: Child.harnessDescriptor)
+          )
         }
       }
 
@@ -123,9 +125,11 @@ struct HarnessMacroTests {
         }
 
         @MainActor public static var harnessDescriptor: FeatureDescriptor<State, Action> {
-          FeatureDescriptor<State, Action>("Feature", observation: { state in
-              .object([:])
-            })
+          customizeHarnessDescriptor(
+            FeatureDescriptor<State, Action>("Feature", observation: { state in
+                .object([:])
+              })
+          )
         }
       }
 
@@ -200,12 +204,14 @@ struct HarnessMacroTests {
         }
 
         @MainActor public static var harnessDescriptor: FeatureDescriptor<State, Action> {
-          FeatureDescriptor<State, Action>("Feature", observation: { state in
-              .object([:])
-            })
-          .valueOperation("rename", label: "Rename item", value: String.self, action: {
-              .rename($0)
-            })
+          customizeHarnessDescriptor(
+            FeatureDescriptor<State, Action>("Feature", observation: { state in
+                .object([:])
+              })
+            .valueOperation("rename", label: "Rename item", value: String.self, action: {
+                .rename($0)
+              })
+          )
         }
       }
 
