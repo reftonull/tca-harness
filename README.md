@@ -90,6 +90,21 @@ tca do setMusicVolume '{"value": 0.25}' --port 8767
 
 Agents with a shell (Claude Code, Codex, Cursor) need nothing extra: `tca ls` and `tca do` are the interface. The [drive-tca-app skill](skills/drive-tca-app/SKILL.md) teaches the loop: look, act once, check the new state, and prove results with state rather than descriptions. Claude Code picks up this repo's skills automatically through `.claude/skills`; elsewhere, copy the skill folder into your agent's skills directory.
 
+### Test behaviour, not implementation
+
+A journey names a goal, the steps a user takes (by label) and what must be true afterwards. `tca journey run` replays it on a fresh launch with network fixtures, and every run also catches crashes, reported issues, broken invariants, unexpected requests, stuck effects and dead ends. Agents write journeys by solving the goal with `tca do` while `tca record` captures the steps.
+
+```sh
+tca journey run journeys/*.toml          # launch targets come from harness.toml
+tca explore --runs 50                    # random walks; findings are shrunk to minimal journeys
+tca chaos journeys/add-book.toml         # fail each request in turn
+tca diff journeys/add-book.toml --targets headless,ui
+```
+
+[Testing guide](docs/testing.md) · [Command reference](cli/README.md#behaviour-tests) · [test-tca-app skill](skills/test-tca-app/SKILL.md)
+
+The [Shelf example](examples/shelf/README.md) plants eight bugs, one for each pattern, behind `SHELF_BUGS`. `examples/shelf/run_ladder.sh` runs every pattern on the headless host, the simulator and a live local backend, and prints which pattern caught which bug.
+
 ### Model-driven goals
 
 `tca run` loops toward a goal: observe, let a model choose one offered operation, fill its arguments, dispatch, repeat until an **app-defined predicate** verifies the result. The model never decides that it succeeded.

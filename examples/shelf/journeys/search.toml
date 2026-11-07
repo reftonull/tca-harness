@@ -1,0 +1,15 @@
+name = "Search the shelf"
+goal = "Search for Weir and see only Project Hail Mary"
+fixtures = "../fixtures/shelf"
+network = "replay"
+
+[[steps]]
+do = "Search"
+args = { value = "Weir" }
+
+[checks]
+"only the match is shown" = "len(visibleBooks) == 1 and visibleBooks[0].title == 'Project Hail Mary'"
+"the shelf itself is intact" = "len(books) == 3"
+
+[budget]
+requests = 2    # GET /books at launch, one POST /events per search (not per keystroke)

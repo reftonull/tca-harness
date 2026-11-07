@@ -15,3 +15,6 @@ examples/isowords/IsowordsEmbedded.xcodeproj/
 /Package.resolved
 TCAHarness/Package.resolved
 TCAHarnessTCA2/Package.resolved
+
+# tca record / explore output
+.tca/

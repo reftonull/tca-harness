@@ -1,0 +1,26 @@
+name = "Add a book"
+goal = "Add Dune by Frank Herbert and see it on the shelf, unread"
+fixtures = "../fixtures/shelf"
+network = "replay"
+
+[[steps]]
+do = "Add book"
+
+[[steps]]
+do = "Set title"
+args = { value = "Dune" }
+
+[[steps]]
+do = "Set author"
+args = { value = "Frank Herbert" }
+
+[[steps]]
+do = "Save"
+
+[checks]
+"Dune is on the shelf" = "any(b.title == 'Dune' and b.author == 'Frank Herbert' for b in books)"
+"the badge counts it" = "unreadCount == 3"
+"the sheet confirms it" = "addBook.isSaved and not addBook.saveError"
+
+[budget]
+requests = 3    # GET /books at launch, POST /books, POST /events (book_added)

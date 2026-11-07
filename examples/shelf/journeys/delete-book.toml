@@ -1,0 +1,22 @@
+name = "Delete a book"
+goal = "Find Piranesi, delete it, and be back on the shelf without it"
+fixtures = "../fixtures/shelf"
+network = "replay"
+
+[[steps]]
+do = "Search"
+args = { value = "Piranesi" }
+
+[[steps]]
+do = "Open book"
+
+[[steps]]
+do = "Delete"
+
+[checks]
+"it is gone" = "not any(b.title == 'Piranesi' for b in books)"
+"the others remain" = "len(books) == 2"
+"back on the shelf" = "not detail"
+
+[budget]
+requests = 3    # GET /books, POST /events (search), DELETE /books/<id>

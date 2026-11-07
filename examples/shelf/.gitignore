@@ -1,0 +1,5 @@
+.build/
+.tca/
+.swiftpm/
+ShelfApp.xcodeproj/
+App/Info.plist

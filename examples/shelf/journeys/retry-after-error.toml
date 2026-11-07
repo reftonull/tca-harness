@@ -1,0 +1,32 @@
+name = "Retry after a failed save"
+goal = "The first save fails with a 503; Retry saves Dune"
+fixtures = "../fixtures/shelf"
+network = "replay"
+
+[[faults]]
+match = { method = "POST", path = "/books" }
+kind = "status"
+status = 503
+times = 1
+
+[[steps]]
+do = "Add book"
+
+[[steps]]
+do = "Set title"
+args = { value = "Dune" }
+
+[[steps]]
+do = "Set author"
+args = { value = "Frank Herbert" }
+
+[[steps]]
+do = "Save"
+expect = "addBook.saveError and not addBook.isSaving"
+
+[[steps]]
+do = "Retry"
+
+[checks]
+"Dune is on the shelf" = "any(b.title == 'Dune' for b in books)"
+"the error is gone" = "addBook.isSaved and not addBook.saveError"
