@@ -7,7 +7,7 @@ packages:
     path: .upstream
   ComposableArchitecture:
     url: https://github.com/pointfreeco/swift-composable-architecture
-    exactVersion: 1.13.0
+    exactVersion: 1.26.2
   Harness:
     path: ../..
 settings:

@@ -238,6 +238,25 @@ class DoTests(unittest.TestCase):
         self.assertIn('wait_timeout', err)
         self.assertIn('Settings (root/home/settings)', out)
 
+    def test_navigation_that_closes_the_dispatching_feature_is_not_a_failure(self):
+        # Real isowords: Solo's startUnlimited mounts Game and unmounts Solo, so the receipt reads `cancelled`.
+        class Navigating(FakeHost):
+            def call(self, method, **arguments):
+                response = super().call(method, **arguments)
+                if method == 'dispatch' and 'disableHaptics' in arguments['candidateID']:
+                    self.settings_open = False
+                    response = dict(response, observation=self.observe(), receipt=dict(response['receipt'], status='cancelled'))
+                return response
+        code, out, err = run(cli.do_command, Navigating(), 'disableHaptics')
+        self.assertEqual(code, 0, err)
+        self.assertTrue(out.startswith('disableHaptics: sent; root/home/settings closed (receipt cancelled)\n\nHome (root/home)'))
+        code, out, _ = run(cli.do_command, Navigating(), 'disableHaptics', as_json=True)
+        result = json.loads(out)
+        self.assertEqual((code, result['ok'], result['receipt']['featureClosed']), (0, True, True))
+        # A cancelled receipt while the feature stays mounted is still a failure.
+        code, _, _ = run(cli.do_command, FakeHost(wait_status='cancelled'), 'setMusicVolume', {'value': 1})
+        self.assertEqual(code, 2)
+
     def test_rejected_dispatch_reports_the_error(self):
         class Rejecting(FakeHost):
             def call(self, method, **arguments):

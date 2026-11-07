@@ -812,6 +812,14 @@ def list_command(host, path=None, show_all=False, as_json=False):
     return 0
 
 
+def instance_mounted(host, observation, candidate):
+    instance = candidate.get('instanceID') or candidate['id'].rpartition('@')[2]
+    response = host.call('inspect')
+    if response.get('ok') and isinstance(response.get('features'), list):
+        return any(isinstance(f, dict) and f.get('instanceID') == instance for f in response['features'])
+    return any(c['id'].rpartition('@')[2] == instance for c in observation['candidates'])
+
+
 def do_command(host, query, arguments=None, path=None, show_all=False, as_json=False, timeout_ms=5000):
     """Resolve, dispatch at the current revision, wait for the receipt, then print the new focus."""
     observation = host.call('observe')['observation']
@@ -844,11 +852,19 @@ def do_command(host, query, arguments=None, path=None, show_all=False, as_json=F
     if dispatched:
         current = host.call('observe')['observation']
         after = focus_view(current, mounted_features(host), None, show_all)
+        # Navigation that unmounts the dispatching feature (e.g. Solo -> Game) reports `cancelled`
+        # because the runtime can no longer read that instance; the action itself was sent.
+        if (receipt or {}).get('status') == 'cancelled' and not instance_mounted(host, current, candidate):
+            ok = True
+            response = dict(response, ok=True, error=None, detail=None)
+            receipt = dict(receipt, featureClosed=True)
     if as_json:
         print(json.dumps({'ok': ok, 'candidateID': candidate['id'], 'receipt': receipt,
                           'error': response.get('error'), 'detail': response.get('detail'), 'view': after}, indent=2))
     else:
-        if response.get('ok'):
+        if response.get('ok') and (receipt or {}).get('featureClosed'):
+            print(f"{operation_name(candidate)}: sent; {candidate.get('feature')} closed (receipt cancelled)")
+        elif response.get('ok'):
             print(f"{operation_name(candidate)}: {(receipt or {}).get('status', 'dispatched')}")
         else:
             if dispatched:

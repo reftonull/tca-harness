@@ -46,7 +46,7 @@ State is looked up by walking the path through the observed state tree (object k
 1. An exact operation ID, or an ID without its `@instance` suffix. These match anywhere.
 2. An operation name relative to its feature (`dismiss`, `binding/name`), or its label, compared case-insensitively. Only focused and lent operations are searched; add `--all` to search every operation.
 
-`do` then dispatches at the observed revision with a new request ID, waits up to 5 seconds for the receipt, and prints the new focused view. If the name is ambiguous or matches nothing, `do` lists the choices on stderr and exits with code 2 without dispatching. Rejections (`stale_revision`, `invalid_arguments`, ...) and `failed`/`cancelled` receipts also exit with code 2. Arguments can also be passed with `--arguments`.
+`do` then dispatches at the observed revision with a new request ID, waits up to 5 seconds for the receipt, and prints the new focused view. If the name is ambiguous or matches nothing, `do` lists the choices on stderr and exits with code 2 without dispatching. Rejections (`stale_revision`, `invalid_arguments`, ...) and `failed`/`cancelled` receipts also exit with code 2, except a `cancelled` receipt whose dispatching feature is no longer mounted: navigation such as isowords' Solo → Game closes the feature that sent the action, so `do` reports it as sent and exits 0. Arguments can also be passed with `--arguments`.
 
 Output is plain text with no colors or progress lines. Add `--json` for machine-readable output: the view (`focus`, `statePath`, `state`, `operations[]` with `name`, `label`, `id`, `feature`, `scope`, `argumentSchema`), or for `do`, `{ok, candidateID, receipt, error, detail, view}`.
 
