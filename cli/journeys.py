@@ -500,7 +500,11 @@ class Session:
         if mode:
             settings['mode'] = mode
         if cassettes:
-            settings['cassettes'] = str(cassettes)
+            # Re-sending the same directory reloads it and restarts ordered recordings (`_1`, `_2`, …),
+            # which breaks a run attached to an app partway through a sequence; only send a change.
+            current = self._method('network') if self.supports.get('network') is not False else None
+            if ((current or {}).get('network') or {}).get('cassettes') != str(Path(cassettes).resolve()):
+                settings['cassettes'] = str(cassettes)
         if faults is not None:
             settings['faults'] = faults
         return self._method('network', network=settings) is not None
@@ -1105,10 +1109,18 @@ def journey_run(arguments):
                 failed += 1
                 print(f'FAIL  {journey.name}  ({label})\n  could not start {opener.name}: {error}')
                 continue
+            keep = arguments.keep and journey is journeys[-1] and session.launched is not None
+            if keep:
+                session.owned = False  # Leave the app running after the last journey.
             try:
                 result = run_journey(session, journey, reporter, arguments.wait_ms, pace=arguments.pace)
             finally:
                 session.close()
+            if keep:
+                launched = session.launched
+                stop = launched.target.stop or f'kill -- -{launched.process.pid}'
+                print(f'left running: {launched.target.name} on 127.0.0.1:{launched.port}; '
+                      f'attach with `tca ls --port {launched.port}`, stop it with `{stop}`')
             failed += not result.passed
             print(summarize(result, label))
     finally:
@@ -1337,6 +1349,8 @@ def build_parser():
     run.add_argument('files', nargs='+', type=Path, metavar='FILE')
     add_run_options(run)
     run.add_argument('--port', type=int, help='Attach to an app already running on this port instead of launching')
+    run.add_argument('--keep', action='store_true',
+                     help='Leave the app launched for the last journey running, e.g. to inspect or record it')
     run.add_argument('--pace', type=float, default=0, metavar='SECONDS',
                      help='Pause after each step and before the final checks, e.g. for a screen recording (default 0)')
 

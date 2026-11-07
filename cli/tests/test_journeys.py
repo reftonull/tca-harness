@@ -300,6 +300,39 @@ class AttachTests(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertIn('share its state', out)
 
+    def test_attaching_with_the_same_fixtures_does_not_reload_them(self):
+        workspace = Workspace()
+        self.addCleanup(workspace.cleanup)
+        fixtures = (workspace.root / 'fixtures/shelf').resolve()
+        sent = []
+
+        class Host:
+            observation = {'issueCount': 0}
+
+            def call(self, method, **arguments):
+                sent.append(arguments.get('network'))
+                return {'ok': True, 'network': {'mode': 'replay', 'cassettes': str(fixtures)}}
+
+        session = journeys.Session(Host())
+        session.configure_network('replay', cassettes=fixtures)
+        self.assertNotIn('cassettes', sent[-1])
+        session.configure_network('replay', cassettes=workspace.root / 'fixtures/other')
+        self.assertEqual(sent[-1]['cassettes'], str(workspace.root / 'fixtures/other'))
+
+    def test_keep_leaves_the_app_running_with_its_log(self):
+        workspace = Workspace()
+        self.addCleanup(workspace.cleanup)
+        code, out, _ = workspace.cli('journey', 'run', 'journeys/add-book.toml', '--keep')
+        self.assertEqual(code, 0, out)
+        line = next(l for l in out.splitlines() if l.startswith('left running:'))
+        port = int(line.split('127.0.0.1:')[1].split(';')[0])
+        group = int(line.split('`kill -- -')[1].rstrip('`'))
+        self.addCleanup(lambda: os.killpg(group, 9) if targets.port_open(port) else None)
+        time.sleep(0.3)  # The CLI has exited; the app must not have died with it.
+        self.assertTrue(targets.port_open(port))
+        code, out, _ = workspace.cli('ls', '--port', str(port))
+        self.assertEqual(code, 0, out)
+
 
 if __name__ == '__main__':
     unittest.main()

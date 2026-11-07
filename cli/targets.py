@@ -19,6 +19,7 @@ import shlex
 import signal
 import socket
 import subprocess
+import tempfile
 import threading
 import time
 import tomllib
@@ -154,11 +155,12 @@ def expand(command, port, variables):
 class Launched:
     """A running target process, its port and its captured output (stdout and stderr merged)."""
 
-    def __init__(self, target, port, process, command):
+    def __init__(self, target, port, process, command, log):
         self.target = target
         self.port = port
         self.process = process
         self.command = command
+        self.log = log
         self.lines = []
         self.lock = threading.Lock()
         self.ready_line = threading.Event()
@@ -167,8 +169,26 @@ class Launched:
         self.reader = threading.Thread(target=self._read, daemon=True)
         self.reader.start()
 
+    def _lines(self):
+        """Lines appended to the log, until the process has exited and everything is read."""
+        with open(self.log, 'rb') as source:
+            partial = b''
+            while True:
+                chunk = source.readline()
+                if chunk:
+                    partial += chunk
+                    if partial.endswith(b'\n'):
+                        yield partial
+                        partial = b''
+                    continue
+                if self.process.poll() is not None:
+                    if partial:
+                        yield partial
+                    return
+                time.sleep(0.02)
+
     def _read(self):
-        for raw in iter(self.process.stdout.readline, b''):
+        for raw in self._lines():
             line = raw.decode(errors='replace').rstrip('\n')
             with self.lock:
                 self.lines.append(line)
@@ -176,7 +196,6 @@ class Launched:
                     del self.lines[:1000]
             if self.target.ready and self.target.ready in line:
                 self.ready_line.set()
-        self.process.stdout.close()
 
     def output(self, last=None):
         with self.lock:
@@ -255,12 +274,16 @@ def _launch(target, network, cassettes, seed, port, faults, latency=None):
     variables.update(run_environment(network, cassettes, seed, port, faults, latency))
     command = expand(target.launch, port, variables)
     environment = dict(os.environ, TCA_HARNESS='1', **variables)
+    # Output goes to a file, not a pipe, so the app doesn't depend on this process to keep running
+    # (`journey run --keep`) and its log can be read after the run.
+    log = Path(tempfile.mkstemp(prefix=f'tca-{target.name}-{port}-', suffix='.log')[1])
     try:
-        process = subprocess.Popen(command, shell=True, cwd=target.root, env=environment, stdin=subprocess.DEVNULL,
-                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
+        with open(log, 'wb') as sink:
+            process = subprocess.Popen(command, shell=True, cwd=target.root, env=environment, stdin=subprocess.DEVNULL,
+                                       stdout=sink, stderr=subprocess.STDOUT, start_new_session=True)
     except OSError as error:
         raise TargetError(f'Cannot launch target {target.name!r}: {error}') from None
-    launched = Launched(target, port, process, command)
+    launched = Launched(target, port, process, command, log)
     launched.wait_ready()
     return launched
 
