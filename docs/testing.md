@@ -135,6 +135,52 @@ tca record stop --check "Dune is on the shelf=any(b.title == 'Dune' for b in she
 
 While a recording is active (`.tca/recording.json` in the current directory), each successful `tca do` appends its step by label, and the requests the app logged until the next `tca do` (or `tca record stop`, which waits for quiet) become that step's `requests`, as `METHOD /path` with ids templated: the `match.json` template when one matched, otherwise numeric, UUID and long hex segments become `{id}`. Requests logged before the first step become `launch_requests`, so record on a fresh launch. A step that made none gets `requests = []`. Against an app without the `network` method, steps get no `requests`.
 
+### When a flow changes: re-solving
+
+A journey breaks when what the user sees changes, not when code moves. Here the Shelf button's label was changed from "Add book" to "New book", as a copy change would. The run fails at the step that no longer resolves and prints what an agent needs to fix it:
+
+```text
+FAIL  Add a book  (journeys/add-book.toml)
+  step 1 "Add book": no offered operation matches
+  current view:
+    …
+    From root:
+      add  - New book
+      refresh  - Refresh
+      …
+  goal: Add Dune by Frank Herbert and see it on the shelf, unread
+  remaining steps: "Add book", "Set title", "Set author", "Save"
+  hint: re-solve it: `tca record start journeys/add-book.toml`, reach the goal with `tca ls`/`tca do`, then `tca record stop`
+```
+
+An agent re-solves it against a running app, without editing the file:
+
+```sh
+tca record start journeys/add-book.toml
+tca do "New book" --port 8796
+tca do "Set title" '{"value":"Dune"}' --port 8796
+tca do "Set author" '{"value":"Frank Herbert"}' --port 8796
+tca do Save --port 8796
+tca record stop
+```
+
+Only the steps change. The goal, checks, budget, fixtures and comments are kept as written, and each step now pins the requests it made:
+
+```diff
++launch_requests = ["GET /books"]
+
+ [[steps]]
+-do = "Add book"
++do = "New book"
++requests = []
+ …
+ [[steps]]
+ do = "Save"
++requests = ["POST /books", "POST /events"]
+```
+
+If the user-visible outcome can no longer be reached, the checks fail instead, and that's a real regression. Adding `--check` to `record stop` rewrites the whole file.
+
 ## Targets
 
 `harness.toml` at the project root says how to launch each rung. The CLI starts a fresh process for every run so runs never share state.

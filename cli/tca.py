@@ -773,6 +773,11 @@ def format_view(view):
         lines.append(f"state shown from {view['statePath']}")
     lines += ['', 'State:', json.dumps(view['state'], indent=2, sort_keys=True), '']
     groups = [('focused', 'Actions:'), ('lent', None), ('other', None)]
+    # Rows of a collection offer the same action under the same label; show each one's route, which
+    # `tca do` accepts, so a specific row can be picked.
+    seen = {}
+    for operation in view['operations']:
+        seen[(operation['name'], operation['label'])] = seen.get((operation['name'], operation['label']), 0) + 1
     for scope, title in groups:
         operations = [o for o in view['operations'] if o['scope'] == scope]
         if scope == 'focused':
@@ -788,6 +793,8 @@ def format_view(view):
                     line += f"  - {operation['label']}"
                 if 'argumentSchema' in operation:
                     line += f"  {{{describe_schema(operation['argumentSchema'])}}}"
+                if seen[(operation['name'], operation['label'])] > 1:
+                    line += f"  [{route(operation['id'])}]"
                 lines.append(line)
     if view['hidden']:
         lines.append(f"({view['hidden']} more operation(s) elsewhere; use --all)")

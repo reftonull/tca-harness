@@ -391,11 +391,56 @@ def journey_document(journey, destination=None):
     return document
 
 
-def write_journey(journey, destination, header=None):
+def _is_table(line):
+    return line.lstrip().startswith('[')
+
+
+def _steps_region(lines):
+    """(start, end) of the `[[steps]]` tables: from the first one to the next other table, or None."""
+    start = next((i for i, line in enumerate(lines) if line.strip() == '[[steps]]'), None)
+    if start is None:
+        return None
+    end = next((i for i in range(start + 1, len(lines)) if _is_table(lines[i]) and lines[i].strip() != '[[steps]]'),
+               len(lines))
+    while end > start and not lines[end - 1].strip():
+        end -= 1
+    return start, end
+
+
+def merge_steps(original, rendered):
+    """`original` with its steps and `launch_requests` taken from `rendered`, everything else (comments,
+    order, formatting) kept; None when that isn't safe, so the caller writes `rendered` instead."""
+    old, new = original.splitlines(), rendered.splitlines()
+    old_region, new_region = _steps_region(old), _steps_region(new)
+    if not old_region or not new_region:
+        return None
+    merged = old[:old_region[0]] + new[new_region[0]:new_region[1]] + old[old_region[1]:]
+    launch = [line for line in new[:new_region[0]] if line.startswith('launch_requests')]
+    existing = [i for i, line in enumerate(merged[:old_region[0]]) if line.startswith('launch_requests')]
+    if existing:
+        if not merged[existing[0]].rstrip().endswith(']'):
+            return None  # A multi-line array; don't edit it by hand.
+        merged[existing[0]:existing[0] + 1] = launch
+    elif launch:
+        first_table = next((i for i, line in enumerate(merged) if _is_table(line)), len(merged))
+        while first_table > 0 and not merged[first_table - 1].strip():
+            first_table -= 1
+        merged[first_table:first_table] = launch
+    return '\n'.join(merged) + '\n'
+
+
+def write_journey(journey, destination, header=None, keep_layout=False):
     destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
     text = tomlout.dumps(journey_document(journey, destination), header=header)
     journey_from(tomllib.loads(text), destination)  # Never write a file `journey run` can't read.
+    if keep_layout and destination.exists():
+        merged = merge_steps(destination.read_text(), text)
+        try:
+            if merged and tomllib.loads(merged) == tomllib.loads(text):
+                text = merged
+        except tomllib.TOMLDecodeError:
+            pass
     destination.write_text(text)
     return destination
 
@@ -1347,7 +1392,8 @@ def record_stop(arguments):
     if not journey.network and not journey.fixtures:
         note('the journey sets no `network`/`fixtures`, so replays block the network; add `network = "live"`, '
              'or record cassettes with `tca journey run FILE --network record` and set `fixtures`')
-    write_journey(journey, path)
+    # Re-solving keeps the rest of the file as written (comments included) unless checks were added.
+    write_journey(journey, path, keep_layout=not arguments.check)
     state.unlink()
     pinned = sum(len(step.requests or []) for step in journey.steps) + len(journey.launch_requests or [])
     print(f'wrote {path}: {len(journey.steps)} step(s), {len(journey.checks)} check(s)'

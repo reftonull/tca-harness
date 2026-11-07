@@ -103,6 +103,14 @@ def dispatched(host):
 
 
 class FocusTests(unittest.TestCase):
+    def test_duplicate_row_actions_show_their_routes(self):
+        rows = [candidate('root/books/' + i, 'I-' + i, 'open', 'Open book') for i in ('a', 'b')]
+        observation = {'sessionID': 's', 'revision': 1, 'state': {'books': [{'id': 'a'}, {'id': 'b'}]}, 'candidates': rows}
+        view = cli.focus_view(observation, [('root', 'Shelf'), ('root/books/a', 'Book'), ('root/books/b', 'Book')])
+        text = cli.format_view(view)
+        self.assertIn('open  - Open book  [root/books/a/open]', text)
+        self.assertIn('open  - Open book  [root/books/b/open]', text)
+
     def test_focuses_the_deepest_feature_with_lent_ancestor_operations(self):
         host = FakeHost()
         view = cli.focus_view(host.observe(), cli.mounted_features(host))

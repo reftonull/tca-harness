@@ -271,6 +271,23 @@ class RecordTests(unittest.TestCase):
         self.assertEqual(len(journey.checks), 2)
         self.assertEqual(journey.fixtures, self.workspace.root / 'fixtures/shelf')
 
+    def test_re_solving_keeps_comments_and_layout(self):
+        path = self.workspace.root / 'journeys/add-book.toml'
+        original = path.read_text().replace('[budget]\n', '# Requests: launch, save, analytics.\n[budget]\n')
+        original = original.replace('requests = 3', 'requests = 3    # keep this comment')
+        path.write_text(original)
+        self.assertEqual(self.workspace.cli('record', 'start', 'journeys/add-book.toml')[0], 0)
+        self.workspace.cli('do', 'Add book', '--port', str(self.app.port))
+        self.assertEqual(self.workspace.cli('record', 'stop')[0], 0)
+        text = path.read_text()
+        self.assertIn('# Requests: launch, save, analytics.', text)
+        self.assertIn('requests = 3    # keep this comment', text)
+        self.assertEqual([s.do for s in journeys.load_journey(path).steps], ['Add book'])
+        # Everything outside the steps is unchanged, byte for byte.
+        before, after = original.split('[[steps]]')[0], text.split('[[steps]]')[0]
+        self.assertEqual([l for l in after.splitlines() if not l.startswith('launch_requests')],
+                         [l for l in before.splitlines() if not l.startswith('launch_requests')])
+
     def test_record_needs_a_goal_and_stop_needs_a_recording(self):
         code, _, err = self.workspace.cli('record', 'start', 'journeys/new.toml')
         self.assertEqual(code, 2)
