@@ -26,7 +26,8 @@ BUGS = {
     'stuck-save': ('chaos', 1, r'saving means a save is in flight|addBook/(save|retry) still running|stranded(?!: neither "Refresh")'),
     'double-save': ('explore', 1, r'no duplicate books'),
     'badge-drift': ('invariant', 1, r'unread badge matches the list'),
-    'chatty-search': ('network', 1, r'budget: \d+ requests|POST \S*/events \S* (had no fixture|was blocked)'),
+    'chatty-search': ('network', 1, r'budget: \d+ requests|POST \S*/events \S* (had no fixture|was blocked)'
+                                    r'|requests after step \d+ "Search".*unexpected POST /events'),
     'wall-clock': ('determinism', 1, r'addedAt'),
     'view-only-seen': ('diff', 2, r'hasNewBooks'),
     'late-delete': ('issue', 1, r'received a presentation action'),
@@ -36,7 +37,7 @@ BUGS = {
 }
 
 # What finding kind a matching line reports, for the matrix cells.
-KINDS = [('budget', r'budget:'), ('invariant', r'invariant'), ('stuck', r'stuck|still running'),
+KINDS = [('requests', r'\brequests (at launch|after step)'), ('budget', r'budget:'), ('invariant', r'invariant'), ('stuck', r'stuck|still running'),
          ('stranded', r'stranded'), ('issue', r'\bissue\b|received a presentation action'),
          ('diff', r'^\s+\S+: .* vs '), ('network', r'had no fixture|was blocked')]
 

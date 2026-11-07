@@ -16,7 +16,7 @@ Upstream is fetched at a pinned revision (`ef2e06d`, October 2026) into `.upstre
 | [journeys/](journeys) | Six core flows; all pass on both rungs (two need `--pace` on the simulator, see finding 6) |
 | [findings/](findings) | Minimal journeys that reproduce each bug below; they fail on upstream |
 | [proof/](proof), [recordings/live-guard-proof.txt](recordings/live-guard-proof.txt) | Proof that recording can't write to production |
-| [fixtures/criticalmaps](fixtures/criticalmaps), [fixtures/sanitize.py](fixtures/sanitize.py) | Sanitized cassettes; raw recordings stay in the ignored `fixtures/raw` |
+| [fixtures/criticalmaps](fixtures/criticalmaps), [fixtures/sanitize.py](fixtures/sanitize.py) | Sanitized cassettes and their [match.json](fixtures/criticalmaps/match.json) (written by the sanitizer); raw recordings stay in the ignored `fixtures/raw` |
 
 ## Run it
 
@@ -28,6 +28,7 @@ python3 setup.py                                       # fetch + patch + xcodege
 ../../scripts/tca journey run journeys/*.toml           # rung 1, replay: 6 passed, ~1 s each
 ../../scripts/tca explore --runs 30 --fixtures fixtures/criticalmaps --network replay
 ../../scripts/tca chaos journeys/mastodon-feed.toml
+../../scripts/tca fixtures coverage journeys/*.toml --strict   # every request exact, ordered or synthetic
 
 flowdeck build --config flowdeck.json                    # rung 2
 ../../scripts/tca journey run journeys/launch.toml --target ui
@@ -79,6 +80,20 @@ Invariants (root unless noted): the map shows the riders that were fetched; no r
 - **Time.** The poll timer (post location at 30 s, refetch at 60 s) is set to a day. Runs advance it with explicit operations, which send the same `RequestTimer` actions.
 - **Determinism.** The fixed date, UTC calendar and `appVersion` give identical runs (`tca determinism journeys/mastodon-feed.toml`: 3 runs equal). The date flows into requests too: the next-ride query asks for January 2026, so the recorded rides are January 2026 and needed no rebasing.
 
+## Fixtures: what the matching rules changed
+
+`tca fixtures coverage journeys/*.toml` lists how each request was answered. Before `match.json`, 7 of 26 requests only passed by fallback:
+
+- **The next-ride query never matched its cassette.** It carries the rider's position plus random noise (upstream's `CoordinateObfuscator` uses `Double.random`, a privacy feature, so the harness seed doesn't reach it). Every run asked for different coordinates, and all six launches were answered by the "latest recording for the path" fallback. `tca determinism` couldn't see it, because the coordinates aren't in state. Now `ignore_query` drops `centerLatitude`/`centerLongitude` for `/api/ride`, and the other parameters (month, year, radius) still have to match.
+- **The chat post** carries the typed message; the synthetic acknowledgement can't know it. `ignore_body` for `/messages` and `/locations` makes those exact matches.
+- **The end of the Mastodon feed** needed a hand-written empty cassette for `max_id=<last id>`, rewritten whenever the recorded pages change. A `pagination` rule (`cursor = max_id`, terminal `[]`) replaces it, so the sanitizer no longer computes the last id.
+
+After: 0 fallbacks, 0 blocked, `--strict` passes, 9 cassettes instead of 10. The chat's three `GET /messages` cassettes stay `ordered` on purpose (a later fetch brings a new message). `PUT__locations_1.json` is unused by the journeys; it answers "Let 30 seconds pass" in `tca explore`.
+
+Re-recording is one command: `tca fixtures record journeys/mastodon-feed.toml --target live --into fixtures/raw --sanitize fixtures/sanitize.py --strict`. It ran once against production in a scratch copy: 8 GETs, the live guard named in the output, the sanitizer run, then the coverage replay clean. Recording `mastodon-feed` alone touches every recorded endpoint.
+
+`journeys/mastodon-feed.toml` pins the requests each step makes (`launch_requests` and per-step `requests`), as written by `tca record` while re-solving it.
+
 ## Findings
 
 Each has a minimal journey in [findings/](findings). They fail on upstream `ef2e06d` (headless unless noted), are app bugs rather than harness or fixture artifacts, and weren't fixed here.
@@ -99,7 +114,7 @@ Each has a minimal journey in [findings/](findings). They fail on upstream `ef2e
 | `tca journey run journeys/*.toml` | headless | 6 passed (0.6–1.1 s each) |
 | same | ui | 4 passed; appearance and chat-send fail on finding 6, both pass with `--pace 1` |
 | `tca explore --runs 30` (seeds 0 and 1) | headless | 1 real finding (3, twice); 1 harness artifact, fixed (below) |
-| `tca chaos` on all 6 journeys | headless | chat 10/10 ok; Mastodon 8 stranded (finding 4); 4 journeys make no requests after launch |
+| `tca chaos` on all 6 journeys | headless | Launch requests faulted too (`GET /locations`, `/messages`, `/api/ride`: 15 runs per journey, 90 in total): all ok. Chat 15/15 ok after launch; Mastodon 8 stranded (finding 4) |
 | `tca determinism journeys/mastodon-feed.toml` | headless | 3 runs equal |
 | `tca diff findings/sheet-closed-by-previous-dismissal.toml --targets headless,ui` | both | differs after step 2 (finding 6) |
 
@@ -107,3 +122,5 @@ Each has a minimal journey in [findings/](findings). They fail on upstream `ef2e
 - An invariant "no location is posted in observation mode" fired flakily in explore. It compared network log sequence numbers, which are assigned when a request completes, so a PUT started before the toggle could complete after it. It was removed: the harness can't attribute a request to the action that started it.
 - Chaos counts Mastodon's first-load failure as stranded because the retry is a different operation (Reload) from the step that failed (Show Mastodon). The real bug behind it is finding 4.
 - Early journey failures came from launch fetches racing step 1. That's fixed in the CLI (below).
+- With launch faults, the first chaos pass flagged two `slow` (2 s delay) results: "Show upcoming rides" not offered after a slow `GET /api/ride`, and the open-chat invariant after a slow launch `GET /messages`. Both came from the harness calling the app quiet while a request was still in flight (the request log only records finished requests), so the journey went on before the response landed. The `network` snapshot now counts `pending` requests and runs wait for them; both pass. The chat one shows finding 3's mechanism (a response written into the unpresented `socialState` copy), which a person could hit by opening the chat while the launch fetch is slow.
+- One chaos run failed to launch with "Address already in use": a free port taken between the CLI picking it and the app binding it. Launches on `auto` ports now retry on a new port.

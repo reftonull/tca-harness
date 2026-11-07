@@ -1,6 +1,6 @@
 ---
 name: test-tca-app
-description: Test a TCA app's behaviour through its harness with journeys (`tca journey run`, `tca record`), random exploration (`tca explore`), fault injection (`tca chaos`), and determinism and rung comparisons (`tca determinism`, `tca diff`). Use when building or fixing a feature in an app with a harness.toml, before opening a PR, or when a journey breaks.
+description: Test a TCA app's behaviour through its harness with journeys (`tca journey run`, `tca record`), random exploration (`tca explore`), fault injection (`tca chaos`), determinism and rung comparisons (`tca determinism`, `tca diff`), and fixture coverage (`tca fixtures coverage`/`record`). Use when building or fixing a feature in an app with a harness.toml, before opening a PR, or when a journey breaks.
 ---
 
 Tests here describe what a user does and sees: a goal, steps by label, and checks over the published state. They break when behaviour changes, not when code is refactored. The full design is in [docs/testing.md](../../docs/testing.md); flags are in the [CLI reference](../../cli/README.md#behaviour-tests).
@@ -21,6 +21,8 @@ Tests here describe what a user does and sees: a goal, steps by label, and check
 | A bug only shows up with views (onAppear, lifecycle) | `tca diff FILE --targets headless,ui` | headless vs UI |
 | Flaky journey or state that differs between runs | `tca determinism FILE` | headless |
 | Backend contract may have changed | `tca journey run FILE --network record --target live` and review the cassette diff | live |
+| Replays pass but you don't trust the fixtures | `tca fixtures coverage journeys/*.toml --strict`: fix every `path` fallback and `blocked` request with a cassette or a `match.json` rule | headless |
+| Re-recording fixtures from the backend | `tca fixtures record journeys/*.toml --target live [--sanitize SCRIPT]` (it prints the coverage afterwards) | live |
 
 ## Write a journey by solving it
 
@@ -29,19 +31,22 @@ Tests here describe what a user does and sees: a goal, steps by label, and check
 3. `tca record stop --check "Dune is on the shelf=any(b.title == 'Dune' for b in shelf.books)"`. Check the outcome the user cares about, not intermediate flags.
 4. Add `fixtures`/`network` if the flow makes requests, then `tca journey run` it on a fresh launch. It must pass before you rely on it.
 
+Recording also writes each step's `requests` (and `launch_requests`): the calls that screen made, by method and templated path. They are the screen's contract with the server, so keep them. Start recording on a fresh launch, otherwise earlier requests end up in `launch_requests`.
+
 Checks are expressions over the root state: attribute access, indexing, comparisons, `and`/`or`/`not`, arithmetic, generator expressions and `len`, `any`, `all`, `sum`, `min`, `max`, `sorted`, `set`. A missing key is `None`.
 
 ## When a journey fails
 
 - **Step doesn't resolve**: the output shows the current view, the goal and the remaining steps. Run `tca record start FILE` (it keeps the goal, checks and fixtures), reach the goal again with `tca do`, then `tca record stop`. If the goal itself is no longer reachable, that is a regression: report it, don't rewrite the goal.
 - **Check or expect failed**: the app reached a different outcome. Look at the state (`--report`, `tca ls`) before deciding whether the code or the expectation is wrong; ask if unsure.
+- **requests**: a step made different calls than it declares (the output lists missing and unexpected ones). An unexpected duplicate or a missing refetch is usually a bug; a new endpoint the feature now needs is a contract change you re-record deliberately, not silently.
 - **Oracle findings** (crash, issue, invariant, network, stuck, rejected, dead end) are bugs or missing fixtures. An unmatched request in replay means a fixture is missing or the app makes a request nobody expected; find out which before adding a cassette.
 
 ## Explore and chaos findings
 
 - Each finding is a minimal journey in `.tca/findings/<kind>-<n>.toml`. Reproduce it with `tca journey run` on the same target, fix the code, and run it again until it fails at the now-unreachable step or passes.
 - Keep a finding as a regression journey only if its steps read like something a user would do; otherwise fix and delete it.
-- `chaos` reports **stranded** when, after a failed request, neither the next step nor a retry is offered within 5 s: a stuck spinner or a swallowed error. It needs protocol v3.
+- `chaos` reports **stranded** when, after a failed request, neither the next step nor a retry is offered within 5 s: a stuck spinner or a swallowed error. Launch requests are failed too (rows marked `launch`, via `TCA_HARNESS_FAULTS` on a fresh launch). It needs protocol v3.
 - Against a protocol v2 app the issue, invariant and network oracles are skipped; the summary says so. Say that in your report rather than claiming those checks passed.
 
 ## Reporting

@@ -244,7 +244,11 @@ class RecordTests(unittest.TestCase):
         self.assertIn('replays block the network', out)
         data = tomllib.loads((self.workspace.root / 'journeys/rec.toml').read_text())
         self.assertEqual(data['goal'], 'Add a book called Dune')
-        self.assertEqual(data['steps'], [{'do': 'Add book'}, {'do': 'Set title', 'args': {'value': 'Dune'}}, {'do': 'Save'}])
+        # Each step pins the requests it made (none before Save); launch made none.
+        self.assertEqual(data['steps'], [{'do': 'Add book', 'requests': []},
+                                         {'do': 'Set title', 'args': {'value': 'Dune'}, 'requests': []},
+                                         {'do': 'Save', 'requests': ['POST /books']}])
+        self.assertEqual(data['launch_requests'], [])
         self.assertEqual(data['checks'], {'Dune is on the shelf': "any(b.title == 'Dune' for b in shelf.books)"})
         # Add the network settings and replay it on a fresh launch.
         path = self.workspace.root / 'journeys/rec.toml'

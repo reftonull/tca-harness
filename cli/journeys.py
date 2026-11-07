@@ -14,9 +14,11 @@ import itertools
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import time
 import tomllib
+from urllib.parse import urlsplit
 
 
 def sibling(name):
@@ -45,6 +47,8 @@ FINDINGS = Path('.tca') / 'findings'
 DEFAULT_WAIT_MS = 5000
 SETTLE_SECONDS = 1.0
 ORACLE_KINDS = ('crash', 'issue', 'invariant', 'network', 'stuck', 'rejected', 'dead end')
+FAULT_TIMES = ('launch',)  # `at` values for [[faults]]; absent means "when the CLI connects".
+FAULT_KEYS = {'match', 'kind', 'status', 'delayMs', 'times', 'skip', 'at'}
 TOLERATED_REJECTIONS = ('stale_revision', 'invalid_arguments')
 NOTES = {}  # Said once per command, printed under the summary.
 
@@ -71,6 +75,7 @@ class Step:
     args: dict = field(default_factory=dict)
     expect: str | None = None
     path: str | None = None
+    requests: list | None = None  # Expected requests ("GET /books"); None = not checked, [] = none.
 
     def document(self):
         item = {'do': self.do}
@@ -80,6 +85,8 @@ class Step:
             item['path'] = self.path
         if self.expect:
             item['expect'] = self.expect
+        if self.requests is not None:
+            item['requests'] = list(self.requests)
         return item
 
 
@@ -96,10 +103,25 @@ class Journey:
     seed: int | None = None
     terminal: bool = False
     faults: list = field(default_factory=list)
+    launch_requests: list | None = None  # Expected requests before the first step.
 
     @property
     def label(self):
         return str(self.path) if self.path else self.name
+
+    @property
+    def launch_faults(self):
+        """Faults with `at = "launch"`, without `at`: passed in TCA_HARNESS_FAULTS so they hit launch requests."""
+        return [{k: v for k, v in f.items() if k != 'at'} for f in self.faults if f.get('at') == 'launch']
+
+    @property
+    def connect_faults(self):
+        """Faults set through `network` once the CLI connects, before the first step."""
+        return [f for f in self.faults if f.get('at') != 'launch']
+
+    @property
+    def checks_requests(self):
+        return self.launch_requests is not None or any(step.requests is not None for step in self.steps)
 
 
 def parse_arguments(raw, where):
@@ -123,6 +145,99 @@ def check_expression(source, where):
     return source
 
 
+REQUEST_PATTERN = re.compile(r'^([A-Za-z]+|\*) (/\S*|\*)$')
+
+
+def parse_requests(raw, where):
+    """A `requests` list: strings like "GET /books", "POST /books/{id}" or "GET /books?*"."""
+    if raw is None:
+        return None
+    if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
+        raise JourneyError(f'{where}: `requests` must be a list of strings like "GET /books"')
+    for item in raw:
+        if not REQUEST_PATTERN.match(item.strip()):
+            raise JourneyError(f'{where}: request {item!r} must be "METHOD /path" (globs `*`, segments `{{id}}`, '
+                               'optional `?query`)')
+    return [item.strip() for item in raw]
+
+
+def pattern_regex(target):
+    """`/books/{id}?*` as a regex: `{name}` is one path segment, `*` anything."""
+    parts = re.split(r'(\{[^}/]*\}|\*)', target)
+    regex = ''.join('[^/?]+' if part.startswith('{') else '.*' if part == '*' else re.escape(part) for part in parts)
+    return re.compile(regex + r'\Z')
+
+
+def request_matches(pattern, request):
+    """Whether a logged request fits a pattern. Without `?`, the pattern ignores the query."""
+    method, _, target = pattern.partition(' ')
+    if method != '*' and method.upper() != str(request.get('method', '')).upper():
+        return False
+    url = urlsplit(str(request.get('url', '')))
+    subject = (url.path or '/') + ('?' + url.query if '?' in target and url.query else '?' if '?' in target else '')
+    return bool(pattern_regex(target).match(subject))
+
+
+def request_label(request, width=80):
+    url = urlsplit(str(request.get('url', '')))
+    text = f"{request.get('method')} {url.path or '/'}" + (f'?{url.query}' if url.query else '')
+    return text if len(text) <= width else text[:width - 3] + '...'
+
+
+def match_requests(patterns, requests):
+    """Order-insensitive multiset match: (missing patterns, unexpected requests), from a maximum matching."""
+    owner = {}  # request index -> pattern index
+
+    def assign(index, seen):
+        for other, request in enumerate(requests):
+            if other in seen or not request_matches(patterns[index], request):
+                continue
+            seen.add(other)
+            if other not in owner or assign(owner[other], seen):
+                owner[other] = index
+                return True
+        return False
+
+    matched = {index for index in range(len(patterns)) if assign(index, set())}
+    missing = [patterns[i] for i in range(len(patterns)) if i not in matched]
+    unexpected = [requests[i] for i in range(len(requests)) if i not in owner]
+    return missing, unexpected
+
+
+def requests_finding(patterns, requests, number):
+    """A `requests` finding when the requests made don't match the expectation, else None."""
+    missing, unexpected = match_requests(patterns, requests)
+    if not missing and not unexpected:
+        return None
+    made = ', '.join(request_label(r, 60) for r in requests) or 'none'
+    message = f"expected [{', '.join(patterns)}], made [{made}]"
+    details = ([f"missing {', '.join(missing)}"] if missing else []) + \
+              ([f"unexpected {', '.join(request_label(r, 60) for r in unexpected)}"] if unexpected else [])
+    return Finding('requests', message + ' (' + '; '.join(details) + ')', number, None,
+                   {'expected': list(patterns), 'made': [request_label(r, 200) for r in requests],
+                    'missing': missing, 'unexpected': [request_label(r, 200) for r in unexpected]})
+
+
+ID_SEGMENT = re.compile(r'^(\d+|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[0-9a-fA-F]{16,})$')
+
+
+def templated_path(path, templates=()):
+    """`/books/123` -> `/books/{id}`: the first matching `match.json` template, else numeric, UUID
+    and long hex segments become `{id}`."""
+    for template in templates:
+        parts, segments = template.split('/'), path.split('/')
+        if len(parts) == len(segments) and all(
+                p == s or ((p == '*' or (p.startswith('{') and p.endswith('}'))) and s) for p, s in zip(parts, segments)):
+            return template
+    return '/'.join('{id}' if ID_SEGMENT.match(segment) else segment for segment in path.split('/'))
+
+
+def request_pattern(request, templates=()):
+    """How `tca record` writes a request: METHOD and templated path, no query."""
+    path = request.get('template') or templated_path(url_path(request.get('url')), templates)
+    return f"{str(request.get('method', 'GET')).upper()} {path}"
+
+
 def load_journey(path):
     path = Path(path)
     try:
@@ -136,7 +251,8 @@ def load_journey(path):
 
 def journey_from(data, path=None):
     where = str(path) if path else 'journey'
-    known = {'name', 'goal', 'fixtures', 'network', 'seed', 'terminal', 'steps', 'checks', 'budget', 'faults'}
+    known = {'name', 'goal', 'fixtures', 'network', 'seed', 'terminal', 'steps', 'checks', 'budget', 'faults',
+             'launch_requests'}
     unknown = sorted(set(data) - known)
     if unknown:
         raise JourneyError(f'{where}: unknown keys: {", ".join(unknown)}')
@@ -161,7 +277,7 @@ def journey_from(data, path=None):
         here = f'{where}: step {number}'
         if not isinstance(raw, dict) or not isinstance(raw.get('do'), str) or not raw['do'].strip():
             raise JourneyError(f'{here}: needs `do = "<label, name or ID>"`')
-        extra = sorted(set(raw) - {'do', 'args', 'expect', 'path'})
+        extra = sorted(set(raw) - {'do', 'args', 'expect', 'path', 'requests'})
         if extra:
             raise JourneyError(f'{here}: unknown keys: {", ".join(extra)}')
         expect = raw.get('expect')
@@ -169,7 +285,8 @@ def journey_from(data, path=None):
             check_expression(expect, f'{here} expect')
         if raw.get('path') is not None and not isinstance(raw['path'], str):
             raise JourneyError(f'{here}: `path` must be a feature path')
-        steps.append(Step(raw['do'], parse_arguments(raw.get('args'), here), expect, raw.get('path')))
+        steps.append(Step(raw['do'], parse_arguments(raw.get('args'), here), expect, raw.get('path'),
+                          parse_requests(raw.get('requests'), here)))
     checks = data.get('checks', {})
     if not isinstance(checks, dict) or not all(isinstance(v, str) for v in checks.values()):
         raise JourneyError(f'{where}: [checks] must map names to expression strings')
@@ -183,12 +300,20 @@ def journey_from(data, path=None):
     faults = data.get('faults', [])
     if not isinstance(faults, list) or not all(isinstance(f, dict) and isinstance(f.get('kind'), str) for f in faults):
         raise JourneyError(f'{where}: [[faults]] entries need a `kind`')
+    for number, fault in enumerate(faults, 1):
+        unknown = sorted(set(fault) - FAULT_KEYS)
+        if unknown:
+            raise JourneyError(f'{where}: fault {number}: unknown keys: {", ".join(unknown)} (a key after [[faults]] '
+                               'belongs to that fault; put top-level keys above the first table)')
+    if any('at' in f and f['at'] not in FAULT_TIMES for f in faults):
+        raise JourneyError(f'{where}: a fault\'s `at` must be "launch" (or absent: set when the CLI connects)')
     terminal = data.get('terminal', False)
     if not isinstance(terminal, bool):
         raise JourneyError(f'{where}: `terminal` must be true or false')
     return Journey(path=path, name=name, goal=data.get('goal', ''), steps=steps, checks=dict(checks), budget=dict(budget),
                    fixtures=(base / fixtures).resolve() if fixtures else None, network=network, seed=seed,
-                   terminal=terminal, faults=[dict(f) for f in faults])
+                   terminal=terminal, faults=[dict(f) for f in faults],
+                   launch_requests=parse_requests(data.get('launch_requests'), f'{where}: launch_requests'))
 
 
 def journey_document(journey, destination=None):
@@ -208,6 +333,8 @@ def journey_document(journey, destination=None):
         document['seed'] = journey.seed
     if journey.terminal:
         document['terminal'] = True
+    if journey.launch_requests is not None:
+        document['launch_requests'] = list(journey.launch_requests)
     if journey.steps:
         document['steps'] = [step.document() for step in journey.steps]
     if journey.checks:
@@ -236,6 +363,7 @@ class Settings:
     cassettes: Path | None = None
     seed: int | None = None
     wait_ms: int = DEFAULT_WAIT_MS
+    faults: list = field(default_factory=list)  # Launch faults, passed as TCA_HARNESS_FAULTS.
 
     @classmethod
     def for_journey(cls, journey, network=None, seed=None, wait_ms=DEFAULT_WAIT_MS, fixtures=None):
@@ -245,7 +373,8 @@ class Settings:
             cassettes = journey.path.resolve().parent / 'fixtures' / journey.path.stem
         if seed is None:
             seed = journey.seed if journey and journey.seed is not None else 0
-        return cls(network=mode, cassettes=cassettes, seed=seed, wait_ms=wait_ms)
+        return cls(network=mode, cassettes=cassettes, seed=seed, wait_ms=wait_ms,
+                   faults=journey.launch_faults if journey else [])
 
 
 class Session:
@@ -260,6 +389,8 @@ class Session:
         self.issue_seq = 0
         self.issue_count = 0
         self.request_seq = 0
+        self.fresh = False       # Launched for this run, so TCA_HARNESS_FAULTS reached it.
+        self.network = None      # Latest `network` snapshot without requests: mode, cassettes, faults, liveGuard.
 
     @property
     def observation(self):
@@ -306,6 +437,7 @@ class Session:
         response = self._method('network', since=self.request_seq)
         if response is None:
             return []
+        self.network = {k: v for k, v in (response.get('network') or {}).items() if k != 'requests'}
         requests = [r for r in (response.get('network') or {}).get('requests') or []
                     if isinstance(r, dict) and r.get('seq', 0) > self.request_seq]
         if requests:
@@ -358,6 +490,9 @@ class Opener:
         session.mode = settings.network
         return session
 
+    def _launch(self, settings):
+        return targets.launch(self.target, settings.network, settings.cassettes, settings.seed, faults=settings.faults)
+
     def _open(self, settings):
         tca = sibling('tca')
         if self.port is not None:
@@ -375,9 +510,11 @@ class Opener:
             session = Session(tca.Host(port=self.shared.port), self.shared, owned=False)
             session.configure_network(settings.network, cassettes=settings.cassettes)
             return session
-        launched = targets.launch(target, settings.network, settings.cassettes, settings.seed)
+        launched = self._launch(settings)
         try:
-            return Session(tca.Host(port=launched.port), launched)
+            session = Session(tca.Host(port=launched.port), launched)
+            session.fresh = True
+            return session
         except Exception:
             launched.stop()
             raise
@@ -441,6 +578,8 @@ class Finding:
         named = f'step {self.step}' + (f' "{steps[self.step - 1].do}"' if self.step and steps and self.step <= len(steps) else '')
         if self.kind in ('step', 'expect'):
             return f'{named}: {self.message}'
+        if self.kind == 'requests':
+            return f"requests {'at launch' if self.step == 0 else f'after {named}'}: {self.message}"
         if self.kind in ('check', 'budget', 'faults'):
             return f'{self.kind}: {self.message}'
         where = 'at launch' if self.step == 0 else f'after {named}' if self.step else ''
@@ -453,7 +592,6 @@ class Finding:
 def url_path(url):
     if not isinstance(url, str):
         return ''
-    from urllib.parse import urlsplit
     return urlsplit(url).path or '/'
 
 
@@ -506,6 +644,7 @@ class Runner:
         self.wait_ms = wait_ms
         self.requests = []      # (step, request) for every request seen
         self.crashed = False
+        self.network_reported = False
 
     def step(self, number, query, arguments=None, path=None):
         tca = sibling('tca')
@@ -570,12 +709,17 @@ class Runner:
             self.reporter.emit('finding', **finding.record())
             return [finding]
         network_issue = False
+        new_requests = self.session.new_requests()
+        if self.session.network is not None and not self.network_reported:
+            self.network_reported = True  # Mode and cassette directory, once per run (for `tca fixtures coverage`).
+            self.reporter.emit('network', **self.session.network)
         for issue in self.session.new_issues():
             kind = issue.get('kind') if issue.get('kind') in ('issue', 'invariant', 'network') else 'issue'
             network_issue |= kind == 'network'
             findings.append(Finding(kind, str(issue.get('message', '')), number, operation, {'issue': issue}))
-        for request in self.session.new_requests():
+        for request in new_requests:
             self.requests.append((number, request))
+            self.reporter.emit('request', step=number, request=request)
             if request.get('source') == 'blocked' and not network_issue:
                 why = 'had no fixture' if self.session.mode == 'replay' else 'was blocked'
                 findings.append(Finding('network', f"{request.get('method')} {request.get('url')} {why}",
@@ -590,19 +734,24 @@ class Runner:
     def quiesce(self, number, quiet=0.3, limit=2.0):
         """Watch until the app goes `quiet` seconds with no state change, request or issue (at most
         `limit`), collecting oracles on the way. Late effects (a response landing after the last step)
-        show up here instead of after the process is gone."""
-        findings, deadline = [], time.monotonic() + limit
-        last_change, revision = time.monotonic(), None
-        while time.monotonic() < deadline:
+        show up here instead of after the process is gone. While the app reports requests in flight
+        (`pending`), the watch goes on up to the stuck budget (`wait_ms`), so a slow response lands
+        before the next step, as it would while a person waits."""
+        findings, started = [], time.monotonic()
+        deadline, hard = started + limit, started + max(limit, self.wait_ms / 1000)
+        last_change, revision = started, None
+        while True:
             seen = len(self.requests)
             found = self.collect(number, allow_dead_end=True)
             current = (self.session.observation or {}).get('revision')
-            if found or len(self.requests) != seen or current != revision:
+            pending = (self.session.network or {}).get('pending') or 0
+            now = time.monotonic()
+            if found or len(self.requests) != seen or current != revision or pending:
                 findings += found
-                revision, last_change = current, time.monotonic()
-            elif time.monotonic() - last_change >= quiet:
+                revision, last_change = current, now
+            elif now - last_change >= quiet:
                 break
-            if self.crashed:
+            if self.crashed or now >= (hard if pending else deadline):
                 break
             time.sleep(0.05)
             self.session.host.call('observe')
@@ -666,9 +815,30 @@ def run_journey(session, journey, reporter=None, wait_ms=DEFAULT_WAIT_MS, *, che
         if problem.kind not in ORACLE_KINDS:
             reporter.emit('finding', **problem.record())
 
+    check_requests = checks and journey.checks_requests
+    contract = []  # Request mismatches: reported, but the run goes on so later oracles still fire.
+
+    def expectation(patterns, number):
+        """Compare the requests seen since `number` began with `patterns`."""
+        if patterns is None or session.supports.get('network') is False:
+            return
+        problem = requests_finding(patterns, [r for s, r in runner.requests if s == number], number)
+        if problem:
+            contract.append(problem)
+            reporter.emit('finding', **problem.record())
+
     try:
-        if journey.faults and not session.configure_network(faults=journey.faults):
-            stop(Finding('faults', 'the journey declares faults but the app has no `network` method (protocol v3)', 0))
+        if journey.launch_faults and not session.fresh:
+            stop(Finding('faults', 'the journey has `at = "launch"` faults, which need a fresh launch '
+                         '(a harness.toml target with restart = "per-run"), not --port or restart = "never"', 0))
+        elif journey.connect_faults:
+            faults = journey.connect_faults
+            if journey.launch_faults:
+                # Keep launch faults that haven't fired yet (a launch request may still be in flight).
+                current = session._method('network')
+                faults = list(((current or {}).get('network') or {}).get('faults') or []) + faults
+            if not session.configure_network(faults=faults):
+                stop(Finding('faults', 'the journey declares faults but the app has no `network` method (protocol v3)', 0))
         if result.passed:
             # Launch effects (first fetches, permission callbacks) land before the first step, as they
             # would before a person's first tap, so step 1 and the launch state don't race them.
@@ -676,6 +846,10 @@ def run_journey(session, journey, reporter=None, wait_ms=DEFAULT_WAIT_MS, *, che
             if not runner.crashed:
                 result.problems += runner.collect(0, allow_dead_end=not steps and journey.terminal)
             result.states.append(copy.deepcopy(session.observation['state']))
+            if result.passed and check_requests:
+                expectation(journey.launch_requests, 0)
+            if after_step and result.passed and not runner.crashed and after_step(0, None, runner) == 'stop':
+                steps = []  # The caller has what it needed from the launch (chaos on a launch request).
         for number, step in enumerate(steps, 1):
             if not result.passed and stop_on_finding:
                 break
@@ -714,6 +888,12 @@ def run_journey(session, journey, reporter=None, wait_ms=DEFAULT_WAIT_MS, *, che
                 if not holds:
                     stop(Finding('expect', f'expected `{step.expect}`' + (f' ({error})' if error else ' to hold'), number))
                     break
+            if check_requests:
+                # This step's requests are the ones logged until the app goes quiet again.
+                result.problems += runner.quiesce(number)
+                if not result.passed and stop_on_finding:
+                    break
+                expectation(step.requests, number)
             if after_step and after_step(number, outcome, runner) == 'stop':
                 break
             if pace:
@@ -739,6 +919,7 @@ def run_journey(session, journey, reporter=None, wait_ms=DEFAULT_WAIT_MS, *, che
     except RuntimeError as error:
         outcome = runner._broken(Outcome(len(result.outcomes) + 1, ''), error)
         result.problems += outcome.findings or [Finding('step', str(error), outcome.number)]
+    result.problems += contract
     result.requests = list(runner.requests)
     result.elapsed = time.monotonic() - started
     result.output = session.output()
@@ -849,13 +1030,54 @@ def record_start(arguments):
     if state.exists():
         print(f'note: replacing the unfinished recording of {json.loads(state.read_text()).get("file")}', file=sys.stderr)
     base.pop('steps', None)
+    base.pop('launch_requests', None)
     base['goal'] = goal
     state.parent.mkdir(parents=True, exist_ok=True)
     state.write_text(json.dumps({'file': str(path), 'base': base, 'steps': [],
                                  'started': datetime.now().astimezone().isoformat()}, indent=2))
-    print(f'recording {path}\n  goal: {goal}\n  each successful `tca do` from {Path.cwd()} adds a step; '
-          'finish with `tca record stop [--check NAME=EXPR]`')
+    print(f'recording {path}\n  goal: {goal}\n  each successful `tca do` from {Path.cwd()} adds a step with the requests '
+          'it made; finish with `tca record stop [--check NAME=EXPR]`')
     return 0
+
+
+def cassette_templates(directory):
+    """`path_templates` from `match.json` in a cassette directory, if any."""
+    try:
+        rules = json.loads((Path(directory) / 'match.json').read_text())
+    except (OSError, ValueError, TypeError):
+        return []
+    templates = rules.get('path_templates') if isinstance(rules, dict) else None
+    return [t for t in templates if isinstance(t, str)] if isinstance(templates, list) else []
+
+
+def record_requests(host, port=None):
+    """Called by `tca do` before it dispatches while recording: the requests logged since the last
+    `do` belong to the previous step (or, before the first step, to launch). Returns how many."""
+    state = recording_file()
+    data = json.loads(state.read_text())
+    since = data.get('requestSeq', 0)
+    response = host.call('network', since=since)
+    if not response.get('ok'):
+        data['network'] = False  # Protocol v2: no request log, so steps get no `requests`.
+        state.write_text(json.dumps(data, indent=2))
+        return 0
+    network = response.get('network') or {}
+    requests = [r for r in network.get('requests') or [] if isinstance(r, dict) and r.get('seq', 0) > since]
+    templates = cassette_templates(network['cassettes']) if network.get('cassettes') else []
+    patterns = [request_pattern(r, templates) for r in requests]
+    if data['steps']:
+        data['steps'][-1].setdefault('requests', []).extend(patterns)
+    elif patterns:
+        data.setdefault('launchRequests', []).extend(patterns)
+        print(f'recorded {len(patterns)} request(s) made before the first step as `launch_requests` '
+              '(the launch requests, when recording started on a fresh launch)', file=sys.stderr)
+    if requests:
+        data['requestSeq'] = max(r.get('seq', 0) for r in requests)
+    data['network'] = True
+    if port is not None:
+        data['port'] = port
+    state.write_text(json.dumps(data, indent=2))
+    return len(patterns)
 
 
 def record_step(result, arguments, path=None):
@@ -868,9 +1090,39 @@ def record_step(result, arguments, path=None):
         step['args'] = arguments
     if path:
         step['path'] = path
+    if data.get('network'):
+        step['requests'] = []  # Filled in by the next `do`, or by `record stop`.
     data['steps'].append(step)
     state.write_text(json.dumps(data, indent=2))
     return len(data['steps']), query
+
+
+def record_last_requests(data, quiet=0.5, limit=3.0):
+    """At `record stop`: wait until the app has made no request for `quiet` seconds, then give the
+    last step its requests. Without a reachable app the last step is left unchecked."""
+    if not data.get('network') or not data.get('steps') or data.get('port') is None:
+        return data
+    tca = sibling('tca')
+    try:
+        host = tca.Host(port=data['port'])
+    except RuntimeError:
+        data['steps'][-1].pop('requests', None)
+        note(f"the app on port {data['port']} is gone, so the last step has no `requests`")
+        return data
+    try:
+        seen, last_change, deadline = None, time.monotonic(), time.monotonic() + limit
+        while time.monotonic() < deadline:
+            response = host.call('network', since=data.get('requestSeq', 0))
+            count = len((response.get('network') or {}).get('requests') or [])
+            if count != seen:
+                seen, last_change = count, time.monotonic()
+            elif time.monotonic() - last_change >= quiet:
+                break
+            time.sleep(0.05)
+        record_requests(host)
+    finally:
+        host.close()
+    return json.loads(recording_file().read_text())
 
 
 def record_stop(arguments):
@@ -879,9 +1131,13 @@ def record_stop(arguments):
         print(f'error: no recording in progress ({state} not found); start one with `tca record start FILE --goal TEXT`',
               file=sys.stderr)
         return 2
-    data = json.loads(state.read_text())
+    data = record_last_requests(json.loads(state.read_text()))
     path = Path(data['file'])
     document = dict(data['base'])
+    if data.get('launchRequests') is not None and data.get('steps'):
+        document['launch_requests'] = data['launchRequests']
+    elif data.get('network') and data.get('steps'):
+        document['launch_requests'] = []
     document.setdefault('name', path.stem.replace('-', ' ').replace('_', ' ').capitalize())
     checks = dict(document.get('checks') or {})
     for item in arguments.check or []:
@@ -910,7 +1166,9 @@ def record_stop(arguments):
              'or record cassettes with `tca journey run FILE --network record` and set `fixtures`')
     write_journey(journey, path)
     state.unlink()
-    print(f'wrote {path}: {len(journey.steps)} step(s), {len(journey.checks)} check(s)')
+    pinned = sum(len(step.requests or []) for step in journey.steps) + len(journey.launch_requests or [])
+    print(f'wrote {path}: {len(journey.steps)} step(s), {len(journey.checks)} check(s)'
+          + (f', {pinned} expected request(s)' if journey.checks_requests else ''))
     print(f'  replay it with `tca journey run {os.path.relpath(path)}`')
     print_notes()
     return 0
@@ -988,6 +1246,8 @@ def build_parser():
     diff.add_argument('--targets', required=True, help='Two harness.toml targets, e.g. headless,ui')
     add_run_options(diff, target=False)
     diff.add_argument('--out', type=Path, help='Where to write findings (default .tca/findings)')
+
+    sibling('fixtures').add_parsers(commands)
     return parser
 
 
@@ -1001,6 +1261,8 @@ def main(argv):
         return journey_run(arguments)
     if arguments.command == 'record':
         return record_start(arguments) if arguments.action == 'start' else record_stop(arguments)
+    if arguments.command == 'fixtures':
+        return sibling('fixtures').main(arguments)
     exploration = sibling('exploration')
     if arguments.command == 'explore':
         if arguments.runs < 1 or arguments.steps < 1 or arguments.shrink_trials < 0:

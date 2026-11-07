@@ -1,0 +1,8 @@
+{
+  "path_templates": ["/books/{id}"],
+  "paths": {
+    "/books": {"ignore_body": true},
+    "/books/{id}": {"ignore_body": true},
+    "/events": {"ignore_body": true}
+  }
+}

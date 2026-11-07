@@ -14,6 +14,11 @@ through a fake network (fixtures, faults, a request log); invariants are reporte
 --ui              behaves like the app with views: opening the editor focuses its title field
 --v2              protocol v2: no `issues`/`network` methods and no issueCount
 --launch-load     a book arrives 150 ms after launch, like a first fetch that answers after the listener is up
+--launch-fetch    GET /books at launch, before listening; a failure shows an error and "Retry"
+--fragile-launch  like --launch-fetch, but a failure hides every other operation (a stranded user)
+
+Faults in TCA_HARNESS_FAULTS (a JSON array) apply from the first request, like HarnessNetwork. Replayed
+requests log `match` and `cassette`; in record mode each request is saved as a cassette.
 """
 import argparse
 import copy
@@ -33,7 +38,7 @@ API = 'http://api.shelf.test'
 
 class FakeShelf:
     def __init__(self, bug=False, strand=False, crashy=False, stuck=False, unseeded=False, ui=False, v2=False,
-                 network=None, cassettes=None, seed=None, late=False):
+                 network=None, cassettes=None, seed=None, late=False, faults=None, fragile=False):
         self.bug, self.strand, self.crashy, self.stuck, self.unseeded, self.ui, self.v2 = bug, strand, crashy, stuck, unseeded, ui, v2
         self.late = late  # Bug: closing the editor leaves an effect that reports an issue 150 ms later.
         self.session_id = str(uuid.uuid4())
@@ -47,7 +52,9 @@ class FakeShelf:
         self.violated = set()
         self.mode = network or 'live'
         self.cassettes = cassettes
-        self.faults = []
+        self.faults = [dict(f, match=dict(f.get('match') or {})) for f in faults or []]
+        self.fragile = fragile
+        self.recorded = {}
         self.requests = []
         self.random = random.Random(seed if seed is not None else time.time_ns())
         self.counter = 0
@@ -76,25 +83,32 @@ class FakeShelf:
             if fault['kind'] == 'delay':
                 entry['ms'] = fault.get('delayMs', 0)
                 break  # Then the normal response.
-            entry['source'] = 'fault'
+            entry['source'] = entry['match'] = 'fault'
             entry['status'] = fault.get('status') if fault['kind'] == 'status' else 200 if fault['kind'] == 'malformed' else None
             return False, entry
+        name = f"{method}_{path.strip('/').replace('/', '_')}_"
         if self.mode == 'block':
-            entry['source'] = 'blocked'
+            entry['source'] = entry['match'] = 'blocked'
             self.report('network', f'{method} {url} attempted with the network blocked')
             return False, entry
         if self.mode == 'replay':
-            name = f"{method}_{path.strip('/').replace('/', '_')}_"
             directory = Path(self.cassettes) if self.cassettes else None
             matches = sorted(directory.glob(name + '*.json')) if directory and directory.is_dir() else []
             if not matches:
-                entry['source'] = 'blocked'
+                entry['source'] = entry['match'] = 'blocked'
                 self.report('network', f'{method} {url} has no fixture')
                 return False, entry
             status = json.loads(matches[-1].read_text())['response']['status']
-            entry.update(source='fixture', status=status)
+            entry.update(source='fixture', status=status, match='exact', cassette=matches[-1].name)
             return 200 <= status < 300, entry
-        entry.update(source='live', status=200)
+        entry.update(source='live', status=200, match='live')
+        if self.mode == 'record' and self.cassettes:
+            number = self.recorded[name] = self.recorded.get(name, 0) + 1
+            Path(self.cassettes).mkdir(parents=True, exist_ok=True)
+            (Path(self.cassettes) / f'{name}{number}.json').write_text(json.dumps({
+                'request': {'method': method, 'url': url, 'body': None},
+                'response': {'status': 201 if method == 'POST' else 200, 'headers': {}, 'body': {}}}))
+            entry['cassette'] = f'{name}{number}.json'
         return True, entry
 
     def report(self, kind, message):
@@ -154,7 +168,7 @@ class FakeShelf:
 
     def candidates(self):
         shelf, editor = self.state['shelf'], self.state['editor']
-        stranded = editor is not None and editor.get('stranded')
+        stranded = (editor is not None and editor.get('stranded')) or shelf.get('stranded')
         result = []
 
         def offer(feature, instance, name, label, schema=None):
@@ -180,6 +194,8 @@ class FakeShelf:
                 offer('root/shelf', 'I-SHELF', 'crash', 'Crash')
             if self.stuck:
                 offer('root/shelf', 'I-SHELF', 'syncForever', 'Sync forever')
+        if shelf.get('stranded'):
+            offer('root/shelf', 'I-SHELF', 'dismissError', 'Dismiss error')
         if editor is not None:
             instance = f'I-EDITOR-{self.editor_instance}'
             string = {'type': 'string', 'maxLength': 200}
@@ -404,14 +420,21 @@ def serve(app, port=0):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', type=int, default=int(os.environ.get('TCA_HARNESS_PORT', '0')))
-    for flag in ('bug', 'strand-on-error', 'crashy', 'stuck', 'unseeded-ids', 'ui', 'v2', 'late-issue', 'launch-load'):
+    for flag in ('bug', 'strand-on-error', 'crashy', 'stuck', 'unseeded-ids', 'ui', 'v2', 'late-issue', 'launch-load',
+                 'launch-fetch', 'fragile-launch'):
         parser.add_argument('--' + flag, action='store_true')
     arguments = parser.parse_args()
     seed = os.environ.get('TCA_HARNESS_SEED')
     app = FakeShelf(bug=arguments.bug, strand=arguments.strand_on_error, crashy=arguments.crashy, stuck=arguments.stuck,
                     unseeded=arguments.unseeded_ids, ui=arguments.ui, v2=arguments.v2,
                     network=os.environ.get('TCA_HARNESS_NETWORK'), cassettes=os.environ.get('TCA_HARNESS_CASSETTES'),
-                    seed=int(seed) if seed else None, late=arguments.late_issue)
+                    seed=int(seed) if seed else None, late=arguments.late_issue,
+                    faults=json.loads(os.environ.get('TCA_HARNESS_FAULTS') or '[]'))
+    if arguments.launch_fetch or arguments.fragile_launch:
+        ok, _ = app.request('GET', '/books')  # Before listening, like a host that loads first.
+        if not ok:
+            app.state['shelf']['error'] = "Couldn't load"
+            app.state['shelf']['stranded'] = arguments.fragile_launch
     if arguments.launch_load:
         app.later(0.15, lambda: app.state['shelf']['books'].append({'id': 'launch', 'title': 'Launch', 'isRead': False}))
     server = serve(app, arguments.port)

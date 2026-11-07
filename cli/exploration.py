@@ -122,7 +122,7 @@ def load(arguments, attribute='file'):
 
 
 def finding_journey(base, name, goal, steps, settings, faults=None):
-    steps = [replace(step, expect=None) for step in steps]  # A finding needs only its steps to reproduce.
+    steps = [replace(step, expect=None, requests=None) for step in steps]  # A finding needs only its steps to reproduce.
     return Journey(path=None, name=name, goal=goal, steps=steps, fixtures=settings.cassettes,
                    network=settings.network, seed=settings.seed, terminal=False,
                    faults=list(faults or (base.faults if base else [])))
@@ -307,11 +307,12 @@ def fault_fired(request):
 
 def way_forward(runner, journey, number):
     """Within 5 s: the next step resolves, the faulted step resolves again (a retry), or, when the
-    journey is finished, anything is offered."""
+    journey is finished, anything is offered. After a launch fault (`number` 0) the next step is the
+    first one."""
     tca = journeys.sibling('tca')
     host = runner.session.host
     following = journey.steps[number] if number < len(journey.steps) else None
-    options = [following, journey.steps[number - 1]] if following else []
+    options = ([following] + ([journey.steps[number - 1]] if number else [])) if following else []
     deadline = time.monotonic() + WAY_FORWARD_SECONDS
     while True:
         observation = host.call('observe')['observation']
@@ -352,18 +353,27 @@ def chaos_command(arguments):
         if baseline.runner.session.supports.get('network') is False:
             print('error: chaos needs the `network` method (protocol v3) to see and fail requests', file=sys.stderr)
             return 2
+        # Launch requests are faulted through TCA_HARNESS_FAULTS (counted from process start), later
+        # ones through `network` (counted from when the CLI connects), so each has its own occurrences.
         seen = {}
         targets_ = []
+        fresh = baseline.runner.session.fresh
         for step, request in baseline.requests:
             match = {'method': request.get('method'), 'path': journeys.url_path(request.get('url'))}
-            occurrence = seen.get((match['method'], match['path']), 0)
-            seen[(match['method'], match['path'])] = occurrence + 1
-            if step == 0:
-                journeys.note(f"{match['method']} {match['path']} happens before the first step and can't be faulted")
+            key = (step == 0, match['method'], match['path'])
+            occurrence = seen.get(key, 0)
+            seen[key] = occurrence + 1
+            if fault_fired(request):
+                journeys.note(f"{match['method']} {match['path']} #{occurrence + 1} is already failed by the journey's "
+                              '[[faults]]; chaos leaves it as is')
+                continue
+            if step == 0 and not fresh:
+                journeys.note(f"{match['method']} {match['path']} happens before the first step; faulting it needs a fresh "
+                              'launch per run (a harness.toml target with restart = "per-run")')
                 continue
             targets_.append((step, match, occurrence))
         if not targets_:
-            print(f'chaos: {journey.name} makes no requests after launch; nothing to fault')
+            print(f'chaos: {journey.name} makes no requests it can fault')
             journeys.print_notes()
             return 0
         for step, match, occurrence in targets_:
@@ -371,6 +381,8 @@ def chaos_command(arguments):
                 fault = dict(match=match, **FAULTS[kind], times=1)
                 if occurrence:
                     fault['skip'] = occurrence
+                if step == 0:
+                    fault['at'] = 'launch'
                 verdict = {}
 
                 def after_step(number, outcome, runner, verdict=verdict):
@@ -387,9 +399,14 @@ def chaos_command(arguments):
                         return 'stop'
                     return None
 
-                faulted = replace(journey, faults=[fault])
-                label = f"{journey.name}: {kind} on {match['method']} {match['path']}" + (f' #{occurrence + 1}' if occurrence else '')
-                result = run_once(opener, faulted, settings, reporter, checks=False, tolerate_failed_receipts=True,
+                # The journey's own faults stay (a retry journey needs its first failure); each `skip`
+                # counts requests from the same start, so the extra fault still hits its occurrence.
+                faulted = replace(journey, faults=list(journey.faults) + [fault])
+                when = ' at launch' if step == 0 else ''
+                label = (f"{journey.name}: {kind} on {match['method']} {match['path']}" + (f' #{occurrence + 1}' if occurrence else '')
+                         + when)
+                launch_settings = replace(settings, faults=faulted.launch_faults)
+                result = run_once(opener, faulted, launch_settings, reporter, checks=False, tolerate_failed_receipts=True,
                                   after_step=after_step, label=label)
                 request_label = f"{match['method']} {match['path']}" + (f' #{occurrence + 1}' if occurrence else '')
                 problems = result.problems + verdict.get('findings', [])
@@ -402,9 +419,9 @@ def chaos_command(arguments):
                     kind_name = None
                 elif not verdict['forward']:
                     following = journey.steps[verdict['step']].do if verdict['step'] < len(journey.steps) else None
-                    retry = journey.steps[verdict['step'] - 1].do
-                    status = ('FAIL stranded: ' + (f'neither "{following}" nor a retry of "{retry}" offered' if following
-                                                   else 'nothing offered')
+                    retry = journey.steps[verdict['step'] - 1].do if verdict['step'] else None
+                    status = ('FAIL stranded: ' + (f'neither "{following}" nor a retry of "{retry}" offered' if following and retry
+                                                   else f'"{following}" not offered' if following else 'nothing offered')
                               + f' within {WAY_FORWARD_SECONDS:g}s')
                     kind_name, upto = 'stranded', verdict['step'] + 1
                 else:
@@ -415,10 +432,10 @@ def chaos_command(arguments):
                     out = journeys.finding_path(kind_name, arguments.out)
                     repro = finding_journey(journey, f'{kind_name} after {kind} on {request_label}'[:120],
                                             f'{status[5:]} (from `tca chaos {journey.path}`)',
-                                            journey.steps[:upto], settings, [fault])
+                                            journey.steps[:upto], settings, faulted.faults)
                     journeys.write_journey(repro, out, f'Found by `tca chaos` with --faults {kind}.')
                     status += f'  -> {relative(out)}'
-                rows.append([f'{step}', request_label, kind, status])
+                rows.append(['launch' if step == 0 else f'{step}', request_label, kind, status])
     finally:
         opener.close()
         reporter.close()

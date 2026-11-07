@@ -12,6 +12,7 @@ stop = "flowdeck stop"              # optional; run after the process group is s
 ```
 """
 from dataclasses import dataclass, field
+import json
 import os
 from pathlib import Path
 import shlex
@@ -124,8 +125,9 @@ def port_open(port, timeout=0.2):
         return False
 
 
-def run_environment(network=None, cassettes=None, seed=None, port=None):
-    """The TCA_HARNESS_* settings for one run, in a stable order."""
+def run_environment(network=None, cassettes=None, seed=None, port=None, faults=None):
+    """The TCA_HARNESS_* settings for one run, in a stable order. `faults` (launch faults) become
+    TCA_HARNESS_FAULTS, compact JSON the app applies from its first request."""
     values = {}
     if network:
         values['TCA_HARNESS_NETWORK'] = network
@@ -135,6 +137,8 @@ def run_environment(network=None, cassettes=None, seed=None, port=None):
         values['TCA_HARNESS_SEED'] = str(int(seed))
     if port is not None:
         values['TCA_HARNESS_PORT'] = str(port)
+    if faults:
+        values['TCA_HARNESS_FAULTS'] = json.dumps(faults, separators=(',', ':'))
     return values
 
 
@@ -230,12 +234,22 @@ class Launched:
         self.reader.join(timeout=1)
 
 
-def launch(target, network=None, cassettes=None, seed=None, port=None):
-    """Start a fresh process for `target` and wait until it is ready."""
+def launch(target, network=None, cassettes=None, seed=None, port=None, faults=None):
+    """Start a fresh process for `target` and wait until it is ready. With `port = "auto"`, a launch
+    that fails because another process took the free port meanwhile is retried on a new one."""
+    for attempt in range(3):
+        try:
+            return _launch(target, network, cassettes, seed, port, faults)
+        except TargetError as error:
+            if port is not None or target.port != 'auto' or 'already in use' not in str(error) or attempt == 2:
+                raise
+
+
+def _launch(target, network, cassettes, seed, port, faults):
     if port is None:
         port = free_port() if target.port == 'auto' else target.port
     variables = dict(target.env)
-    variables.update(run_environment(network, cassettes, seed, port))
+    variables.update(run_environment(network, cassettes, seed, port, faults))
     command = expand(target.launch, port, variables)
     environment = dict(os.environ, TCA_HARNESS='1', **variables)
     try:

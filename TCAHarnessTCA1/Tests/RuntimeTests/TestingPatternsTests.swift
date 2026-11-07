@@ -330,6 +330,104 @@ struct HarnessNetworkTests {
     #expect(networkIssues(since: before) == ["No fixture for DELETE /books/1"])
   }
 
+  @Test func everyRequestSaysHowItWasAnswered() async throws {
+    state.mode = .replay
+    try write("GET__books_1.json", #"{"request":{"method":"GET","url":"http://api/books","body":null},"response":{"status":200,"headers":{},"body":[]}}"#)
+    try write("GET__messages_1.json", #"{"request":{"method":"GET","url":"http://api/messages","body":null},"response":{"status":200,"headers":{},"body":[1]}}"#)
+    try write("GET__messages_2.json", #"{"request":{"method":"GET","url":"http://api/messages","body":null},"response":{"status":200,"headers":{},"body":[1,2]}}"#)
+    _ = await request("GET", "http://api/books")             // exact
+    _ = await request("GET", "http://api/messages")          // ordered: first of two equal recordings
+    _ = await request("GET", "http://api/messages")          // ordered: second
+    _ = await request("GET", "http://api/books?page=2")      // path: query differs, latest for GET /books
+    _ = await request("GET", "http://api/authors")           // blocked: no fixture
+    state.faults = [HarnessFault(match: .init(path: "/books"), kind: .status, status: 500)]
+    _ = await request("GET", "http://api/books")             // fault
+    let log = state.requests()
+    #expect(log.map(\.match) == ["exact", "ordered", "ordered", "path", "blocked", "fault"])
+    #expect(log.map(\.cassette) == ["GET__books_1.json", "GET__messages_1.json", "GET__messages_2.json", "GET__books_1.json", nil, nil])
+    let encoded = String(decoding: try JSONEncoder().encode(log[0]), as: UTF8.self)
+    #expect(encoded.contains(#""match":"exact""#) && encoded.contains(#""cassette":"GET__books_1.json""#) && !encoded.contains("template"))
+    #expect(try JSONDecoder().decode(HarnessNetworkRequest.self, from: Data(encoded.utf8)) == log[0])
+    // Logs from older versions have no `match`.
+    let old = #"{"seq":1,"method":"GET","url":"http://api/books","status":200,"source":"fixture","fault":null,"ms":1}"#
+    #expect(try JSONDecoder().decode(HarnessNetworkRequest.self, from: Data(old.utf8)).match == nil)
+  }
+
+  @Test func matchRulesIgnoreQueryShareTemplatesAndEndPagination() async throws {
+    state.mode = .replay
+    try write("match.json", #"""
+      {"ignore_query": ["t"],
+       "path_templates": ["/users/{id}", "/rides/{id}/attendees"],
+       "paths": {"/events": {"ignore_body": true}, "/rides": {"ignore_query": ["lat", "lon"]}},
+       "pagination": [{"path": "/feed", "cursor": ["max_id", "page"]},
+                      {"path": "/tags/{tag}", "cursor": "cursor", "terminal": {"status": 200, "body": {"items": [], "next": null}}}]}
+      """#)
+    try write("GET__users_123_1.json", #"{"request":{"method":"GET","url":"http://api/users/123","body":null},"response":{"status":200,"headers":{},"body":{"id":123}}}"#)
+    try write("GET__rides_1.json", #"{"request":{"method":"GET","url":"http://api/rides?lat=52.5&lon=13.4&month=1&t=99","body":null},"response":{"status":200,"headers":{},"body":["ride"]}}"#)
+    try write("GET__rides_7_attendees_1.json", #"{"request":{"method":"GET","url":"http://api/rides/7/attendees","body":null},"response":{"status":200,"headers":{},"body":["ann"]}}"#)
+    try write("POST__events_1.json", #"{"request":{"method":"POST","url":"http://api/events","body":{"name":"search"}},"response":{"status":204,"headers":{},"body":null}}"#)
+    try write("GET__feed_1.json", #"{"request":{"method":"GET","url":"http://api/feed?limit=40","body":null},"response":{"status":200,"headers":{},"body":[1,2]}}"#)
+    try write("GET__feed_2.json", #"{"request":{"method":"GET","url":"http://api/feed?max_id=2&limit=40","body":null},"response":{"status":200,"headers":{},"body":[3]}}"#)
+
+    // ignore_query: global `t`, and the location for /rides only. `month` still has to match.
+    #expect(await request("GET", "http://api/rides?lat=48.1&lon=11.6&month=1&t=5").body == #"["ride"]"#)
+    #expect(await request("GET", "http://api/rides?lat=48.1&lon=11.6&month=2").body == #"["ride"]"#)
+    // path_templates: no cassette for /users/456 or /rides/9/attendees, so the template's cassette answers.
+    #expect(await request("GET", "http://api/users/456").body == #"{"id":123}"#)
+    #expect(await request("GET", "http://api/users/123").body == #"{"id":123}"#)
+    #expect(await request("GET", "http://api/rides/9/attendees").body == #"["ann"]"#)
+    #expect(await request("GET", "http://api/users/1/posts").error?.code == .notConnectedToInternet)
+    // ignore_body
+    #expect(await request("POST", "http://api/events", body: #"{"name":"open"}"#).status == 204)
+    // pagination: recorded pages match; a later page with no cassette ends the feed instead of repeating.
+    #expect(await request("GET", "http://api/feed?limit=40").body == "[1,2]")
+    #expect(await request("GET", "http://api/feed?max_id=2&limit=40").body == "[3]")
+    let end = await request("GET", "http://api/feed?max_id=3&limit=40")
+    #expect(end.status == 200 && end.body == "[]")
+    let tagEnd = json(Data(await request("GET", "http://api/tags/bikes?cursor=abc").body.utf8))
+    #expect((tagEnd["items"] as? [Any])?.isEmpty == true && tagEnd["next"] is NSNull)
+    // The first page (no cursor) without a match still falls back to the latest recording.
+    #expect(await request("GET", "http://api/feed?limit=10").body == "[3]")
+
+    let log = state.requests()
+    #expect(log.map(\.match) == ["exact", "path", "template", "exact", "template", "blocked", "exact", "exact", "exact", "synthetic", "synthetic", "path"])
+    #expect(log[2].template == "/users/{id}" && log[2].cassette == "GET__users_123_1.json")
+    #expect(log[3].template == nil)
+    #expect(log[9].cassette == nil)
+  }
+
+  @Test func brokenMatchRulesAreReportedOnce() async throws {
+    state.mode = .replay
+    try write("match.json", #"{"path_templates": "/users/{id}"}"#)
+    try write("GET__books_1.json", #"{"request":{"method":"GET","url":"http://api/books","body":null},"response":{"status":200,"headers":{},"body":[]}}"#)
+    let before = HarnessIssueLog.shared.count
+    #expect(await request("GET", "http://api/books").status == 200)
+    #expect(await request("GET", "http://api/books").status == 200)
+    let issues = networkIssues(since: before)
+    #expect(issues.count == 1 && issues[0].contains("match.json"))
+  }
+
+  @Test func recordingNamesTemplatedPathsAfterTheirTemplate() async throws {
+    let server = try await LoopbackHTTPServer.start(status: 200, body: #"{"ok":true}"#)
+    defer { server.stop() }
+    try write("match.json", #"{"path_templates": ["/books/{id}"]}"#)
+    state.mode = .record
+    _ = await request("PUT", "http://127.0.0.1:\(server.port)/books/A1", body: #"{"read":true}"#)
+    _ = await request("PUT", "http://127.0.0.1:\(server.port)/books/B2", body: #"{"read":true}"#)
+    _ = await request("GET", "http://127.0.0.1:\(server.port)/books")
+    let files = try FileManager.default.contentsOfDirectory(atPath: directory.path).sorted()
+    #expect(files == ["GET__books_1.json", "PUT__books_{id}_1.json", "PUT__books_{id}_2.json", "match.json"])
+    #expect(state.requests().map(\.match) == ["live", "live", "live"])
+    #expect(state.requests().map(\.cassette) == ["PUT__books_{id}_1.json", "PUT__books_{id}_2.json", "GET__books_1.json"])
+    // Replay: the recorded ids match exactly, any other id through the template.
+    server.stop()
+    state.mode = .replay
+    _ = await request("PUT", "http://api/books/B2", body: #"{"read":true}"#)
+    _ = await request("PUT", "http://api/books/C3", body: #"{"read":true}"#)
+    #expect(state.requests().suffix(2).map(\.match) == ["exact", "template"])
+    #expect(state.requests().last?.cassette == "PUT__books_{id}_1.json")
+  }
+
   @Test func faultsMatchConsumeAndApply() async throws {
     state.mode = .replay
     try write("GET__books_1.json", #"{"request":{"method":"GET","url":"http://api/books","body":null},"response":{"status":200,"headers":{},"body":[]}}"#)
@@ -360,7 +458,12 @@ struct HarnessNetworkTests {
 
     state.faults = [HarnessFault(match: .init(method: "GET"), kind: .delay, delayMs: 150)]
     let started = ContinuousClock.now
-    let delayed = await request("GET", "http://api/books")
+    #expect(state.snapshot().pending == 0)
+    async let delayedRequest = request("GET", "http://api/books")
+    try await Task.sleep(for: .milliseconds(50))
+    #expect(state.snapshot().pending == 1)  // Started, not logged until it's answered.
+    let delayed = await delayedRequest
+    #expect(state.snapshot().pending == 0)
     #expect(ContinuousClock.now - started >= .milliseconds(150))
     #expect(delayed.status == 200 && delayed.body == "[]")
     let last = state.requests().last!
@@ -491,6 +594,20 @@ struct HarnessNetworkTests {
     let badFault = json(await session.handleJSON(Data(#"{"method":"network","network":{"faults":[{"kind":"status"}]}}"#.utf8)))
     #expect(badFault["ok"] as? Bool == false)
     #expect(state.mode == .replay)
+  }
+
+  @Test func environmentFaultsApplyFromTheFirstRequest() {
+    let log = HarnessIssueLog()
+    let faults = #"[{"match":{"method":"GET","path":"/books"},"kind":"status","status":503},{"kind":"offline","skip":1,"times":-1}]"#
+    let configured = HarnessNetworkState(environment: ["TCA_HARNESS_NETWORK": "replay", "TCA_HARNESS_FAULTS": faults], issues: log)
+    #expect(configured.faults == [
+      HarnessFault(match: .init(method: "GET", path: "/books"), kind: .status, status: 503),
+      HarnessFault(kind: .offline, times: -1, skip: 1),
+    ])
+    #expect(log.issues().isEmpty)
+    let broken = HarnessNetworkState(environment: ["TCA_HARNESS_FAULTS": #"[{"kind":"status"}]"#], issues: log)
+    #expect(broken.faults.isEmpty)
+    #expect(log.issues().map(\.message).first?.hasPrefix("Invalid TCA_HARNESS_FAULTS") == true)
   }
 
   @Test func environmentConfiguresModeAndCassettes() {

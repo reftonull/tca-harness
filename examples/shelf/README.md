@@ -19,7 +19,7 @@ cd examples/shelf
 | `stuck-save` | A failed save leaves the editor spinning: no error, no Retry, Cancel disabled | Fault injection, `tca chaos journeys/add-book.toml` | 1 | `stuck`: `root/addBook/save still running after 5s`, and the `saving means a save is in flight` invariant |
 | `double-save` | Save isn't disabled once the book is submitted | Exploration, `tca explore` | 1 | `invariant: no duplicate books`, shrunk to `Add book, Set title, Save, Save` |
 | `badge-drift` | Marking a book read doesn't update the unread badge | Invariant, during `journeys/mark-read.toml` | 1, 3 | `invariant: unread badge matches the list` |
-| `chatty-search` | Search sends an analytics event per keystroke instead of per search | Network discipline, `journeys/search.toml` budget | 1, 3 | `budget: 3 requests, budget 2` |
+| `chatty-search` | Search sends an analytics event per keystroke instead of per search | Network discipline, `journeys/search.toml` (step requests and budget) | 1, 3 | `requests after step 1 "Search": expected [POST /events], made [POST /events, POST /events] (unexpected POST /events)` |
 | `wall-clock` | New books are stamped with `Date()` instead of `@Dependency(\.date)` | Determinism, `tca determinism journeys/add-book.toml` | 1 | `differs after step 4 "Save"`: `books[3].addedAt` |
 | `view-only-seen` | Only the SwiftUI view's `.onAppear` clears the "new" dot; the reducer's `.task` no longer does | Rung differential, `tca diff --targets headless,ui` | 1 vs 2 | `differs at launch: hasNewBooks: true vs false` |
 | `late-delete` | Delete closes the detail first, then routes the response to it after it's gone | Generic issue oracle, `journeys/delete-book.toml` (and `tca explore`) | 1, 3 | `issue`: TCA's `An "ifLet" ... received a presentation action when destination state was absent` |
@@ -39,9 +39,9 @@ The bug list is in [Models.swift](Sources/ShelfCore/Models.swift) (`ShelfBug`). 
 | [Sources/shelf-headless](Sources/shelf-headless/ShelfHeadless.swift) | Rung 1 host: the same reducers in a native macOS process |
 | [App](App), [project.yml](project.yml), [flowdeck.json](flowdeck.json) | Rung 2: SwiftUI views over ShelfCore; xcodegen spec; FlowDeck config for the iPhone 17 Pro simulator |
 | [server.py](server.py) | The backend: in-memory books CRUD plus `/events`, `/stats` and `/goal`, standard library only |
-| [harness.toml](harness.toml) | Targets `headless`, `ui` and `live` |
-| [journeys](journeys) | `add-book`, `mark-read`, `delete-book`, `search`, `retry-after-error`, and for the vanilla screens `view-stats`, `set-goal` |
-| [fixtures/shelf](fixtures/shelf) | Cassettes recorded from `server.py`; [record_fixtures.sh](record_fixtures.sh) re-records them |
+| [harness.toml](harness.toml) | Targets `headless`, `ui`, `live`, and `record` (the headless host with its own fresh `server.py` per run) |
+| [journeys](journeys) | `add-book`, `mark-read`, `delete-book`, `search`, `retry-after-error`, and for the vanilla screens `view-stats`, `set-goal`. `mark-read` and `search` pin the requests each step makes (recorded by `tca record`) |
+| [fixtures/shelf](fixtures/shelf) | Cassettes recorded from `server.py` by the journeys, plus [match.json](fixtures/shelf/match.json); [record_fixtures.sh](record_fixtures.sh) re-records them |
 | [ladder.py](ladder.py), [run_ladder.sh](run_ladder.sh) | Run every pattern for both bug settings and print the matrix |
 
 ## How it's wired
@@ -50,7 +50,7 @@ The bug list is in [Models.swift](Sources/ShelfCore/Models.swift) (`ShelfBug`). 
 
 **Invariants** live on the root descriptor: the unread badge equals the number of unread books, no two books share an id, and the editor never shows "saving" without a save in flight. The vanilla models carry their own, on their model descriptors: the goal's progress percentage matches the goal, and the stats' read and unread add up to the total.
 
-**Network.** Every client uses one `URLSession` built with `HarnessNetwork.configure(.ephemeral)`. Under the harness it replays `fixtures/shelf`, records, injects faults and blocks anything unexpected. The base URL comes from `SHELF_API` (default `http://127.0.0.1:8799`). Responses are treated as acknowledgements: the app keeps the book it sent, so replay serves any book's request from the recording for its path. A response of the wrong shape (well-formed JSON, missing key) is reported with `reportIssue` as a contract problem. Invalid JSON is an ordinary failure.
+**Network.** Every client uses one `URLSession` built with `HarnessNetwork.configure(.ephemeral)`. Under the harness it replays `fixtures/shelf`, records, injects faults and blocks anything unexpected. The base URL comes from `SHELF_API` (default `http://127.0.0.1:8799`). Responses are treated as acknowledgements: the app keeps the book it sent. [match.json](fixtures/shelf/match.json) says so: request bodies are ignored for `/books`, `/books/{id}` and `/events`, and `/books/{id}` is a path template, so one recording of `PUT`/`DELETE` answers for any book, including ones a random walk adds. Every request a journey or `tca explore` makes matches a cassette exactly or through the template; `tca fixtures coverage journeys/*.toml --strict` checks that. A response of the wrong shape (well-formed JSON, missing key) is reported with `reportIssue` as a contract problem. Invalid JSON is an ordinary failure.
 
 **Determinism.** Both hosts apply `harnessDeterministic()` (seeded `uuid`, fixed `date`) and start listening only after the first load finishes. Every run, and both rungs, then start from the same state.
 
@@ -88,8 +88,11 @@ xcodegen generate && flowdeck build --config flowdeck.json
 SHELF_BUGS=view-only-seen ../../scripts/tca diff journeys/mark-read.toml --targets headless,ui
 
 ../../scripts/tca journey run journeys/search.toml --target live --network record   # rewrites fixtures/shelf
+../../scripts/tca fixtures coverage journeys/*.toml --strict    # how every request was answered
 ```
 
-`--network record` rewrites the committed cassettes. To re-record all of them against fresh servers, run `./record_fixtures.sh`. `ladder.py` runs rung 3 in a scratch copy, so the ladder never touches them. [fixtures/record-sweep.toml](fixtures/record-sweep.toml) is not a test. It touches every endpoint for the seed books and the first six books a walk can add (their ids come from the seeded uuid generator), so a clean `tca explore` never makes a request without a fixture.
+`--network record` rewrites the committed cassettes. To re-record all of them, run `./record_fixtures.sh`: it is `tca fixtures record journeys/*.toml --target record --strict`, where the `record` target starts a fresh `server.py` in each run's process group, so every journey records against the seed books. `ladder.py` runs rung 3 in a scratch copy, so the ladder never touches them.
+
+**Fixtures before and after `match.json`.** Before: 39 cassettes, one per book id and per analytics event (nine `DELETE__books_<uuid>_1.json`, eight `PUT__books_<uuid>_1.json`, six `POST__books_<n>.json`, fifteen `POST__events_<n>.json`), plus a 66-step `fixtures/record-sweep.toml` journey whose only job was to touch every endpoint for every id a random walk can create. Coverage of the five journeys used 8 of 39 and had one fallback. After: 5 cassettes (`GET__books_1`, `POST__books_1`, `POST__events_1`, `PUT__books_{id}_1`, `DELETE__books_{id}_1`), no sweep journey, all used, no fallback; `tca explore --runs 30` made 518 requests, all `exact` or `template`.
 
 To drive the app yourself, launch it with `flowdeck run --config flowdeck.json --launch-env 'TCA_HARNESS=1 TCA_HARNESS_PORT=8792'` and use `../../scripts/tca ls --port 8792`.

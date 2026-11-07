@@ -860,8 +860,11 @@ def do_operation(host, query, arguments=None, path=None, show_all=False, timeout
                 error=response.get('error'), detail=response.get('detail'))
 
 
-def do_command(host, query, arguments=None, path=None, show_all=False, as_json=False, timeout_ms=5000, record=False):
+def do_command(host, query, arguments=None, path=None, show_all=False, as_json=False, timeout_ms=5000, record=False, port=None):
     """Resolve, dispatch at the current revision, wait for the receipt, then print the new focus."""
+    recording = record and Path(RECORDING).exists()
+    if recording:
+        sibling('journeys').record_requests(host, port)  # What the previous step made, up to now.
     result = do_operation(host, query, arguments, path, show_all, timeout_ms)
     candidate = result['candidate']
     if candidate is None:
@@ -893,7 +896,7 @@ def do_command(host, query, arguments=None, path=None, show_all=False, as_json=F
         if after:
             print()
             print(format_view(after))
-    if ok and record and Path(RECORDING).exists():
+    if ok and recording:
         number, name = sibling('journeys').record_step(result, arguments or {}, path)
         print(f'recorded step {number}: {name}', file=sys.stderr)
     return 0 if ok else 2
@@ -953,7 +956,7 @@ def doctor(host):
 
 
 RECORDING = '.tca/recording.json'  # `tca record start` writes this; `tca do` appends steps to it.
-TEST_COMMANDS = ('journey', 'record', 'explore', 'chaos', 'determinism', 'diff')  # Handled in journeys.py.
+TEST_COMMANDS = ('journey', 'record', 'explore', 'chaos', 'determinism', 'diff', 'fixtures')  # Handled in journeys.py.
 COMMANDS = ['doctor', 'ls', 'do', 'setup', 'shell', 'observe', 'inspect', 'dispatch', 'wait', 'cancel', 'demo',
             'arguments-demo', 'hybrid-demo', 'run', 'trace', 'devtools', 'protocol', 'build', *TEST_COMMANDS]
 APP_ONLY = ('doctor', 'ls', 'do')
@@ -1068,7 +1071,7 @@ def main(argv=None):
         elif args.command == 'ls':
             return list_command(host, args.path, args.all, args.json)
         elif args.command == 'do':
-            return do_command(host, args.params[0], arguments, args.path, args.all, args.json, record=True)
+            return do_command(host, args.params[0], arguments, args.path, args.all, args.json, record=True, port=args.port)
         elif args.command == 'observe':
             emit('observation', observation=host.observation)
         elif args.command == 'inspect':

@@ -71,7 +71,7 @@ env = { SHELF_API = "http://127.0.0.1:8799" }
 stop = "..."                       # optional command run after each process is stopped
 ```
 
-The CLI finds `harness.toml` by searching upward from the journey file, then the current directory, and uses `--target NAME` (default `headless`, or the only target). Each run gets its own process group, killed afterwards. The launch command sees `TCA_HARNESS=1`, `TCA_HARNESS_NETWORK`, `TCA_HARNESS_CASSETTES`, `TCA_HARNESS_SEED` and `TCA_HARNESS_PORT` in its environment, and `{env}` expands to the same settings plus the target's `env` as `KEY=value` pairs for launchers that can't pass the environment on.
+The CLI finds `harness.toml` by searching upward from the journey file, then the current directory, and uses `--target NAME` (default `headless`, or the only target). Each run gets its own process group, killed afterwards. The launch command sees `TCA_HARNESS=1`, `TCA_HARNESS_NETWORK`, `TCA_HARNESS_CASSETTES`, `TCA_HARNESS_SEED` and `TCA_HARNESS_PORT` in its environment, plus `TCA_HARNESS_FAULTS` (compact JSON) when the run fails requests at launch. `{env}` expands to the same settings plus the target's `env` as `KEY=value` pairs for launchers that can't pass the environment on.
 
 ### `tca journey run`
 
@@ -81,7 +81,7 @@ tca journey run journeys/add-book.toml --port 8790      # attach to a running ap
 tca journey run journeys/add-book.toml --target ui --pace 1.2   # pause 1.2s after each step, e.g. to record it
 ```
 
-Each step is resolved exactly like `tca do` (label, name or ID among the focused and lent operations), dispatched and waited for. After each step the oracles run and the step's `expect` is checked; at the end every `[checks]` expression must hold and `[budget] requests` is compared with the app's request log. `--pace SECONDS` (default 0) sleeps after each step and once more before the final checks, so a person or a screen recording can follow the run; it doesn't change what is checked. Output is one line per passing journey and the first problem for a failing one:
+Each step is resolved exactly like `tca do` (label, name or ID among the focused and lent operations), dispatched and waited for. After each step the oracles run and the step's `expect` is checked, and a step's `requests` (for example `requests = ["GET /books", "POST /events"]`) are compared, in any order, with the requests the app logged until it went quiet again. A step that declares `requests = []` must make none, and `launch_requests` covers launch. At the end every `[checks]` expression must hold and `[budget] requests` is compared with the app's request log. `--pace SECONDS` (default 0) sleeps after each step and once more before the final checks, so a person or a screen recording can follow the run; it doesn't change what is checked. Output is one line per passing journey and the first problem for a failing one:
 
 ```text
 FAIL  Add a book  (journeys/add-book.toml)
@@ -94,7 +94,14 @@ FAIL  Add a book  (journeys/add-book.toml)
   hint: re-solve it: `tca record start journeys/add-book.toml`, reach the goal with `tca ls`/`tca do`, then `tca record stop`
 ```
 
-A journey with a goal but no steps fails as unsolved with the same hint. Check expressions allow attribute access, indexing, comparisons, `and`/`or`/`not`, arithmetic, generator expressions and `len`, `any`, `all`, `sum`, `min`, `max`, `sorted`, `set`; missing keys read as `None`.
+A request mismatch names both sides:
+
+```text
+FAIL  Mark a book as read  (journeys/mark-read.toml)
+  requests after step 3 "Mark as read": expected [PUT /books/{id}], made [PUT /books/2A3F0C1E-8C55-4E0B-9C5A-0B5D7F3A1103, GET /books] (unexpected GET /books)
+```
+
+Patterns are `METHOD /path`, where `{name}` is one path segment and `*` matches anything; a pattern without `?` ignores the query (`GET /books?*` matches any query). Faults with `at = "launch"` are passed in `TCA_HARNESS_FAULTS`, so they fail requests the app makes before the CLI connects. A journey with a goal but no steps fails as unsolved with the same hint. Check expressions allow attribute access, indexing, comparisons, `and`/`or`/`not`, arithmetic, generator expressions and `len`, `any`, `all`, `sum`, `min`, `max`, `sorted`, `set`; missing keys read as `None`.
 
 ### `tca record`
 
@@ -106,7 +113,7 @@ tca do Save --port 8790
 tca record stop --check "Dune is on the shelf=any(b.title == 'Dune' for b in shelf.books)"
 ```
 
-`start` writes `.tca/recording.json` in the current directory; run `tca do` from the same directory. Each successful `do` appends its step by label (falling back to the name or route when the label is ambiguous). `stop` writes the journey, keeping the existing file's other keys (fixtures, network, checks, budget) so re-solving a broken journey only replaces its steps. Checks are validated before anything is written.
+`start` writes `.tca/recording.json` in the current directory; run `tca do` from the same directory. Each successful `do` appends its step by label (falling back to the name or route when the label is ambiguous), with the requests the app made until the next `do` as its `requests` (`stop` waits for quiet to fill in the last step). Paths are templated (`PUT /books/{id}`) from `match.json` or, for numeric, UUID and long hex segments, by shape. Requests made before the first `do` are written as `launch_requests`, so start on a fresh launch. `stop` writes the journey, keeping the existing file's other keys (fixtures, network, checks, budget) so re-solving a broken journey only replaces its steps. Checks are validated before anything is written.
 
 ### `tca explore`
 
@@ -128,7 +135,28 @@ explore: 50 run(s) of up to 40 step(s) on headless, seed 3: 1 finding(s)
 tca chaos journeys/add-book.toml [--faults status500,timeout,offline,malformed,slow]
 ```
 
-Runs the journey once in replay mode to learn its requests, then reruns it once per request and fault with that request failed (the Nth occurrence of a repeated request through the fault's `skip`). A rerun passes when no oracle fires and, within 5 s, the journey's next step or a retry of the failed step is offered (any operation if the journey is finished). Checks don't have to hold. Each failure becomes a journey with a `[[faults]]` entry that reproduces it. Requires protocol v3.
+Runs the journey once in replay mode to learn its requests, then reruns it once per request and fault with that request failed (the Nth occurrence of a repeated request through the fault's `skip`). Launch requests are failed on a fresh launch through `TCA_HARNESS_FAULTS` (rows marked `launch`; the way forward is the first step). A rerun passes when no oracle fires and, within 5 s, the journey's next step or a retry of the failed step is offered (any operation if the journey is finished). Checks don't have to hold. Each failure becomes a journey with a `[[faults]]` entry that reproduces it. Requires protocol v3.
+
+### `tca fixtures coverage` and `tca fixtures record`
+
+```sh
+tca fixtures coverage journeys/*.toml [--target headless] [--fixtures DIR] [--strict]
+tca fixtures coverage --report explore.jsonl --report chaos.jsonl          # from earlier runs, any command
+tca fixtures record journeys/*.toml --target live [--into fixtures/raw] [--sanitize fixtures/sanitize.py]
+```
+
+Every logged request says how it was answered: `exact`, `ordered` (one of several equal recordings, by occurrence), `template` (a cassette recorded for the same `match.json` path template), `path` (fallback: the latest cassette for the path, because query or body differed), `synthetic` (a `match.json` rule such as a terminal page), `fault`, `blocked` or `live`. `coverage` runs the journeys (or reads `request` events from `--report` files) and prints a row per endpoint (method and templated path) with counts per kind, the cassettes nothing used, and each request that fell back or was blocked, with the journey and step. `--strict` exits 1 if there are any; a failed journey always exits 1.
+
+```text
+fixtures coverage: 6 run(s), 0 failed; 26 request(s) to 5 endpoint(s)
+  ENDPOINT        REQUESTS  EXACT  ORDERED  PATH
+  GET /api/ride   6         .      .        6
+  ...
+fallback matches (7): no cassette for the exact request, so the latest one for its path answered. ...
+  GET /api/ride?centerLongitude=13.4206...&centerLatitude=52.5289...  -> GET__api_ride_1.json  (journeys/launch.toml at launch)
+```
+
+`record` runs each journey with `--network record` on the target (respecting the app's live guard, whose name it prints; refused requests are listed and not recorded), then the `--sanitize` script once with the cassette directories as arguments, then the coverage report for the journeys replayed against their own fixtures. See [docs/testing.md](../docs/testing.md#matching-rules) for the `match.json` rules that remove fallbacks.
 
 ### `tca determinism` and `tca diff`
 
@@ -282,6 +310,7 @@ These tests need no app, model credentials, network, or Swift build. They cover:
 - `ls`/`do` against a fake host
 - check expressions, including refused inputs, and the TOML writer
 - targets, journeys, recording, explore and shrinking, chaos, determinism and diff end to end against [a fake protocol v3 app](tests/fake_app.py) with planted bugs
+- request patterns and per-step expectations, launch faults (journeys and chaos), fixture coverage and the recording sweep
 - both providers against a mocked network
 - `setup`
 - the devtools relay and connection failures

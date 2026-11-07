@@ -13,16 +13,26 @@ real people's data, so nothing is committed as recorded:
   messages stay older than "now" in deterministic runs.
 
 Synthetic cassettes (marked with "note") fill what a read-only recording can't: chat messages (the
-public chat was empty), the end of the Mastodon feed, and acknowledgements for the writes that replay
-answers instead of the server.
+public chat was empty) and acknowledgements for the writes that replay answers instead of the server.
+
+It also writes match.json, the matching rules (docs/testing.md#matching-rules):
+- The next-ride query carries the rider's position with random noise added (upstream's
+  CoordinateObfuscator uses Double.random, by design), so no recording can match it exactly; the two
+  coordinates are ignored.
+- Chat posts and location updates carry the message and position; the acknowledgement doesn't
+  depend on them, so their bodies are ignored.
+- The Mastodon feed pages with `max_id`; a page past the recorded ones is empty, which ends the feed.
+
+    python3 sanitize.py [RAW_DIR]     # default fixtures/raw (what `tca fixtures record --into` wrote)
 """
 import email.utils
 import json
 from pathlib import Path
 import shutil
+import sys
 
 HERE = Path(__file__).resolve().parent
-RAW, OUT = HERE / 'raw', HERE / 'criticalmaps'
+RAW, OUT = (Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else HERE / 'raw'), HERE / 'criticalmaps'
 START = 1_767_225_600  # HarnessDeterministic.startDate
 
 
@@ -86,7 +96,7 @@ write('GET__locations_1.json', c)
 # of the harness's fixed date (`month=1&year=2026`), so these are January 2026 rides.
 write('GET__api_ride_1.json', load('GET__api_ride_1.json'))
 
-# Mastodon: two recorded pages, anonymized; then a synthetic empty page that ends the feed.
+# Mastodon: two recorded pages, anonymized. The page after them is match.json's terminal page.
 names = {}
 last_id = None
 for n in (1, 2):
@@ -118,9 +128,6 @@ for n in (1, 2):
         scrub(toot)
         last_id = toot['id']
     write(f'GET__api_v1_timelines_tag_CriticalMass_{n}.json', c)
-write('GET__api_v1_timelines_tag_CriticalMass_3.json',
-      cassette('GET', f'https://mastodon.social/api/v1/timelines/tag/CriticalMass?max_id={last_id}&limit=40', []),
-      note='Synthetic: the page after the second recorded page is empty, which ends the feed.')
 
 # Chat: the public chat was empty when recorded. Three synthetic messages, older than "now".
 messages = [{'identifier': f'harness-message-{i}', 'device': f'harness-rider-0{i}',
@@ -141,4 +148,12 @@ write('POST__messages_1.json', cassette('POST', 'https://api-gw.criticalmaps.net
       note='Synthetic: chat posts are refused by the live guard and never recorded.')
 write('PUT__locations_1.json', cassette('PUT', 'https://api-cdn.criticalmaps.net/locations', {'status': 'ok'}),
       note='Synthetic: location updates are refused by the live guard and never recorded.')
-print('Wrote', len(list(OUT.iterdir())), 'cassettes to', OUT)
+(OUT / 'match.json').write_text(json.dumps({
+    'paths': {
+        '/api/ride': {'ignore_query': ['centerLatitude', 'centerLongitude']},
+        '/messages': {'ignore_body': True},
+        '/locations': {'ignore_body': True},
+    },
+    'pagination': [{'path': '/api/v1/timelines/tag/{tag}', 'cursor': 'max_id', 'terminal': {'status': 200, 'body': []}}],
+}, indent=2) + '\n')
+print('Wrote', len(list(OUT.iterdir())) - 1, 'cassettes and match.json to', OUT)

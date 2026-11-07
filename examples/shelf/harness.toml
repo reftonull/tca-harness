@@ -25,3 +25,15 @@ launch = ".build/debug/shelf-headless --port {port}"
 port = "auto"
 ready = "TCA harness listening"
 env = { SHELF_API = "http://127.0.0.1:8799" }
+
+# Rung 3 with its own fresh server.py (port 8798) per run, for re-recording fixtures/shelf:
+#   tca fixtures record journeys/*.toml --target record      (or ./record_fixtures.sh)
+# The server starts in the run's process group, so it is stopped with the app and every journey
+# records against the seed books.
+[targets.record]
+launch = """python3 server.py --quiet --port 8798 & \
+until python3 -c "import socket; socket.create_connection(('127.0.0.1', 8798), 0.2)" 2>/dev/null; do sleep 0.05; done; \
+exec .build/debug/shelf-headless --port {port}"""
+port = "auto"
+ready = "TCA harness listening"
+env = { SHELF_API = "http://127.0.0.1:8798" }
