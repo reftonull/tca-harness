@@ -56,6 +56,9 @@ struct ShelfView: View {
         ToolbarItem(placement: .secondaryAction) {
           Button("Reading goal", systemImage: "target") { store.send(.goalButtonTapped) }
         }
+        ToolbarItem(placement: .secondaryAction) {
+          Button("Find books", systemImage: "magnifyingglass") { store.send(.discoverButtonTapped) }
+        }
       }
       .sheet(item: $store.scope(state: \.addBook, action: \.addBook)) { store in
         AddBookView(store: store)
@@ -64,6 +67,9 @@ struct ShelfView: View {
         BookDetailView(store: store)
       }
       // Vanilla SwiftUI screens. Stats is hosted in the store: the view gets the model, unchanged.
+      .sheet(item: $store.scope(state: \.discover, action: \.discover)) { store in
+        DiscoverView(store: store)
+      }
       .sheet(item: $store.scope(state: \.stats, action: \.stats)) { store in
         StatsView(model: store.model)
       }
@@ -129,9 +135,10 @@ struct AddBookView: View {
           }
         }
         ToolbarItem(placement: .confirmationAction) {
-          if (store.isSaving || store.isSaved) && !bugs.contains(.doubleSave) {
-            if store.isSaving { ProgressView() }
-          } else {
+          // The double-save bug: no spinner in place of Save while the request is in flight.
+          if store.isSaving && !bugs.contains(.doubleSave) {
+            ProgressView()
+          } else if !store.isSaved {
             Button("Save") { store.send(.saveButtonTapped) }
               .disabled(!store.canSubmit || store.saveError != nil)
           }
@@ -139,6 +146,40 @@ struct AddBookView: View {
       }
     }
     .interactiveDismissDisabled(store.isSaving)
+  }
+}
+
+struct DiscoverView: View {
+  @Bindable var store: StoreOf<Discover>
+  @State private var text = ""
+
+  var body: some View {
+    NavigationStack {
+      List {
+        if let error = store.error {
+          Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
+        }
+        if !store.resultsFor.isEmpty {
+          Section("Results for \u{201C}\(store.resultsFor)\u{201D}") {
+            ForEach(store.results, id: \.title) { entry in
+              VStack(alignment: .leading) {
+                Text(entry.title).font(.headline)
+                Text(entry.author).font(.subheadline).foregroundStyle(.secondary)
+              }
+            }
+          }
+        }
+      }
+      .overlay { if store.isSearching { ProgressView() } }
+      .searchable(text: $text, prompt: "Title or author")
+      .onSubmit(of: .search) { store.send(.searchSubmitted(text)) }
+      .navigationTitle("Find books")
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button("Close") { store.send(.closeButtonTapped) }
+        }
+      }
+    }
   }
 }
 

@@ -20,7 +20,8 @@ The same test runs at three rungs:
 | **Fixture coverage** | `tca fixtures coverage` | Replays that only pass by accident: requests answered by a fallback cassette, cassettes nothing uses | 1 |
 | **Fault injection** | `tca chaos` | Errors that strand the user: stuck spinners, swallowed failures, crashes on bad responses | 1 |
 | **Invariants** | always on | State that contradicts itself: a badge that disagrees with the list, duplicate rows | 1, 2, 3 |
-| **Exploration** | `tca explore` | Sequences nobody wrote a test for: double taps, dismissing mid-request, effects that outlive their screen. Shrinks each finding to a minimal journey | 1 |
+| **Exploration** | `tca explore` | Sequences nobody wrote a test for: effects that outlive their screen, invalid input, states nobody planned. Shrinks each finding to a minimal journey | 1 |
+| **Races** | `tca explore --races`, `tca chaos --reorder` | Timing a person produces and a waiting test never does: double taps while a request is in flight, dismissing or going back mid-request, a stale response overwriting a newer one, out-of-order responses | 1 |
 | **Determinism** | `tca determinism` | Hidden nondeterminism: direct `Date()`, `UUID()`, unseeded randomness, order dependence | 1 |
 | **Rung differential** | `tca diff` | Logic that only runs when views exist (`.onAppear` side effects), lifecycle-dependent behavior | 1 vs 2 |
 | **Contract check** | `tca journey run --network record` | The backend changed shape: renamed fields, new required values, decode failures | 3 |
@@ -85,6 +86,9 @@ Optional keys:
 | step `path = "root/shelf"` | Resolve the step against this feature, like `tca do --path`. |
 | step `args = '{"note": null}'` | Arguments as a JSON string, for values TOML can't express (`null`). |
 | step `requests = ["GET /books"]` | The requests this step makes (below). `[]` means none. |
+| step `no_wait = true` | Dispatch this step without waiting for the previous one to finish: its receipt, its `expect` and the quiet after it. The previous step's `expect`/`requests` aren't allowed; a race's requests are checked on its last step ([Races](#races)). |
+| step `after_ms = 150` | Pause before dispatching: measured from the previous step's dispatch with `no_wait`, else from when it finished. |
+| `latency = { ms = 200, jitter_ms = 150 }` | Replay latency for this journey (`TCA_HARNESS_LATENCY`; `--latency`/`--jitter` override it). Also `seed` and `paths = { "/search" = { ms = 600 } }`, or a plain number of milliseconds ([Races](#races)). |
 | `launch_requests = ["GET /books"]` | The requests the app makes at launch, before the first step. Put it above the first `[[steps]]`/`[[faults]]` table. |
 
 ### Screen contracts: the requests each step makes
@@ -168,6 +172,7 @@ The CLI passes the run's settings as environment variables, appended to `{env}` 
 | `TCA_HARNESS_SEED` | Seed for deterministic dependencies (integer) |
 | `TCA_HARNESS_PORT` | Port to listen on |
 | `TCA_HARNESS_FAULTS` | Faults pending from the first request, as compact JSON (the journey's `at = "launch"` faults, or chaos on a launch request). Set only when there are some. In `{env}` it contains double quotes, so a launch command that wraps `{env}` in double quotes can't take it |
+| `TCA_HARNESS_LATENCY` | Replay latency, as compact JSON (`{"jitter_ms":150,"ms":200}`) or milliseconds. Set only when the run has one. Same quoting caveat |
 
 ## Commands
 
@@ -175,17 +180,19 @@ The CLI passes the run's settings as environment variables, appended to `{env}` 
 tca journey run FILE... [--target headless] [--network MODE] [--seed N] [--report out.jsonl] [--port N]
 tca record start FILE --goal TEXT | tca record stop [--check NAME=EXPR]...
 tca explore [--target headless] [--runs 50] [--steps 40] [--seed N] [--journey FILE]  # FILE: start from its end state
-            [--fixtures DIR] [--network MODE] [--shrink-trials 100]
+            [--fixtures DIR] [--network MODE] [--shrink-trials 100] [--races]
 tca chaos FILE [--target headless] [--faults status500,timeout,offline,malformed,slow]
+tca chaos FILE --reorder [--reorder-ms 1000]
 tca determinism FILE [--target headless] [--runs 3]
 tca diff FILE --targets headless,ui
 tca fixtures coverage [FILE...] [--target headless] [--fixtures DIR] [--report run.jsonl]... [--strict]
 tca fixtures record FILE... --target live [--into DIR] [--sanitize SCRIPT] [--strict] [--no-coverage]
 ```
 
-All commands print a short plain-text summary, write JSON lines with `--report` (the `tca trace` format), and exit 1 when they found something, 2 for usage or configuration errors. All take `--wait-ms` (the stuck budget, default 5000) and `--seed`; finding commands take `--out DIR`. Each finding is written as a minimal journey under `.tca/findings/` that reproduces it with `tca journey run` (determinism and diff findings reproduce with the command that found them). Against a protocol v2 app the issue, invariant and network oracles are skipped, and the summary says so once.
+All commands print a short plain-text summary, write JSON lines with `--report` (the `tca trace` format), and exit 1 when they found something, 2 for usage or configuration errors. All take `--wait-ms` (the stuck budget, default 5000), `--seed`, and `--latency MS`/`--jitter MS` (replay latency, [Races](#races)); finding commands take `--out DIR`. Each finding is written as a minimal journey under `.tca/findings/` that reproduces it with `tca journey run` (determinism and diff findings reproduce with the command that found them). Against a protocol v2 app the issue, invariant and network oracles are skipped, and the summary says so once.
 
 - **explore** walks random offered operations, generating arguments from each operation's schema (strings from a small corpus that includes empty, long and unicode values). After a finding it relaunches and shrinks the step list (delta debugging) to the shortest sequence that still produces the same finding kind.
+- **explore --races** and **chaos --reorder**: see [Races](#races).
 - **chaos** first runs the journey in replay mode to learn which requests it makes. Then, for each request and each fault, it reruns the journey with that one request failed. A run passes when no generic oracle fires and, within 5 s of the fault, the app still offers a way forward: the journey's next step, a retry of the step whose request failed, or any operation if the journey is finished. Otherwise the finding is **stranded**. Checks are not required to hold, and the failed step's receipt may be `failed`. To fail the Nth occurrence of a request, the fault is set before the first step with `skip = N-1`. Requests made during launch (before the first step) are faulted the same way through `TCA_HARNESS_FAULTS` on a fresh launch (`at = "launch"`, rows marked `launch`); the way forward is then the journey's first step. With `--port` or `restart = "never"` they can't be, and are listed in a note.
 - **determinism** runs the journey several times from fresh launches with the same seed and compares the published state after every step; it reports the first step where runs differ and the differing paths.
 - **diff** runs the journey on two targets and compares published state after every step, reporting the first difference.
@@ -203,6 +210,50 @@ fixtures coverage: 6 run(s), 0 failed; 26 request(s) to 5 endpoint(s)
 cassettes in fixtures/criticalmaps: 8 of 9 used
   unused: PUT__locations_1.json
 ```
+
+## Races
+
+Most bugs in a server-driven app are about timing: a second tap on Save while the first POST is in flight, closing a sheet before its request answers, a slow response to an old search landing after the new one. A journey that waits for every receipt and a replay that answers in a millisecond never produce that timing. Three pieces do:
+
+**Replay latency.** Replayed responses can take time, so requests are really in flight while the run goes on. Set it per run (`--latency 200 --jitter 150`), per journey (`latency = { ms = 200, jitter_ms = 150 }`), or with the fixtures, in `match.json`:
+
+```json
+{"latency": {"ms": 200, "jitter_ms": 150, "paths": {"/catalog": {"ms": 600}, "/events": {"ms": 0}}}}
+```
+
+Each replayed request waits `ms` plus a jitter drawn uniformly from `-jitter_ms...jitter_ms` (never below zero). The jitter is a function of the seed (`seed`, default `TCA_HARNESS_SEED`), the method and path, and the request's occurrence among requests with that method and path, so a run waits the same on every replay. A `paths` rule (a path or a pattern with `{name}`/`*` segments) replaces `ms`, and `jitter_ms` if it gives one. The run's latency (`--latency`, the journey's, `TCA_HARNESS_LATENCY`, or the `network` method) replaces `match.json`'s. Latency applies in `replay` only, to fixtures and faults alike (a `delay` fault adds to it). `record` and `live` have the server's own.
+
+**Races in journeys.** `no_wait = true` on a step dispatches it without waiting for the previous one; `after_ms` sets the gap from the previous dispatch. A step followed by `no_wait` steps is a race: its receipt is settled when the race's last step has finished (a receipt still running past the stuck budget, counted from its own dispatch, is **stuck**; a raced receipt that ends `failed` or `cancelled` is not a finding, since a raced tap often loses), its requests are checked against the `requests` of the race's last step, and an empty view in the middle of a race is the request in flight, not a dead end. Every oracle still runs after each step and once the app has gone quiet.
+
+```toml
+[[steps]]
+do = "Save"
+
+[[steps]]
+do = "Save"          # a double tap: 60 ms after the first, while its POST is in flight
+no_wait = true
+after_ms = 60
+```
+
+**`tca explore --races`** walks like `explore`, but dispatches without waiting. When a step leaves something in flight (its receipt is running, or the app reports `pending` requests), the next operation usually (60%) goes right away or after a short gap (0 to 400 ms), and is biased toward the same operation again (a double tap, with the same arguments half the time), toward a dismissal (an operation labelled Close, Cancel, Done, Back, Dismiss...) and toward a sibling on the same screen. Otherwise it waits for the step to finish, as a person who waits would. Every step taken is recorded with its `no_wait` and `after_ms`, and the finding's journey records the latency and seed, so `tca journey run` replays the race, not just the steps. Shrinking keeps each step's timing (a step whose predecessor was removed races the one before), retries each candidate once more because timing can vary, and the first step of a shrunk journey always waits for launch. Then it drops each `no_wait`/`after_ms` the finding doesn't need: a finding that keeps one is a race, and one that keeps none says so in its header ("It needs no race"), which is the first triage question. Without a latency from `--latency`, the journey or `match.json`, `--races` uses 200 ms +/- 150 ms and says so.
+
+```text
+$ SHELF_BUGS=double-save tca explore --races --fixtures fixtures/shelf --runs 30 --steps 30
+explore: 30 run(s) of up to 30 step(s) on headless, seed 0, races, latency 200 ms +/- 150 ms: 1 finding(s)
+  KIND       STEPS    JOURNEY                         MESSAGE
+  invariant  25 -> 4  .tca/findings/invariant-1.toml  root: no duplicate books (x5)
+```
+
+**`tca chaos FILE --reorder`** finds the steps, and races, that make two or more requests to the same endpoint (method and path) in an in-order run, holds the first of them back (`--reorder-ms`, default 1000, a `delay` fault with `skip`) so the responses arrive out of order, and reruns the journey. A run fails when an oracle or check fires, or when the final state, once the app is quiet, differs from the in-order run's (**stale**: a stale response won). A run whose held response still came first is reported as `not reordered`. Findings are journeys with the `delay` fault; a **stale** finding reproduces with `tca chaos --reorder` (it needs the in-order run to compare against). Two searches typed fast are a race of two steps:
+
+```text
+$ SHELF_BUGS=stale-search tca chaos --reorder journeys/discover.toml
+chaos --reorder: Find a book, typing fast: 1 request(s) held back, 1 failure(s)
+  STEP  REQUEST       FAULT         RESULT
+  2-3   GET /catalog  held 1000 ms  FAIL invariant after step 3 "Search catalog": root: catalog results are for the search field
+```
+
+A race finding is only as good as the replayed timing. Before treating one as an app bug, check that a person could produce the same interleaving: that the operations raced are offered at once in the UI (an operation the view disables but the descriptor offers is a descriptor gap, not a race), and that the latency is plausible for the endpoint.
 
 ## Wire protocol additions (protocol version 3)
 
@@ -225,7 +276,7 @@ Two methods are added, and every observation gains `issueCount`.
    "faults":[...],"pending":0},"observation":{...}}
 ```
 
-A fault is `{"match":{"method":"POST","path":"/books"},"kind":"status","status":500,"times":1}`. `kind` is `status` (with `status`), `timeout`, `offline`, `malformed` (200 with invalid JSON body) or `delay` (with `delayMs`, then the normal response). `match` fields are optional; `skip` (default 0) lets that many matching requests through before the fault applies; `times` defaults to 1, `-1` means always. Skipped requests don't count toward `times`. `source` is `fixture`, `live`, `fault` or `blocked`. `match` says how the request was answered: `exact` (a cassette with the same method, path, query and body, after the matching rules' ignores), `ordered` (one of several equal recordings, picked by occurrence), `template` (no cassette for this path; one for the same path template), `path` (fallback: the latest cassette for the method and path or template, because query or body differed), `synthetic` (a matching rule answered, e.g. a terminal page), `fault`, `blocked` or `live`. `cassette` is the file that answered (or, in `record`, was written) and `template` the path template that matched, each only when there is one. `pending` counts requests started but not answered yet; requests are logged when they finish. These fields were added without a protocol version change; clients ignore what they don't know. A `status` fault responds with an empty body; `timeout` and `offline` fail with `URLError.timedOut` and `URLError.notConnectedToInternet`. Exhausted faults disappear from `faults`. The `network` object may also set `cassettes` (a directory path), and `since` limits `requests` to entries after that `seq`. When the app set a live guard (below), the snapshot includes its name as `liveGuard`; the `network` method can't change or remove it.
+A fault is `{"match":{"method":"POST","path":"/books"},"kind":"status","status":500,"times":1}`. `kind` is `status` (with `status`), `timeout`, `offline`, `malformed` (200 with invalid JSON body) or `delay` (with `delayMs`, then the normal response). `match` fields are optional; `skip` (default 0) lets that many matching requests through before the fault applies; `times` defaults to 1, `-1` means always. Skipped requests don't count toward `times`. `source` is `fixture`, `live`, `fault` or `blocked`. `match` says how the request was answered: `exact` (a cassette with the same method, path, query and body, after the matching rules' ignores), `ordered` (one of several equal recordings, picked by occurrence), `template` (no cassette for this path; one for the same path template), `path` (fallback: the latest cassette for the method and path or template, because query or body differed), `synthetic` (a matching rule answered, e.g. a terminal page), `fault`, `blocked` or `live`. `cassette` is the file that answered (or, in `record`, was written) and `template` the path template that matched, each only when there is one. `pending` counts requests started but not answered yet; requests are logged when they finish. The `network` object may set `latency` (the replay latency, the `match.json` form); the snapshot shows the latency in effect, the run's or `match.json`'s, as `latency`. These fields were added without a protocol version change; clients ignore what they don't know. A `status` fault responds with an empty body; `timeout` and `offline` fail with `URLError.timedOut` and `URLError.notConnectedToInternet`. Exhausted faults disappear from `faults`. The `network` object may also set `cassettes` (a directory path), and `since` limits `requests` to entries after that `seq`. When the app set a live guard (below), the snapshot includes its name as `liveGuard`; the `network` method can't change or remove it.
 
 ## Matching rules
 
@@ -250,6 +301,7 @@ A cassette directory can hold `match.json`, read on every request (edits apply t
 | `ignore_query` | Query parameters left out when comparing a request with a cassette, for every path: cache busters, timestamps, coordinates with noise. |
 | `paths` | Rules for a path pattern: `ignore_query` (added to the global list) and `ignore_body: true` (only method, path and query must match: analytics, acknowledgements). Every matching pattern applies. |
 | `path_templates` | When no cassette has the request's exact path, cassettes whose path fits the same template answer (`/users/456` from a recording of `/users/123`). Logged as `template`. Recording names files after the template. |
+| `latency` | Replay latency for these cassettes: `{"ms": 200, "jitter_ms": 150, "paths": {"/search": {"ms": 600}}}` ([Races](#races)). A run's own latency replaces it. |
 | `pagination` | For a request to `path` that carries a non-empty `cursor` parameter (a name or a list) and has no matching cassette: serve `terminal` (default status 200, body `[]`) instead of falling back to the latest page, so a feed ends instead of repeating its last page. Logged as `synthetic`. The first page (no cursor) still falls back normally. |
 
 Path patterns are literal paths in which a `{name}` or `*` segment matches any one segment. A `match.json` that doesn't parse is reported once as a `network` issue and ignored. `tca fixtures coverage` shows what the rules bought: requests that were `path` fallbacks become `exact`, `template` or `synthetic`.
@@ -270,6 +322,9 @@ let session = URLSession(configuration: HarnessNetwork.configure(.ephemeral))   
 // Recording from a production service: in `record` and `live`, only GET/HEAD to these hosts leave the
 // process. Everything else fails like `block` and is reported as a `network` issue.
 HarnessNetwork.shared.liveGuard = .readOnly(hosts: ["api.example.com"])
+
+// Replay latency, if the run doesn't set one (TCA_HARNESS_LATENCY) and match.json has none.
+HarnessNetwork.shared.latency = HarnessLatency(ms: 200, jitterMs: 150)
 
 // Deterministic dependencies for runs that ask for them (TCA_HARNESS_SEED set).
 let store = Store(initialState: App.State()) { App().harnessTimeline() } withDependencies: {

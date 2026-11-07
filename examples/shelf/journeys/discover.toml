@@ -1,0 +1,25 @@
+name = "Find a book, typing fast"
+goal = "Search the catalog for Du, then for Dune before the first search has answered, and see Dune's results"
+fixtures = "../fixtures/shelf"
+network = "replay"
+launch_requests = ["GET /books"]
+
+[[steps]]
+do = "Find books"
+requests = []
+
+[[steps]]
+do = "Search catalog"
+args = { value = "Du" }
+
+# Submitted 150 ms after the first search, without waiting for it: against a slow server both are in
+# flight at once. `tca chaos --reorder` holds the first response back so it arrives last.
+[[steps]]
+do = "Search catalog"
+args = { value = "Dune" }
+no_wait = true
+after_ms = 150
+
+[checks]
+"the results are Dune's" = "discover.resultsFor == 'Dune' and len(discover.results) == 2 and all('Dune' in e.title for e in discover.results)"
+"nothing is loading" = "not discover.isSearching and not discover.error"

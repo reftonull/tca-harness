@@ -86,7 +86,8 @@ extension CriticalMapsHarness {
       // Map screen
       .operation("openSocial", label: "Open chat and Mastodon", action: .socialButtonTapped, available: noSheet,
         completion: { state in
-          guard case let .social(social)? = destination(state) else { return .running }
+          // Closed before the chat answered (a race): nothing is loading on the sheet's behalf any more.
+          guard case let .social(social)? = destination(state) else { return .succeeded }
           return chatLoaded(social)
         })
       .operation("openSettings", label: "Open settings", action: .settingsButtonTapped, available: noSheet)

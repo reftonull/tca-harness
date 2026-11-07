@@ -820,8 +820,9 @@ def instance_mounted(host, observation, candidate):
     return any(c['id'].rpartition('@')[2] == instance for c in observation['candidates'])
 
 
-def do_operation(host, query, arguments=None, path=None, show_all=False, timeout_ms=5000):
-    """Resolve and dispatch like `tca do`, returning the outcome instead of printing it.
+def do_operation(host, query, arguments=None, path=None, show_all=False, timeout_ms=5000, wait=True):
+    """Resolve and dispatch like `tca do`, returning the outcome instead of printing it. With
+    `wait=False` a running receipt is returned as is (a race: the caller dispatches again first).
 
     Keys: ok, error (`no_match`/`ambiguous` when nothing was dispatched), detail, query, candidate,
     choices, before (the view resolved against), observation (the observation dispatched at),
@@ -839,7 +840,7 @@ def do_operation(host, query, arguments=None, path=None, show_all=False, timeout
                          requestID=str(uuid.uuid4()), arguments=arguments or {})
     receipt = response.get('receipt')
     dispatched = bool(response.get('ok'))
-    if dispatched and receipt and receipt.get('status') == 'running':
+    if wait and dispatched and receipt and receipt.get('status') == 'running':
         waited = host.call('wait', requestID=receipt['requestID'], timeoutMs=timeout_ms)
         if waited.get('receipt'):
             receipt = waited['receipt']

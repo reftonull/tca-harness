@@ -2,7 +2,7 @@
 """Run every testing pattern on Shelf with SHELF_BUGS unset and with SHELF_BUGS=all, then print a
 matrix of which pattern caught which planted bug. Use run_ladder.sh, which builds first.
 
-    python3 ladder.py [--skip-ui] [--explore-runs 30] [--settings none,all]
+    python3 ladder.py [--skip-ui] [--explore-runs 30] [--race-runs 30] [--settings none,all]
 
 Exits 1 if a clean run found anything, or a bug was not caught by the pattern it was planted for.
 """
@@ -24,7 +24,7 @@ SERVER_PORT = 8799
 # bug -> (pattern it was planted for, rung, signature in the CLI's output)
 BUGS = {
     'stuck-save': ('chaos', 1, r'saving means a save is in flight|addBook/(save|retry) still running|stranded(?!: neither "Refresh")'),
-    'double-save': ('explore', 1, r'no duplicate books'),
+    'double-save': ('races', 1, r'no duplicate books'),
     'badge-drift': ('invariant', 1, r'unread badge matches the list'),
     'chatty-search': ('network', 1, r'budget: \d+ requests|POST \S*/events \S* (had no fixture|was blocked)'
                                     r'|requests after step \d+ "Search".*unexpected POST /events'),
@@ -33,11 +33,12 @@ BUGS = {
     'late-delete': ('issue', 1, r'received a presentation action'),
     'stats-stuck': ('chaos', 1, r'stranded: neither "Refresh"|root/stats/\S+ still running'),
     'goal-drift': ('invariant', 1, r'progress matches the goal'),
+    'stale-search': ('chaos', 1, r'catalog results are for the search field|stale response'),
     'v2-contract': ('contract', 3, r"unexpected shape|missing key 'author'"),
 }
 
 # What finding kind a matching line reports, for the matrix cells.
-KINDS = [('requests', r'\brequests (at launch|after step)'), ('budget', r'budget:'), ('invariant', r'invariant'), ('stuck', r'stuck|still running'),
+KINDS = [('requests', r'\brequests (at launch|after step)'), ('budget', r'budget:'), ('stale', r'stale response'), ('invariant', r'invariant'), ('stuck', r'stuck|still running'),
          ('stranded', r'stranded'), ('issue', r'\bissue\b|received a presentation action'),
          ('diff', r'^\s+\S+: .* vs '), ('network', r'had no fixture|was blocked')]
 
@@ -109,9 +110,14 @@ def run_patterns(bugs, args, findings_dir):
     step('journey', 1, lambda: tca(['journey', 'run', *journeys], bugs))
     step('explore', 1, lambda: tca(['explore', '--fixtures', 'fixtures/shelf', '--runs', str(args.explore_runs),
                                     '--steps', '40', *out], bugs))
+    # Races: steps that leave a request in flight aren't waited for, with replay latency (200 +/- 150 ms).
+    step('races', 1, lambda: tca(['explore', '--races', '--fixtures', 'fixtures/shelf', '--runs', str(args.race_runs),
+                                  '--steps', '30', *out], bugs))
     def chaos():
-        # The TCA editor and the vanilla Reading stats screen (a Hosted @Observable model).
+        # The TCA editor and the vanilla Reading stats screen (a Hosted @Observable model) get faults;
+        # Find books gets its two searches' responses swapped (--reorder).
         runs = [tca(['chaos', journey, *out], bugs) for journey in ('journeys/add-book.toml', 'journeys/view-stats.toml')]
+        runs.append(tca(['chaos', '--reorder', 'journeys/discover.toml', *out], bugs))
         return max(r[0] for r in runs), ''.join(r[1] for r in runs), sum(r[2] for r in runs)
 
     step('chaos', 1, chaos)
@@ -202,6 +208,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--skip-ui', action='store_true', help='skip rung 2 (tca diff against the simulator)')
     parser.add_argument('--explore-runs', type=int, default=30)
+    parser.add_argument('--race-runs', type=int, default=30)
     parser.add_argument('--settings', default='none,all', help='SHELF_BUGS settings to run (none means unset)')
     args = parser.parse_args()
     findings = HERE / '.tca' / 'ladder'

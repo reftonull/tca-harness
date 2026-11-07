@@ -1,6 +1,13 @@
 import ComposableArchitecture
 import Foundation
 
+/// A catalog search result (`GET /catalog?q=`), not on the shelf.
+public struct CatalogEntry: Codable, Equatable, Sendable {
+  public var title: String
+  public var author: String
+  public init(title: String, author: String) { self.title = title; self.author = author }
+}
+
 public struct Book: Codable, Equatable, Identifiable, Sendable {
   public var id: UUID
   public var title: String
@@ -22,7 +29,8 @@ public struct Book: Codable, Equatable, Identifiable, Sendable {
 public enum ShelfBug: String, CaseIterable, Sendable {
   /// A failed save leaves the editor spinning with no error and no way out. Caught by `tca chaos`.
   case stuckSave = "stuck-save"
-  /// Save is not guarded while a request is in flight; a double tap adds the book twice. `tca explore`.
+  /// Save is not disabled (or guarded) while its request is in flight; a double tap adds the book
+  /// twice. Only a tap during the request reaches it: `tca explore --races` with replay latency.
   case doubleSave = "double-save"
   /// Marking a book read doesn't update the unread badge. Invariant.
   case badgeDrift = "badge-drift"
@@ -39,6 +47,9 @@ public enum ShelfBug: String, CaseIterable, Sendable {
   case statsStuck = "stats-stuck"
   /// Reading goal (a vanilla model): saving doesn't recompute the progress percentage. Invariant.
   case goalDrift = "goal-drift"
+  /// Find books: a search doesn't cancel the one in flight, so a slow older response overwrites a
+  /// newer one ("Du" results under "Dune"). `tca chaos --reorder journeys/discover.toml`.
+  case staleSearch = "stale-search"
   /// Server-side: `server.py --v2` renames `author` to `writer`. Contract check at rung 3.
   /// Listed so `SHELF_BUGS=all` parses; the app has no code for it.
   case v2Contract = "v2-contract"

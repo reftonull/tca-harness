@@ -22,9 +22,9 @@ public enum ShelfHarness {
       .operation("setAuthor", label: "Set author", arguments: String.self,
         action: { .binding(.set(\.draft.author, $0)) }, available: { !$0.isSaving && !$0.isSaved })
       .operation("save", label: "Save", action: .saveButtonTapped,
-        // Mirrors the button: hidden while saving, replaced by Done once saved. The double-save bug
-        // leaves it in place.
-        available: { $0.canSubmit && $0.saveError == nil && ((!$0.isSaving && !$0.isSaved) || bugs.contains(.doubleSave)) },
+        // Mirrors the button: a spinner while saving, replaced by Done once saved. The double-save bug
+        // leaves it tappable while the request is in flight.
+        available: { $0.canSubmit && $0.saveError == nil && !$0.isSaved && (!$0.isSaving || bugs.contains(.doubleSave)) },
         completion: { $0.isSaving ? .running : .succeeded })
       .operation("retry", label: "Retry", action: .retryButtonTapped,
         available: { $0.saveError != nil && !$0.isSaving },
@@ -38,6 +38,11 @@ public enum ShelfHarness {
       .operation("delete", label: "Delete", action: .deleteButtonTapped,
         available: { !$0.isBusy }, completion: { $0.isDeleting ? .running : .succeeded })
       .operation("close", label: "Close", action: .closeButtonTapped, available: { !$0.isBusy })
+
+    let discover = Discover.harnessDescriptor
+      .operation("search", label: "Search catalog", arguments: String.self, action: { .searchSubmitted($0) },
+        completion: { $0.isSearching ? .running : .succeeded })
+      .operation("close", label: "Close", action: .closeButtonTapped)
 
     let row = FeatureDescriptor<Book, Shelf.BookRowAction>("Book")
       .operation("open", label: "Open book", action: .tapped)
@@ -55,9 +60,11 @@ public enum ShelfHarness {
       .operation("goal", label: "Reading goal", action: .goalButtonTapped, available: noSheet,
         completion: { $0.goal?.isLoading == true ? .running : .succeeded })
       .operation("closeGoal", label: "Done", action: .goalDoneButtonTapped, available: { $0.goal?.isSaving == false })
+      .operation("discover", label: "Find books", action: .discoverButtonTapped, available: noSheet)
       .identified("books", state: \.rows, action: \.bookRows, descriptor: row)
       .presentation("addBook", state: \.addBook, action: \.addBook, descriptor: addBook)
       .presentation("detail", state: \.detail, action: \.detail, descriptor: detail)
+      .presentation("discover", state: \.discover, action: \.discover, descriptor: discover)
       // Vanilla SwiftUI screens. Stats is wrapped in TCA: its operations become `perform` actions.
       // Close dismisses through the store, like a TCA child's.
       .presentation("stats", state: \.stats, action: \.stats,
@@ -123,6 +130,10 @@ extension FeatureDescriptor where State == Shelf.State, Action == Shelf.Action {
       .invariant("unread badge matches the list") { $0.unreadCount == $0.books.filter { !$0.isRead }.count }
       .invariant("no duplicate books") { Set($0.books.map(\.id)).count == $0.books.count }
       .invariant("saving means a save is in flight") { $0.addBook?.isSaving != true || $0.savesInFlight > 0 }
+      // "Results for …" must name what's in the search field once nothing is loading.
+      .invariant("catalog results are for the search field") { state in
+        state.discover.map { $0.isSearching || $0.error != nil || $0.resultsFor == $0.query } ?? true
+      }
     #else
     self
     #endif

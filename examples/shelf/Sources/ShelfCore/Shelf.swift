@@ -25,6 +25,8 @@ public struct Shelf {
     public var savesInFlight = 0
     @Presents public var addBook: AddBook.State?
     @Presents public var detail: BookDetail.State?
+    /// "Find books": searches the catalog on the server.
+    @Presents public var discover: Discover.State?
     /// Reading stats: a vanilla `@Observable` model hosted in the store (`Hosted`), so its calls are
     /// actions and effects.
     @Presents public var stats: Hosted<StatsModel>.State?
@@ -35,7 +37,7 @@ public struct Shelf {
     public init() {}
 
     /// A sheet covers the list.
-    public var isCovered: Bool { addBook != nil || detail != nil || stats != nil || goal != nil }
+    public var isCovered: Bool { addBook != nil || detail != nil || stats != nil || goal != nil || discover != nil }
 
     /// Rows a user can tap: none while a sheet covers the list.
     public var rows: IdentifiedArrayOf<Book> {
@@ -68,6 +70,7 @@ public struct Shelf {
     @HarnessIgnore case statsButtonTapped
     @HarnessIgnore case goalButtonTapped
     @HarnessIgnore case goalDoneButtonTapped
+    @HarnessIgnore case discoverButtonTapped
     @HarnessIgnore case searchQueryChanged(String)
     @HarnessIgnore case searchDebounced
     @HarnessIgnore case bookRows(IdentifiedAction<UUID, BookRowAction>)
@@ -75,6 +78,7 @@ public struct Shelf {
     @HarnessIgnore case saveResponse(Result<Book, Error>)
     @HarnessIgnore case addBook(PresentationAction<AddBook.Action>)
     @HarnessIgnore case detail(PresentationAction<BookDetail.Action>)
+    @HarnessIgnore case discover(PresentationAction<Discover.Action>)
     @HarnessIgnore case stats(PresentationAction<Hosted<StatsModel>.Action>)
   }
 
@@ -133,6 +137,10 @@ public struct Shelf {
 
       case .goalDoneButtonTapped:
         state.goal = nil
+        return .none
+
+      case .discoverButtonTapped:
+        state.discover = Discover.State()
         return .none
 
       case let .searchQueryChanged(query):
@@ -204,12 +212,13 @@ public struct Shelf {
           await send(.detail(.presented(.deleteResponse(Result { try await api.deleteBook(id); return id }))))
         }
 
-      case .addBook, .detail, .stats:
+      case .addBook, .detail, .stats, .discover:
         return .none
       }
     }
     .ifLet(\.$addBook, action: \.addBook) { AddBook() }
     .ifLet(\.$detail, action: \.detail) { BookDetail() }
+    .ifLet(\.$discover, action: \.discover) { Discover() }
     .ifLet(\.$stats, action: \.stats) { Hosted<StatsModel>() }
   }
 

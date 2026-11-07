@@ -18,6 +18,7 @@ Tests here describe what a user does and sees: a goal, steps by label, and check
 | Building a feature: define done first | Write the journey's `goal` and `[checks]`, solve it with `tca do` while `tca record` runs, then `tca journey run` after every change | headless |
 | A journey fails at a step that no longer resolves | Re-solve it (below); don't hand-edit labels | headless |
 | Before a PR | `tca journey run journeys/*.toml`, then `tca explore --runs 50` and `tca chaos` on the journeys you touched | headless |
+| A screen makes requests a user can tap through (save, search, refresh, dismiss) | `tca explore --races --runs 30` (replay latency, double taps, dismissals mid-request) and `tca chaos FILE --reorder` on journeys with two searches or refreshes (mark the second step `no_wait = true`). Check a race finding is reachable in the UI before calling it a bug | headless |
 | A bug only shows up with views (onAppear, lifecycle) | `tca diff FILE --targets headless,ui` | headless vs UI |
 | Flaky journey or state that differs between runs | `tca determinism FILE` | headless |
 | Backend contract may have changed | `tca journey run FILE --network record --target live` and review the cassette diff | live |

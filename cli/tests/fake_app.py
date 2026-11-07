@@ -16,6 +16,13 @@ through a fake network (fixtures, faults, a request log); invariants are reporte
 --launch-load     a book arrives 150 ms after launch, like a first fetch that answers after the listener is up
 --launch-fetch    GET /books at launch, before listening; a failure shows an error and "Retry"
 --fragile-launch  like --launch-fetch, but a failure hides every other operation (a stranded user)
+--race-save       Save stays offered while the POST is in flight, and resends the same book (a double tap duplicates it)
+--search          offers "Search" (GET /search); a newer search cancels the one in flight
+--stale-search    like --search, but every response is applied, so an older one can overwrite a newer one
+--quiet-search    no "results are for the search field" invariant (only a final-state comparison sees a stale response)
+
+Replay honours TCA_HARNESS_LATENCY (or `network` `latency`): responses take that long, plus a seeded
+jitter, and requests are logged when they finish, with `pending` counting the rest.
 
 Faults in TCA_HARNESS_FAULTS (a JSON array) apply from the first request, like HarnessNetwork. Replayed
 requests log `match` and `cassette`; in record mode each request is saved as a cassette.
@@ -38,7 +45,8 @@ API = 'http://api.shelf.test'
 
 class FakeShelf:
     def __init__(self, bug=False, strand=False, crashy=False, stuck=False, unseeded=False, ui=False, v2=False,
-                 network=None, cassettes=None, seed=None, late=False, faults=None, fragile=False):
+                 network=None, cassettes=None, seed=None, late=False, faults=None, fragile=False, race_save=False,
+                 search=None, latency=None):
         self.bug, self.strand, self.crashy, self.stuck, self.unseeded, self.ui, self.v2 = bug, strand, crashy, stuck, unseeded, ui, v2
         self.late = late  # Bug: closing the editor leaves an effect that reports an issue 150 ms later.
         self.session_id = str(uuid.uuid4())
@@ -54,6 +62,17 @@ class FakeShelf:
         self.cassettes = cassettes
         self.faults = [dict(f, match=dict(f.get('match') or {})) for f in faults or []]
         self.fragile = fragile
+        self.race_save = race_save
+        self.sampling = False     # "Add sample book" in flight: hidden, like a disabled button.
+        self.search = search      # None, 'ok' or 'stale'
+        self.searches = 0
+        self.quiet_search = False
+        self.latency = latency or {}
+        self.seed = seed
+        self.inflight = []        # Requests started and not yet logged (they're logged when answered).
+        self.occurrences = {}
+        if search:
+            self.state['shelf'].update(query='', resultsFor='', searching=False)
         self.recorded = {}
         self.requests = []
         self.random = random.Random(seed if seed is not None else time.time_ns())
@@ -61,12 +80,35 @@ class FakeShelf:
         self.lock = threading.RLock()
 
     # Network ------------------------------------------------------------------------------------
+    def latency_ms(self, method, path):
+        """Replay latency for this request: `ms` +/- a jitter drawn from the seed and the occurrence."""
+        if self.mode != 'replay' or not self.latency:
+            return 0
+        key = f'{method} {path}'
+        occurrence = self.occurrences[key] = self.occurrences.get(key, -1) + 1
+        rule = (self.latency.get('paths') or {}).get(path) or {}
+        base, jitter = rule.get('ms', self.latency.get('ms', 0)), rule.get('jitter_ms', self.latency.get('jitter_ms', 0))
+        draw = random.Random(f"{self.latency.get('seed', self.seed or 0)}:{key}:{occurrence}").randint(-jitter, jitter) if jitter else 0
+        return max(base + draw, 0)
+
     def request(self, method, path):
-        """Returns (ok, status). Records the request; applies faults, fixtures and the mode."""
-        url = API + path
-        entry = {'seq': len(self.requests) + 1, 'method': method, 'url': url, 'status': None,
-                 'source': None, 'fault': None, 'ms': 1}
+        """Returns (ok, entry). Starts the request, logged when it's answered (after `entry['ms']`);
+        applies faults, fixtures and the mode."""
+        url = API + path.partition('?')[0] + ('?' + path.partition('?')[2] if '?' in path else '')
+        path = path.partition('?')[0]
+        entry = {'method': method, 'url': url, 'status': None, 'source': None, 'fault': None, 'ms': 1}
+        ok, entry = self.answer(method, path, url, entry)
+        entry['ms'] += self.latency_ms(method, path)
+        self.inflight.append(entry)
+        self.later(entry['ms'] / 1000 - 0.0005, lambda: self.logged(entry))
+        return ok, entry
+
+    def logged(self, entry):
+        self.inflight.remove(entry)
+        entry['seq'] = len(self.requests) + 1
         self.requests.append(entry)
+
+    def answer(self, method, path, url, entry):
         for fault in list(self.faults):
             match = fault.get('match') or {}
             if match.get('method', method) != method or match.get('path', path) != path:
@@ -81,7 +123,7 @@ class FakeShelf:
                 fault['times'] = times - 1
             entry['fault'] = fault['kind']
             if fault['kind'] == 'delay':
-                entry['ms'] = fault.get('delayMs', 0)
+                entry['ms'] += fault.get('delayMs', 0)
                 break  # Then the normal response.
             entry['source'] = entry['match'] = 'fault'
             entry['status'] = fault.get('status') if fault['kind'] == 'status' else 200 if fault['kind'] == 'malformed' else None
@@ -128,8 +170,11 @@ class FakeShelf:
 
     def check_invariants(self):
         books = self.state['shelf']['books']
+        shelf = self.state['shelf']
         rules = {'no duplicate books': len({b['id'] for b in books}) == len(books),
-                 'unread badge matches the list': self.state['shelf']['unreadCount'] == sum(not b['isRead'] for b in books)}
+                 'unread badge matches the list': shelf['unreadCount'] == sum(not b['isRead'] for b in books)}
+        if self.search and not self.quiet_search:
+            rules['results are for the search field'] = shelf['searching'] or shelf['resultsFor'] == shelf['query']
         for name, holds in rules.items():
             if not holds and name not in self.violated:
                 self.report('invariant', name)
@@ -137,7 +182,7 @@ class FakeShelf:
 
     def tick(self):
         now = time.monotonic()
-        due = [p for p in self.pending if p[0] <= now]
+        due = sorted((p for p in self.pending if p[0] <= now), key=lambda p: p[0])
         self.pending = [p for p in self.pending if p[0] > now]
         for _, function in due:
             function()
@@ -182,7 +227,7 @@ class FakeShelf:
                 offer('root/shelf', 'I-SHELF', 'addBook', 'Add book')
             else:
                 offer('root/shelf', 'I-SHELF', 'closeEditor', 'Close editor')
-            if self.bug or not any(b['id'] == 'sample' for b in shelf['books']):
+            if self.bug or not (self.sampling or any(b['id'] == 'sample' for b in shelf['books'])):
                 offer('root/shelf', 'I-SHELF', 'addSample', 'Add sample book')
             offer('root/shelf', 'I-SHELF', 'refresh', 'Refresh')
             for book in shelf['books']:
@@ -194,6 +239,10 @@ class FakeShelf:
                 offer('root/shelf', 'I-SHELF', 'crash', 'Crash')
             if self.stuck:
                 offer('root/shelf', 'I-SHELF', 'syncForever', 'Sync forever')
+            if self.search and editor is None:
+                offer('root/shelf', 'I-SHELF', 'search', 'Search',
+                      {'type': 'object', 'additionalProperties': False, 'required': ['value'],
+                       'properties': {'value': {'type': 'string', 'maxLength': 200}}})
         if shelf.get('stranded'):
             offer('root/shelf', 'I-SHELF', 'dismissError', 'Dismiss error')
         if editor is not None:
@@ -210,7 +259,7 @@ class FakeShelf:
                     'properties': {'copies': {'type': 'integer'}, 'featured': {'type': 'boolean'},
                                    'note': {'anyOf': [{'type': 'string'}, {'type': 'null'}]},
                                    'tags': {'type': 'array', 'items': {'type': 'string', 'enum': ['fiction', 'classic']}}}})
-                if editor['title'].strip() and not editor['isSaving']:
+                if editor['title'].strip() and (not editor['isSaving'] or self.race_save):
                     offer('root/shelf/editor', instance, 'save', 'Save')
         return result
 
@@ -243,8 +292,10 @@ class FakeShelf:
             book['isRead'] = not book['isRead']
         elif name == 'addSample':
             ok, entry = self.request('POST', '/books')
+            self.sampling = True
 
             def done():
+                self.sampling = False
                 if ok:
                     shelf['books'].append({'id': 'sample', 'title': 'Sample', 'isRead': False})
                     finish('succeeded')
@@ -268,13 +319,18 @@ class FakeShelf:
             editor['isSaving'] = True
             ok, entry = self.request('POST', '/books')
             title = editor['title']
+            pending = editor.get('pending') if self.race_save else None  # The bug resends the book in flight.
+            if self.race_save and pending is None:
+                pending = editor['pending'] = self.new_id()
 
             def done():
                 current = self.state['editor']
                 if ok:
-                    shelf['books'].append({'id': self.new_id(), 'title': title, 'isRead': False})
+                    shelf['books'].append({'id': pending or self.new_id(), 'title': title, 'isRead': False})
                     self.state['editor'] = None
                     finish('succeeded')
+                elif current is None:
+                    finish('failed')
                 elif self.strand:
                     current['stranded'] = True  # Bug: the spinner never stops and nothing is offered.
                     finish('failed')
@@ -284,6 +340,21 @@ class FakeShelf:
                     finish('failed')
             receipt['status'] = 'running'
             self.later(0.02 + entry['ms'] / 1000, done)
+        elif name == 'search':
+            query = arguments['value']
+            self.searches += 1
+            token = self.searches
+            shelf['query'], shelf['searching'] = query, True
+            ok, entry = self.request('GET', '/search?q=' + query.replace(' ', '+')[:40])
+
+            def done():
+                if self.search == 'ok' and token != self.searches:
+                    finish('cancelled')  # A newer search replaced this one.
+                    return
+                shelf['resultsFor'], shelf['searching'] = query, False
+                finish('succeeded' if ok else 'failed')
+            receipt['status'] = 'running'
+            self.later(0.005 + entry['ms'] / 1000, done)
         elif name == 'crash':
             os._exit(3)
         elif name == 'syncForever':
@@ -317,11 +388,15 @@ class FakeShelf:
                     self.cassettes = settings['cassettes']
                 if 'faults' in settings:
                     self.faults = [dict(f, match=dict(f.get('match') or {})) for f in settings['faults']]
+                if 'latency' in settings:
+                    self.latency = settings['latency'] or {}
+                observation = self.observe()  # Ticks, so answered requests are logged first.
                 since = request.get('since', 0)
                 return {'ok': True, 'network': {'mode': self.mode, 'cassettes': self.cassettes,
                                                 'requests': [r for r in self.requests if r['seq'] > since],
-                                                'faults': self.faults},
-                        'observation': self.observe()}
+                                                'faults': self.faults, 'pending': len(self.inflight),
+                                                **({'latency': self.latency} if self.latency else {})},
+                        'observation': observation}
             if method == 'dispatch':
                 if request.get('sessionID') != self.session_id:
                     return {'ok': False, 'error': 'wrong_session', 'observation': self.observe()}
@@ -421,7 +496,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', type=int, default=int(os.environ.get('TCA_HARNESS_PORT', '0')))
     for flag in ('bug', 'strand-on-error', 'crashy', 'stuck', 'unseeded-ids', 'ui', 'v2', 'late-issue', 'launch-load',
-                 'launch-fetch', 'fragile-launch'):
+                 'launch-fetch', 'fragile-launch', 'race-save', 'search', 'stale-search', 'quiet-search'):
         parser.add_argument('--' + flag, action='store_true')
     arguments = parser.parse_args()
     seed = os.environ.get('TCA_HARNESS_SEED')
@@ -429,7 +504,10 @@ def main():
                     unseeded=arguments.unseeded_ids, ui=arguments.ui, v2=arguments.v2,
                     network=os.environ.get('TCA_HARNESS_NETWORK'), cassettes=os.environ.get('TCA_HARNESS_CASSETTES'),
                     seed=int(seed) if seed else None, late=arguments.late_issue,
-                    faults=json.loads(os.environ.get('TCA_HARNESS_FAULTS') or '[]'))
+                    faults=json.loads(os.environ.get('TCA_HARNESS_FAULTS') or '[]'), race_save=arguments.race_save,
+                    search='stale' if arguments.stale_search else 'ok' if arguments.search else None,
+                    latency=json.loads(os.environ.get('TCA_HARNESS_LATENCY') or 'null'))
+    app.quiet_search = arguments.quiet_search
     if arguments.launch_fetch or arguments.fragile_launch:
         ok, _ = app.request('GET', '/books')  # Before listening, like a host that loads first.
         if not ok:

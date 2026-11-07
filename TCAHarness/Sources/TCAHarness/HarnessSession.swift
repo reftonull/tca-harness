@@ -86,11 +86,12 @@ private struct Request: Decodable {
   var network: NetworkUpdate?
 }
 
-/// `{"network":{"mode":"replay","faults":[...],"cassettes":"/abs/dir"}}`; every field is optional.
+/// `{"network":{"mode":"replay","faults":[...],"cassettes":"/abs/dir","latency":{"ms":200}}}`; every field is optional.
 private struct NetworkUpdate: Decodable {
   var mode: String?
   var faults: [HarnessFault]?
   var cassettes: String?
+  var latency: HarnessLatency?
 }
 
 public struct HarnessFeatureInfo: Codable, Sendable {
@@ -241,6 +242,7 @@ public final class HarnessSession<State: Codable & Equatable> {
         if let mode { networkState.mode = mode }
         if let faults = update.faults { networkState.faults = faults }
         if let cassettes = update.cassettes { networkState.cassettes = cassettes.isEmpty ? nil : URL(fileURLWithPath: cassettes) }
+        if let latency = update.latency { networkState.latency = latency }
       }
       return Response(observation: observe(), network: networkState.snapshot(since: max(request.since ?? 0, 0)))
     case "timeline":

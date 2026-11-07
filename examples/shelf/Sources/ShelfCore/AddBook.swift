@@ -60,9 +60,10 @@ public struct AddBook {
 
       case .saveButtonTapped, .retryButtonTapped:
         guard state.canSubmit else { return .none }
-        // The submit guard: once the book is in flight or saved, Save does nothing. Without it a
-        // second tap submits the same book again.
-        if (state.isSaving || state.isSaved) && !bugs.contains(.doubleSave) { return .none }
+        // The submit guard: once the book is in flight or saved, Save does nothing. The double-save
+        // bug only checks `isSaved`, so a second tap while the first request is in flight submits the
+        // same book again.
+        if state.isSaved || (state.isSaving && !bugs.contains(.doubleSave)) { return .none }
         var book = state.pending ?? Book(
           id: uuid(), title: "", author: "",
           addedAt: bugs.contains(.wallClock) ? Date() : now

@@ -12,6 +12,7 @@ Endpoints:
     GET    /stats          -> 200 {"total", "read", "unread", "byAuthor": [{"author", "count"}]}
     GET    /goal           -> 200 {"yearly", "read"}
     PUT    /goal           -> 200 {"yearly", "read"}   (422 unless yearly is an integer from 1 to 1000)
+    GET    /catalog?q=     -> 200 [{"title", "author"}]  (catalog entries whose title or author contains q)
 
 A Book is {"id": UUID, "title": str, "author": str, "isRead": bool, "addedAt": seconds since 1970}.
 `--v2` is the planted contract change: responses say "writer" instead of "author" (requests accept
@@ -25,6 +26,7 @@ import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlsplit
 
 SEED_BOOKS = [
     {"id": "2A3F0C1E-8C55-4E0B-9C5A-0B5D7F3A1101", "title": "The Left Hand of Darkness",
@@ -33,6 +35,16 @@ SEED_BOOKS = [
      "author": "Susanna Clarke", "isRead": True, "addedAt": 1767312000},
     {"id": "2A3F0C1E-8C55-4E0B-9C5A-0B5D7F3A1103", "title": "Project Hail Mary",
      "author": "Andy Weir", "isRead": False, "addedAt": 1767398400},
+]
+
+
+CATALOG = [
+    {"title": "Dune", "author": "Frank Herbert"},
+    {"title": "Dune Messiah", "author": "Frank Herbert"},
+    {"title": "Dubliners", "author": "James Joyce"},
+    {"title": "The Dutch House", "author": "Ann Patchett"},
+    {"title": "Emma", "author": "Jane Austen"},
+    {"title": "Middlemarch", "author": "George Eliot"},
 ]
 
 
@@ -141,6 +153,10 @@ def make_handler(store, v2, latency_ms, quiet):
                         return self.reply(422, {"error": "A goal is 1 to 1000 books."})
                     store.yearly_goal = yearly
                     return self.reply(200, store.goal())
+                if parts == ["catalog"] and method == "GET":
+                    query = parse_qs(urlsplit(self.path).query).get("q", [""])[0].casefold()
+                    return self.reply(200, [e for e in CATALOG if query in e["title"].casefold()
+                                            or query in e["author"].casefold()])
                 if parts == ["events"] and method == "POST":
                     store.events.append(self.body())
                     return self.reply(202, {})

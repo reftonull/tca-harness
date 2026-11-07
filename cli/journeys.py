@@ -76,6 +76,8 @@ class Step:
     expect: str | None = None
     path: str | None = None
     requests: list | None = None  # Expected requests ("GET /books"); None = not checked, [] = none.
+    no_wait: bool = False         # Dispatch without waiting for the previous step to finish (a race).
+    after_ms: int | None = None   # Pause before dispatching: from the previous dispatch with no_wait, else after it finished.
 
     def document(self):
         item = {'do': self.do}
@@ -83,6 +85,10 @@ class Step:
             item['args'] = json.dumps(self.args, ensure_ascii=False) if tomlout.contains_null(self.args) else self.args
         if self.path:
             item['path'] = self.path
+        if self.no_wait:
+            item['no_wait'] = True
+        if self.after_ms:
+            item['after_ms'] = self.after_ms
         if self.expect:
             item['expect'] = self.expect
         if self.requests is not None:
@@ -104,6 +110,7 @@ class Journey:
     terminal: bool = False
     faults: list = field(default_factory=list)
     launch_requests: list | None = None  # Expected requests before the first step.
+    latency: dict | None = None          # Replay latency (TCA_HARNESS_LATENCY): {ms, jitter_ms, seed, paths}.
 
     @property
     def label(self):
@@ -135,6 +142,32 @@ def parse_arguments(raw, where):
     if not isinstance(raw, dict):
         raise JourneyError(f'{where}: `args` must be a table or a JSON object string')
     return raw
+
+
+LATENCY_KEYS = {'ms', 'jitter_ms', 'seed', 'paths'}
+
+
+def milliseconds(value):
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def parse_latency(raw, where):
+    """`latency = 200` or `latency = { ms = 200, jitter_ms = 150, paths = { "/search" = { ms = 600 } } }`."""
+    if raw is None:
+        return None
+    if milliseconds(raw):
+        return {'ms': raw}
+    if not isinstance(raw, dict) or set(raw) - LATENCY_KEYS:
+        raise JourneyError(f'{where}: `latency` must be milliseconds or a table with ms, jitter_ms, seed and paths')
+    for key in ('ms', 'jitter_ms', 'seed'):
+        if key in raw and not milliseconds(raw[key]):
+            raise JourneyError(f'{where}: latency.{key} must be a non-negative integer')
+    paths = raw.get('paths', {})
+    if not isinstance(paths, dict) or not all(
+            isinstance(rule, dict) and milliseconds(rule.get('ms')) and set(rule) <= {'ms', 'jitter_ms'}
+            and milliseconds(rule.get('jitter_ms', 0)) for rule in paths.values()):
+        raise JourneyError(f'{where}: latency.paths maps paths to {{ ms = N, jitter_ms = N }}')
+    return copy.deepcopy(raw)
 
 
 def check_expression(source, where):
@@ -252,7 +285,7 @@ def load_journey(path):
 def journey_from(data, path=None):
     where = str(path) if path else 'journey'
     known = {'name', 'goal', 'fixtures', 'network', 'seed', 'terminal', 'steps', 'checks', 'budget', 'faults',
-             'launch_requests'}
+             'launch_requests', 'latency'}
     unknown = sorted(set(data) - known)
     if unknown:
         raise JourneyError(f'{where}: unknown keys: {", ".join(unknown)}')
@@ -277,16 +310,25 @@ def journey_from(data, path=None):
         here = f'{where}: step {number}'
         if not isinstance(raw, dict) or not isinstance(raw.get('do'), str) or not raw['do'].strip():
             raise JourneyError(f'{here}: needs `do = "<label, name or ID>"`')
-        extra = sorted(set(raw) - {'do', 'args', 'expect', 'path', 'requests'})
+        extra = sorted(set(raw) - {'do', 'args', 'expect', 'path', 'requests', 'no_wait', 'after_ms'})
         if extra:
             raise JourneyError(f'{here}: unknown keys: {", ".join(extra)}')
+        if not isinstance(raw.get('no_wait', False), bool):
+            raise JourneyError(f'{here}: `no_wait` must be true or false')
+        if raw.get('after_ms') is not None and not milliseconds(raw['after_ms']):
+            raise JourneyError(f'{here}: `after_ms` must be a non-negative integer')
+        if raw.get('no_wait') and number == 1:
+            raise JourneyError(f'{here}: the first step can\'t be `no_wait` (runs wait for launch to go quiet)')
+        if raw.get('no_wait') and steps and (steps[-1].expect or steps[-1].requests is not None):
+            raise JourneyError(f'{where}: step {number - 1}: a step that the next one races (`no_wait`) can\'t have '
+                               '`expect` or `requests`; put them on the last step of the race')
         expect = raw.get('expect')
         if expect is not None:
             check_expression(expect, f'{here} expect')
         if raw.get('path') is not None and not isinstance(raw['path'], str):
             raise JourneyError(f'{here}: `path` must be a feature path')
         steps.append(Step(raw['do'], parse_arguments(raw.get('args'), here), expect, raw.get('path'),
-                          parse_requests(raw.get('requests'), here)))
+                          parse_requests(raw.get('requests'), here), bool(raw.get('no_wait')), raw.get('after_ms')))
     checks = data.get('checks', {})
     if not isinstance(checks, dict) or not all(isinstance(v, str) for v in checks.values()):
         raise JourneyError(f'{where}: [checks] must map names to expression strings')
@@ -313,7 +355,8 @@ def journey_from(data, path=None):
     return Journey(path=path, name=name, goal=data.get('goal', ''), steps=steps, checks=dict(checks), budget=dict(budget),
                    fixtures=(base / fixtures).resolve() if fixtures else None, network=network, seed=seed,
                    terminal=terminal, faults=[dict(f) for f in faults],
-                   launch_requests=parse_requests(data.get('launch_requests'), f'{where}: launch_requests'))
+                   launch_requests=parse_requests(data.get('launch_requests'), f'{where}: launch_requests'),
+                   latency=parse_latency(data.get('latency'), where))
 
 
 def journey_document(journey, destination=None):
@@ -333,6 +376,8 @@ def journey_document(journey, destination=None):
         document['seed'] = journey.seed
     if journey.terminal:
         document['terminal'] = True
+    if journey.latency:
+        document['latency'] = copy.deepcopy(journey.latency)
     if journey.launch_requests is not None:
         document['launch_requests'] = list(journey.launch_requests)
     if journey.steps:
@@ -364,9 +409,11 @@ class Settings:
     seed: int | None = None
     wait_ms: int = DEFAULT_WAIT_MS
     faults: list = field(default_factory=list)  # Launch faults, passed as TCA_HARNESS_FAULTS.
+    latency: dict | None = None                 # Replay latency, passed as TCA_HARNESS_LATENCY.
 
     @classmethod
-    def for_journey(cls, journey, network=None, seed=None, wait_ms=DEFAULT_WAIT_MS, fixtures=None):
+    def for_journey(cls, journey, network=None, seed=None, wait_ms=DEFAULT_WAIT_MS, fixtures=None, latency=None):
+        """`latency` (from --latency/--jitter) overrides the journey's."""
         cassettes = Path(fixtures).resolve() if fixtures else journey.fixtures if journey else None
         mode = network or (journey.network if journey else None) or ('replay' if cassettes else 'block')
         if mode == 'record' and cassettes is None and journey and journey.path:
@@ -374,7 +421,8 @@ class Settings:
         if seed is None:
             seed = journey.seed if journey and journey.seed is not None else 0
         return cls(network=mode, cassettes=cassettes, seed=seed, wait_ms=wait_ms,
-                   faults=journey.launch_faults if journey else [])
+                   faults=journey.launch_faults if journey else [],
+                   latency=latency if latency is not None else journey.latency if journey else None)
 
 
 class Session:
@@ -444,9 +492,11 @@ class Session:
             self.request_seq = max(r.get('seq', 0) for r in requests)
         return requests
 
-    def configure_network(self, mode=None, faults=None, cassettes=None):
-        """Change the network mode, cassettes and/or faults through `network`. False if unsupported."""
+    def configure_network(self, mode=None, faults=None, cassettes=None, latency=None):
+        """Change the network mode, cassettes, faults and/or latency through `network`. False if unsupported."""
         settings = {}
+        if latency is not None:
+            settings['latency'] = latency
         if mode:
             settings['mode'] = mode
         if cassettes:
@@ -462,6 +512,11 @@ class Session:
             pass
         if self.launched and self.owned:
             self.launched.stop()
+
+
+def shared_latency(settings):
+    """The latency to set on a reused or attached app (a fresh launch gets TCA_HARNESS_LATENCY)."""
+    return settings.latency or None
 
 
 class Opener:
@@ -491,24 +546,26 @@ class Opener:
         return session
 
     def _launch(self, settings):
-        return targets.launch(self.target, settings.network, settings.cassettes, settings.seed, faults=settings.faults)
+        return targets.launch(self.target, settings.network, settings.cassettes, settings.seed, faults=settings.faults,
+                              latency=settings.latency)
 
     def _open(self, settings):
         tca = sibling('tca')
         if self.port is not None:
             session = Session(tca.Host(port=self.port))
-            session.configure_network(settings.network, cassettes=settings.cassettes)
+            session.configure_network(settings.network, cassettes=settings.cassettes, latency=shared_latency(settings))
             return session
         target = self.target
         if target.restart == 'never':
             if self.shared is None or self.shared.crashed() or self.shared.stopped:
                 if target.port != 'auto' and targets.port_open(target.port):
                     session = Session(tca.Host(port=target.port), owned=False)
-                    session.configure_network(settings.network, cassettes=settings.cassettes)
+                    session.configure_network(settings.network, cassettes=settings.cassettes, latency=shared_latency(settings))
                     return session
-                self.shared = targets.launch(target, settings.network, settings.cassettes, settings.seed)
+                self.shared = targets.launch(target, settings.network, settings.cassettes, settings.seed,
+                                             latency=settings.latency)
             session = Session(tca.Host(port=self.shared.port), self.shared, owned=False)
-            session.configure_network(settings.network, cassettes=settings.cassettes)
+            session.configure_network(settings.network, cassettes=settings.cassettes, latency=shared_latency(settings))
             return session
         launched = self._launch(settings)
         try:
@@ -645,14 +702,53 @@ class Runner:
         self.requests = []      # (step, request) for every request seen
         self.crashed = False
         self.network_reported = False
+        self.raced = []         # (step, operation, requestID, dispatched at) of receipts nobody waited for
+        self.last_dispatch = None
 
-    def step(self, number, query, arguments=None, path=None):
+    def play(self, number, step, raced=False):
+        """Run a journey step with its timing. `raced`: the next step is `no_wait`, so this one's receipt
+        isn't waited for (it's settled when the race ends, with the stuck budget counted from its dispatch).
+        A step that ends a race settles every receipt still running from it."""
+        self.pause(step)
+        outcome = self.step(number, step.do, step.args, step.path, wait=not raced)
+        if not raced and not outcome.crashed and self.raced:
+            try:
+                outcome.findings += self.settle_raced(number)
+            except RuntimeError as error:
+                return self._broken(outcome, error)
+        return outcome
+
+    def pause(self, step, sleep=time.sleep):
+        """Honour `after_ms`: measured from the previous dispatch in a race, else from now."""
+        if not step.after_ms:
+            return
+        if step.no_wait and self.last_dispatch is not None:
+            sleep(max(0.0, self.last_dispatch + step.after_ms / 1000 - time.monotonic()))
+        else:
+            sleep(step.after_ms / 1000)
+
+    def settle_raced(self, number):
+        """Wait for the receipts of raced steps; one still running after the stuck budget is **stuck**.
+        Failed or cancelled raced receipts are not findings: a raced tap often loses."""
+        findings = []
+        for raced, operation, request_id, dispatched in self.raced:
+            remaining = self.wait_ms - (time.monotonic() - dispatched) * 1000
+            waited = self.session.host.call('wait', requestID=request_id, timeoutMs=max(int(remaining), 1))
+            if waited.get('error') == 'wait_timeout':
+                findings.append(Finding('stuck', f'{operation} still running after {self.wait_ms / 1000:g}s', raced, operation,
+                                        {'receipt': waited.get('receipt'), 'raced': True}))
+        self.raced = []
+        for finding in findings:
+            self.reporter.emit('finding', **finding.record())
+        return findings + self.collect(number)
+
+    def step(self, number, query, arguments=None, path=None, wait=True):
         tca = sibling('tca')
         outcome = Outcome(number, query)
         started = time.monotonic()
         for _ in range(4):
             try:
-                outcome.result = tca.do_operation(self.session.host, query, arguments, path, False, self.wait_ms)
+                outcome.result = tca.do_operation(self.session.host, query, arguments, path, False, self.wait_ms, wait)
             except RuntimeError as error:
                 return self._broken(outcome, error)
             if outcome.result.get('error') != 'stale_revision' or outcome.result['dispatched']:
@@ -661,8 +757,13 @@ class Runner:
         result = outcome.result
         candidate = result['candidate']
         operation = tca.route(candidate['id']) if candidate else None
+        receipt = result.get('receipt') or {}
+        if result['dispatched']:
+            self.last_dispatch = time.monotonic()
+            if not wait and receipt.get('status') == 'running':
+                self.raced.append((number, operation, receipt.get('requestID'), started))
         self.reporter.emit('dispatch', step=number, query=query, candidate=candidate['id'] if candidate else None,
-                           arguments=arguments or {}, ok=result['ok'], error=result.get('error'),
+                           arguments=arguments or {}, ok=result['ok'], error=result.get('error'), waited=wait,
                            detail=result.get('detail'), receipt=result.get('receipt'),
                            latencyMs=round((time.monotonic() - started) * 1000, 2), observation=self.session.observation)
         if candidate is not None and not result['dispatched'] and result.get('error') not in TOLERATED_REJECTIONS:
@@ -673,7 +774,8 @@ class Runner:
             outcome.findings.append(Finding('stuck', f'{operation} still running after {self.wait_ms / 1000:g}s',
                                             number, operation, {'receipt': result.get('receipt')}))
         try:
-            outcome.findings += self.collect(number, operation)
+            # Mid-race an empty view is the in-flight request, not a dead end; settling the race checks.
+            outcome.findings += self.collect(number, operation, allow_dead_end=not wait or bool(self.raced))
         except RuntimeError as error:
             return self._broken(outcome, error)
         if self.crashed:
@@ -785,6 +887,7 @@ class RunResult:
     completed: bool = False
     output: list = field(default_factory=list)
     runner: object = None
+    final_state: object = None                     # Root state once the app went quiet after the last step
 
     @property
     def passed(self):
@@ -796,11 +899,12 @@ class RunResult:
 
 
 def run_journey(session, journey, reporter=None, wait_ms=DEFAULT_WAIT_MS, *, checks=True, tolerate_failed_receipts=False,
-                after_step=None, steps=None, stop_on_finding=True, label=None, pace=0):
+                after_step=None, steps=None, stop_on_finding=True, label=None, pace=0, quiet_steps=False):
     """Run a journey's steps (or `steps`) on an open session; never raises for app behaviour.
 
     `pace` sleeps that many seconds after each step and once before the final checks, so a person (or a
-    screen recording) can follow along."""
+    screen recording) can follow along. `quiet_steps` waits for quiet after every step (and race), as
+    journeys that declare `requests` do, so each request is attributed to the step that made it."""
     reporter = reporter or Reporter()
     steps = journey.steps if steps is None else steps
     result = RunResult(journey)
@@ -818,11 +922,12 @@ def run_journey(session, journey, reporter=None, wait_ms=DEFAULT_WAIT_MS, *, che
     check_requests = checks and journey.checks_requests
     contract = []  # Request mismatches: reported, but the run goes on so later oracles still fire.
 
-    def expectation(patterns, number):
-        """Compare the requests seen since `number` began with `patterns`."""
+    def expectation(patterns, number, first=None):
+        """Compare the requests seen from step `first` (default `number`) through `number` with `patterns`."""
         if patterns is None or session.supports.get('network') is False:
             return
-        problem = requests_finding(patterns, [r for s, r in runner.requests if s == number], number)
+        first = number if first is None else first
+        problem = requests_finding(patterns, [r for s, r in runner.requests if first <= s <= number], number)
         if problem:
             contract.append(problem)
             reporter.emit('finding', **problem.record())
@@ -850,10 +955,14 @@ def run_journey(session, journey, reporter=None, wait_ms=DEFAULT_WAIT_MS, *, che
                 expectation(journey.launch_requests, 0)
             if after_step and result.passed and not runner.crashed and after_step(0, None, runner) == 'stop':
                 steps = []  # The caller has what it needed from the launch (chaos on a launch request).
+        race_start = 1
         for number, step in enumerate(steps, 1):
             if not result.passed and stop_on_finding:
                 break
-            outcome = runner.step(number, step.do, step.args, step.path)
+            if not step.no_wait:
+                race_start = number
+            raced = number < len(steps) and steps[number].no_wait
+            outcome = runner.play(number, step, raced)
             result.outcomes.append(outcome)
             last = number == len(steps)
             outcome.findings = [f for f in outcome.findings if not (f.kind == 'dead end' and last and journey.terminal)]
@@ -877,6 +986,8 @@ def run_journey(session, journey, reporter=None, wait_ms=DEFAULT_WAIT_MS, *, che
                 detail = outcome.result.get('detail')
                 stop(Finding('step', f'rejected: {outcome.rejection}' + (f' ({detail})' if detail else ''), number))
                 break
+            if raced:
+                continue  # Its expect, requests and receipt are checked when the race ends.
             if outcome.failed_receipt and not tolerate_failed_receipts and not any(f.kind == 'stuck' for f in outcome.findings):
                 status = (outcome.result.get('receipt') or {}).get('status', outcome.result.get('error'))
                 stop(Finding('step', f'finished {status}', number))
@@ -888,12 +999,13 @@ def run_journey(session, journey, reporter=None, wait_ms=DEFAULT_WAIT_MS, *, che
                 if not holds:
                     stop(Finding('expect', f'expected `{step.expect}`' + (f' ({error})' if error else ' to hold'), number))
                     break
-            if check_requests:
+            if check_requests or quiet_steps:
                 # This step's requests are the ones logged until the app goes quiet again.
                 result.problems += runner.quiesce(number)
                 if not result.passed and stop_on_finding:
                     break
-                expectation(step.requests, number)
+                if check_requests:
+                    expectation(step.requests, number, race_start)
             if after_step and after_step(number, outcome, runner) == 'stop':
                 break
             if pace:
@@ -902,6 +1014,7 @@ def run_journey(session, journey, reporter=None, wait_ms=DEFAULT_WAIT_MS, *, che
             result.completed = result.passed or not stop_on_finding
         if result.completed:
             result.problems += runner.quiesce(len(steps))
+            result.final_state = copy.deepcopy((session.observation or {}).get('state'))
             if pace:
                 time.sleep(pace)
         if result.completed and checks:
@@ -984,7 +1097,8 @@ def journey_run(arguments):
                       f'  goal: {journey.goal or "(none)"}\n  hint: solve it: `tca record start {label}`, reach the goal '
                       'with `tca ls`/`tca do`, then `tca record stop`')
                 continue
-            settings = Settings.for_journey(journey, arguments.network, arguments.seed, arguments.wait_ms)
+            settings = Settings.for_journey(journey, arguments.network, arguments.seed, arguments.wait_ms,
+                                            latency=cli_latency(arguments))
             try:
                 session = opener.open(settings)
             except (RuntimeError, targets.TargetError) as error:
@@ -1196,6 +1310,21 @@ def add_run_options(parser, target=True, network=True):
     parser.add_argument('--report', type=Path, help='Write JSON lines (viewable with `tca trace`)')
     parser.add_argument('--wait-ms', type=int, default=DEFAULT_WAIT_MS,
                         help='How long a receipt may stay running before it is stuck (default 5000)')
+    parser.add_argument('--latency', type=int, metavar='MS',
+                        help="Replay latency: hold each replayed response this long (overrides the journey's and match.json's)")
+    parser.add_argument('--jitter', type=int, metavar='MS',
+                        help='Replay latency jitter: +/- this much per request, drawn from the seed (default 0)')
+
+
+def cli_latency(arguments):
+    """`--latency`/`--jitter` as a TCA_HARNESS_LATENCY dict, or None when neither is given."""
+    ms, jitter = getattr(arguments, 'latency', None), getattr(arguments, 'jitter', None)
+    if ms is None and jitter is None:
+        return None
+    latency = {'ms': ms or 0}
+    if jitter:
+        latency['jitter_ms'] = jitter
+    return latency
 
 
 def build_parser():
@@ -1227,6 +1356,9 @@ def build_parser():
     explore.add_argument('--fixtures', type=Path, help='Cassette directory for replay (default: the journey fixtures)')
     explore.add_argument('--shrink-trials', type=int, default=100, help='Relaunches allowed per finding (default 100)')
     explore.add_argument('--out', type=Path, help='Where to write findings (default .tca/findings)')
+    explore.add_argument('--races', action='store_true',
+                         help="Don't wait for steps that leave something in flight: double taps, dismissing "
+                              'mid-request, out-of-order responses. Uses a replay latency (default 200 +/- 150 ms)')
 
     chaos = commands.add_parser('chaos', help='Fail each request of a journey in turn')
     chaos.add_argument('file', type=Path, metavar='FILE')
@@ -1234,6 +1366,11 @@ def build_parser():
     chaos.add_argument('--faults', default='status500,timeout,offline,malformed,slow',
                        help='Comma-separated: status500, timeout, offline, malformed, slow')
     chaos.add_argument('--out', type=Path, help='Where to write findings (default .tca/findings)')
+    chaos.add_argument('--reorder', action='store_true',
+                       help='Instead of failing requests: where a step (or a race of no_wait steps) makes two or more '
+                            'requests to one endpoint, hold the first back so the responses arrive out of order')
+    chaos.add_argument('--reorder-ms', type=int, default=1000, metavar='MS',
+                       help='How long --reorder holds the first response back (default 1000)')
 
     determinism = commands.add_parser('determinism', help='Replay a journey several times and compare state')
     determinism.add_argument('file', type=Path, metavar='FILE')
@@ -1256,6 +1393,8 @@ def main(argv):
     arguments = parser.parse_args(argv)
     if getattr(arguments, 'wait_ms', 1) <= 0:
         parser.error('--wait-ms must be positive')
+    if any((getattr(arguments, name, None) or 0) < 0 for name in ('latency', 'jitter', 'reorder_ms')):
+        parser.error('--latency, --jitter and --reorder-ms must not be negative')
     NOTES.clear()
     if arguments.command == 'journey':
         return journey_run(arguments)

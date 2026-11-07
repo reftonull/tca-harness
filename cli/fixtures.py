@@ -180,7 +180,7 @@ def from_runs(loaded, opener, arguments, coverage, network=None, fixtures=None, 
     for journey in loaded:
         label = relative(journey.path)
         settings = journeys.Settings.for_journey(journey, network or arguments.network, arguments.seed, arguments.wait_ms,
-                                                 fixtures)
+                                                 fixtures, journeys.cli_latency(arguments))
         try:
             session = opener.open(settings)
         except (RuntimeError, journeys.targets.TargetError) as error:

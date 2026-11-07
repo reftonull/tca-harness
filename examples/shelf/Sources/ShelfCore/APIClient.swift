@@ -8,6 +8,7 @@ public struct APIClient: Sendable {
   public var createBook: @Sendable (_ book: Book) async throws -> Book
   public var updateBook: @Sendable (_ book: Book) async throws -> Book
   public var deleteBook: @Sendable (_ id: UUID) async throws -> Void
+  public var searchCatalog: @Sendable (_ query: String) async throws -> [CatalogEntry]
 }
 
 /// Fire-and-forget product analytics (`POST /events`).
@@ -29,7 +30,8 @@ extension APIClient: DependencyKey {
       fetchBooks: { try await http.send("GET", "/books", decode: [Book].self) },
       createBook: { try await http.send("POST", "/books", body: $0, decode: Book.self) },
       updateBook: { try await http.send("PUT", "/books/\($0.id.uuidString)", body: $0, decode: Book.self) },
-      deleteBook: { _ = try await http.send("DELETE", "/books/\($0.uuidString)") }
+      deleteBook: { _ = try await http.send("DELETE", "/books/\($0.uuidString)") },
+      searchCatalog: { try await http.send("GET", "/catalog", query: ["q": $0], decode: [CatalogEntry].self) }
     )
   }
   public static let testValue = APIClient()
@@ -81,8 +83,13 @@ struct HTTP: Sendable {
   }()
 
   @discardableResult
-  func send(_ method: String, _ path: String, body: (some Encodable)? = Optional<Int>.none) async throws -> Data {
-    var request = URLRequest(url: base.appendingPathComponent(String(path.dropFirst())))
+  func send(_ method: String, _ path: String, query: [String: String] = [:], body: (some Encodable)? = Optional<Int>.none)
+    async throws -> Data {
+    var url = base.appendingPathComponent(String(path.dropFirst()))
+    if !query.isEmpty {
+      url.append(queryItems: query.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) })
+    }
+    var request = URLRequest(url: url)
     request.httpMethod = method
     request.timeoutInterval = 10
     if let body {
@@ -98,9 +105,9 @@ struct HTTP: Sendable {
     return data
   }
 
-  func send<Response: Decodable>(_ method: String, _ path: String, body: (some Encodable)? = Optional<Int>.none,
-    decode: Response.Type) async throws -> Response {
-    let data = try await send(method, path, body: body)
+  func send<Response: Decodable>(_ method: String, _ path: String, query: [String: String] = [:],
+    body: (some Encodable)? = Optional<Int>.none, decode: Response.Type) async throws -> Response {
+    let data = try await send(method, path, query: query, body: body)
     do {
       return try Self.decoder.decode(Response.self, from: data)
     } catch let error as DecodingError {

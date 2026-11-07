@@ -470,6 +470,92 @@ struct HarnessNetworkTests {
     #expect(last.source == "fixture" && last.fault == "delay" && last.ms >= 150)
   }
 
+  @Test func replayLatencyKeepsRequestsInFlight() async throws {
+    state.mode = .replay
+    try write("GET__books_1.json", #"{"request":{"method":"GET","url":"http://api/books","body":null},"response":{"status":200,"headers":{},"body":[]}}"#)
+    state.latency = HarnessLatency(ms: 120)
+    let started = ContinuousClock.now
+    async let slow = request("GET", "http://api/books")
+    try await Task.sleep(for: .milliseconds(40))
+    #expect(state.snapshot().pending == 1)
+    #expect(await slow.status == 200)
+    #expect(ContinuousClock.now - started >= .milliseconds(120))
+    #expect(state.requests().last!.ms >= 120 && state.requests().last!.source == "fixture")
+    #expect(state.snapshot().latency == HarnessLatency(ms: 120))
+
+    // Only replay waits: block answers at once.
+    state.mode = .block
+    let blocked = ContinuousClock.now
+    _ = await request("GET", "http://api/books")
+    #expect(ContinuousClock.now - blocked < .milliseconds(100))
+  }
+
+  @Test func perPathLatencyReordersResponses() async throws {
+    state.mode = .replay
+    try write("GET__search_1.json", #"{"request":{"method":"GET","url":"http://api/search?q=du","body":null},"response":{"status":200,"headers":{},"body":["du"]}}"#)
+    try write("GET__search_2.json", #"{"request":{"method":"GET","url":"http://api/search?q=dune","body":null},"response":{"status":200,"headers":{},"body":["dune"]}}"#)
+    // The first search is slow, the second fast: the older response lands last.
+    state.faults = [HarnessFault(match: .init(path: "/search"), kind: .delay, delayMs: 200)]
+    state.latency = HarnessLatency(ms: 20)
+    async let first = request("GET", "http://api/search?q=du")
+    try await Task.sleep(for: .milliseconds(10))
+    async let second = request("GET", "http://api/search?q=dune")
+    _ = await (first, second)
+    #expect(state.requests().map(\.url) == ["http://api/search?q=dune", "http://api/search?q=du"])
+    #expect(state.requests().map(\.fault) == [nil, "delay"])
+  }
+
+  @Test func latencyJitterIsSeededAndPerPath() {
+    let latency = HarnessLatency(ms: 200, jitterMs: 100, seed: 7, paths: ["/books/{id}": .init(ms: 10, jitterMs: 0), "/slow": .init(ms: 900)])
+    let draws = (0..<50).map { latency.delayMs(method: "GET", path: "/books", occurrence: $0) }
+    #expect(draws == (0..<50).map { latency.delayMs(method: "GET", path: "/books", occurrence: $0) })
+    #expect(draws.allSatisfy { (100...300).contains($0) })
+    #expect(Set(draws).count > 10)
+    #expect(draws != (0..<50).map { latency.delayMs(method: "POST", path: "/books", occurrence: $0) })
+    var reseeded = latency
+    reseeded.seed = 8
+    #expect(draws != (0..<50).map { reseeded.delayMs(method: "GET", path: "/books", occurrence: $0) })
+    #expect(latency.delayMs(method: "PUT", path: "/books/42", occurrence: 3) == 10)
+    #expect((800...1000).contains(latency.delayMs(method: "GET", path: "/slow", occurrence: 0)))
+    // Without its own seed, the run's seed decides.
+    let unseeded = HarnessLatency(ms: 200, jitterMs: 100)
+    #expect(unseeded.delayMs(method: "GET", path: "/a", occurrence: 1, fallbackSeed: 1)
+      == unseeded.delayMs(method: "GET", path: "/a", occurrence: 1, fallbackSeed: 1))
+    #expect(HarnessLatency(ms: 50, jitterMs: 500).delayMs(method: "GET", path: "/a", occurrence: 0) >= 0)
+  }
+
+  @Test func latencyComesFromTheRunOrMatchRules() async throws {
+    state.mode = .replay
+    try write("GET__books_1.json", #"{"request":{"method":"GET","url":"http://api/books","body":null},"response":{"status":200,"headers":{},"body":[]}}"#)
+    try write("match.json", #"{"latency": {"ms": 90, "jitter_ms": 0, "paths": {"/fast": {"ms": 0}}}}"#)
+    #expect(state.snapshot().latency == HarnessLatency(ms: 90, paths: ["/fast": .init(ms: 0)]))
+    let started = ContinuousClock.now
+    _ = await request("GET", "http://api/books")
+    #expect(ContinuousClock.now - started >= .milliseconds(90))
+    state.latency = HarnessLatency(ms: 0)  // The run's latency wins over match.json.
+    let quick = ContinuousClock.now
+    _ = await request("GET", "http://api/books")
+    #expect(ContinuousClock.now - quick < .milliseconds(80))
+
+    let log = HarnessIssueLog()
+    #expect(HarnessNetworkState(environment: ["TCA_HARNESS_LATENCY": "250"], issues: log).latency == HarnessLatency(ms: 250))
+    let object = HarnessNetworkState(environment: ["TCA_HARNESS_LATENCY": #"{"ms":100,"jitter_ms":40,"seed":2}"#], issues: log)
+    #expect(object.latency == HarnessLatency(ms: 100, jitterMs: 40, seed: 2))
+    #expect(log.issues().isEmpty)
+    #expect(HarnessNetworkState(environment: ["TCA_HARNESS_LATENCY": "soon"], issues: log).latency == nil)
+    #expect(log.issues().map(\.message).first?.hasPrefix("Invalid TCA_HARNESS_LATENCY") == true)
+  }
+
+  @Test func sessionSetsLatency() async throws {
+    let store = Store(initialState: Library.State()) { Library() }
+    let attachment = store.harness(Library.self, timeline: nil, issues: HarnessIssueLog())
+    let session = attachment.runtime.session
+    let raw = await session.handleJSON(Data(#"{"method":"network","network":{"latency":{"ms":150,"jitter_ms":50}}}"#.utf8))
+    let latency = (json(raw)["network"] as! [String: Any])["latency"] as! [String: Any]
+    #expect(latency["ms"] as? Int == 150 && latency["jitter_ms"] as? Int == 50)
+    #expect(state.latency == HarnessLatency(ms: 150, jitterMs: 50))
+  }
+
   @Test func skipFailsTheNthMatchingRequest() async throws {
     state.mode = .replay
     try write("POST__books_1.json", #"{"request":{"method":"POST","url":"http://api/books","body":null},"response":{"status":201,"headers":{},"body":{"id":1}}}"#)

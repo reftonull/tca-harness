@@ -70,6 +70,86 @@ public struct HarnessFault: Codable, Sendable, Equatable {
   }
 }
 
+/// Simulated response time for replayed requests, so a run's requests are genuinely in flight while
+/// it goes on: double taps, dismissals mid-request and out-of-order responses become reachable.
+///
+/// Wire, `TCA_HARNESS_LATENCY` and `match.json` form (snake case, like the other matching rules):
+///
+/// ```json
+/// {"ms": 200, "jitter_ms": 150, "seed": 3, "paths": {"/search": {"ms": 600}, "/books/{id}": {"ms": 50, "jitter_ms": 0}}}
+/// ```
+///
+/// Each replayed request waits `ms` plus a jitter drawn uniformly from `-jitter_ms...jitter_ms`
+/// (never below 0). The jitter is a pure function of the seed, the method and path and the request's
+/// occurrence among requests with that method and path, so the same run waits the same on every
+/// replay. `seed` defaults to `TCA_HARNESS_SEED`. A path rule (a literal path or a pattern with
+/// `{name}`/`*` segments) replaces `ms`, and `jitter_ms` when it gives one; an exact path wins over
+/// patterns, and patterns are tried in sorted order.
+public struct HarnessLatency: Codable, Sendable, Equatable {
+  public struct Rule: Codable, Sendable, Equatable {
+    public var ms: Int
+    public var jitterMs: Int?
+    public init(ms: Int, jitterMs: Int? = nil) { self.ms = ms; self.jitterMs = jitterMs }
+    private enum CodingKeys: String, CodingKey { case ms, jitterMs = "jitter_ms" }
+  }
+
+  public var ms: Int
+  public var jitterMs: Int
+  public var seed: UInt64?
+  public var paths: [String: Rule]
+
+  public init(ms: Int = 0, jitterMs: Int = 0, seed: UInt64? = nil, paths: [String: Rule] = [:]) {
+    self.ms = ms; self.jitterMs = jitterMs; self.seed = seed; self.paths = paths
+  }
+
+  private enum CodingKeys: String, CodingKey { case ms, jitterMs = "jitter_ms", seed, paths }
+
+  public init(from decoder: any Decoder) throws {
+    // A bare number is a fixed latency: `TCA_HARNESS_LATENCY=200`.
+    if let single = try? decoder.singleValueContainer(), let ms = try? single.decode(Int.self) {
+      self.init(ms: ms)
+      return
+    }
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    self.init(ms: try container.decodeIfPresent(Int.self, forKey: .ms) ?? 0,
+      jitterMs: try container.decodeIfPresent(Int.self, forKey: .jitterMs) ?? 0,
+      seed: try container.decodeIfPresent(UInt64.self, forKey: .seed),
+      paths: try container.decodeIfPresent([String: Rule].self, forKey: .paths) ?? [:])
+  }
+
+  public func encode(to encoder: any Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(ms, forKey: .ms)
+    try container.encode(jitterMs, forKey: .jitterMs)
+    try container.encodeIfPresent(seed, forKey: .seed)
+    if !paths.isEmpty { try container.encode(paths, forKey: .paths) }
+  }
+
+  /// Milliseconds to wait before answering the `occurrence`th (from 0) request with this method and
+  /// path. `fallbackSeed` is used when the latency sets no `seed`.
+  public func delayMs(method: String, path: String, occurrence: Int, fallbackSeed: UInt64 = 0) -> Int {
+    let rule = paths[path] ?? paths.keys.sorted().first { HarnessMatchRules.path(path, matches: $0) }.flatMap { paths[$0] }
+    let base = max(rule?.ms ?? ms, 0)
+    let jitter = max(rule?.jitterMs ?? jitterMs, 0)
+    guard jitter > 0 else { return base }
+    var mix = (seed ?? fallbackSeed) ^ harnessFNV1a(method.uppercased() + " " + path) ^ (UInt64(occurrence) &* 0x9E37_79B9_7F4A_7C15)
+    let draw = Int(harnessSplitMix(&mix) % UInt64(2 * jitter + 1)) - jitter
+    return max(base + draw, 0)
+  }
+}
+
+func harnessFNV1a(_ text: String) -> UInt64 {
+  text.utf8.reduce(0xCBF2_9CE4_8422_2325) { ($0 ^ UInt64($1)) &* 0x100_0000_01B3 }
+}
+
+func harnessSplitMix(_ state: inout UInt64) -> UInt64 {
+  state &+= 0x9E37_79B9_7F4A_7C15
+  var z = state
+  z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
+  z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
+  return z ^ (z >> 31)
+}
+
 /// Decides which requests may reach the real network in `record` and `live` mode.
 ///
 /// Set it in-process on ``HarnessNetworkState/liveGuard``. The `network` method can change the mode but
@@ -222,13 +302,18 @@ public struct HarnessMatchRules: Decodable, Sendable, Equatable {
   /// Per path pattern; every matching pattern applies.
   public var paths: [String: PathRule]
   public var pagination: [Pagination]
+  /// Replay latency for this directory's cassettes, unless the run sets one (`TCA_HARNESS_LATENCY`
+  /// or the `network` method).
+  public var latency: HarnessLatency?
 
   private enum CodingKeys: String, CodingKey {
-    case ignoreQuery = "ignore_query", pathTemplates = "path_templates", paths, pagination
+    case ignoreQuery = "ignore_query", pathTemplates = "path_templates", paths, pagination, latency
   }
 
-  public init(ignoreQuery: [String] = [], pathTemplates: [String] = [], paths: [String: PathRule] = [:], pagination: [Pagination] = []) {
+  public init(ignoreQuery: [String] = [], pathTemplates: [String] = [], paths: [String: PathRule] = [:], pagination: [Pagination] = [],
+    latency: HarnessLatency? = nil) {
     self.ignoreQuery = ignoreQuery; self.pathTemplates = pathTemplates; self.paths = paths; self.pagination = pagination
+    self.latency = latency
   }
 
   public init(from decoder: any Decoder) throws {
@@ -237,6 +322,7 @@ public struct HarnessMatchRules: Decodable, Sendable, Equatable {
     pathTemplates = try container.decodeIfPresent([String].self, forKey: .pathTemplates) ?? []
     paths = try container.decodeIfPresent([String: PathRule].self, forKey: .paths) ?? [:]
     pagination = try container.decodeIfPresent([Pagination].self, forKey: .pagination) ?? []
+    latency = try container.decodeIfPresent(HarnessLatency.self, forKey: .latency)
   }
 
   /// Whether `pattern` (`/books/{id}`, `/books/*`) matches `path` segment for segment.
@@ -288,13 +374,15 @@ public struct HarnessNetworkSnapshot: Codable, Sendable, Equatable {
   public let liveGuard: String?
   /// Requests started but not yet answered (they're logged when they finish). Nil from older versions.
   public let pending: Int?
+  /// Replay latency in effect: the run's, else the cassette directory's `match.json`. Nil when none.
+  public let latency: HarnessLatency?
 
-  private enum CodingKeys: String, CodingKey { case mode, cassettes, requests, faults, liveGuard, pending }
+  private enum CodingKeys: String, CodingKey { case mode, cassettes, requests, faults, liveGuard, pending, latency }
 
   public init(mode: String, cassettes: String?, requests: [HarnessNetworkRequest], faults: [HarnessFault], liveGuard: String? = nil,
-    pending: Int? = nil) {
+    pending: Int? = nil, latency: HarnessLatency? = nil) {
     self.mode = mode; self.cassettes = cassettes; self.requests = requests; self.faults = faults; self.liveGuard = liveGuard
-    self.pending = pending
+    self.pending = pending; self.latency = latency
   }
 
   public init(from decoder: any Decoder) throws {
@@ -305,6 +393,7 @@ public struct HarnessNetworkSnapshot: Codable, Sendable, Equatable {
     faults = try container.decode([HarnessFault].self, forKey: .faults)
     liveGuard = try container.decodeIfPresent(String.self, forKey: .liveGuard)
     pending = try container.decodeIfPresent(Int.self, forKey: .pending)
+    latency = try container.decodeIfPresent(HarnessLatency.self, forKey: .latency)
   }
 
   public func encode(to encoder: any Encoder) throws {
@@ -315,6 +404,7 @@ public struct HarnessNetworkSnapshot: Codable, Sendable, Equatable {
     try container.encode(faults, forKey: .faults)
     try container.encodeIfPresent(liveGuard, forKey: .liveGuard)
     try container.encodeIfPresent(pending, forKey: .pending)
+    try container.encodeIfPresent(latency, forKey: .latency)
   }
 }
 
@@ -335,6 +425,12 @@ public final class HarnessNetworkState: @unchecked Sendable {
   private var rulesError: String?
   /// Requests started and not yet logged.
   private var pending = 0
+  /// The run's replay latency; nil defers to `match.json`.
+  private var _latency: HarnessLatency?
+  /// Per method+path occurrence counters for latency jitter, in the order requests start.
+  private var latencyCounters: [String: Int] = [:]
+  /// `TCA_HARNESS_SEED`, the default latency seed.
+  private var runSeed: UInt64 = 0
   /// Where `network` issues (unmatched or blocked requests) are recorded.
   public let issues: HarnessIssueLog
   /// Maximum number of retained request log entries.
@@ -345,8 +441,10 @@ public final class HarnessNetworkState: @unchecked Sendable {
   }
 
   /// Reads `TCA_HARNESS_NETWORK` (`block`, `replay`, `record` or `live`; default `live`),
-  /// `TCA_HARNESS_CASSETTES` (cassette directory) and `TCA_HARNESS_FAULTS` (a JSON array of faults,
-  /// pending from the first request, so they reach requests made before a client connects).
+  /// `TCA_HARNESS_CASSETTES` (cassette directory), `TCA_HARNESS_FAULTS` (a JSON array of faults,
+  /// pending from the first request, so they reach requests made before a client connects),
+  /// `TCA_HARNESS_LATENCY` (replay latency, ``HarnessLatency``: milliseconds or a JSON object) and
+  /// `TCA_HARNESS_SEED` (the default seed of the latency jitter).
   public convenience init(environment: [String: String], issues: HarnessIssueLog = .shared) {
     let text = environment["TCA_HARNESS_NETWORK"]?.lowercased()
     let mode = text.flatMap(HarnessNetworkMode.init(rawValue:))
@@ -361,6 +459,16 @@ public final class HarnessNetworkState: @unchecked Sendable {
         issues.record(kind: "network", message: "Invalid TCA_HARNESS_FAULTS (a JSON array of faults): \(error)")
       }
     }
+    if let seed = environment["TCA_HARNESS_SEED"]?.trimmingCharacters(in: .whitespaces), !seed.isEmpty {
+      runSeed = UInt64(seed) ?? Int64(seed).map { UInt64(bitPattern: $0) } ?? harnessFNV1a(seed)
+    }
+    if let latency = environment["TCA_HARNESS_LATENCY"], !latency.trimmingCharacters(in: .whitespaces).isEmpty {
+      do {
+        _latency = try JSONDecoder().decode(HarnessLatency.self, from: Data(latency.utf8))
+      } catch {
+        issues.record(kind: "network", message: "Invalid TCA_HARNESS_LATENCY (milliseconds or a latency object): \(error)")
+      }
+    }
   }
 
   public var mode: HarnessNetworkMode {
@@ -371,13 +479,19 @@ public final class HarnessNetworkState: @unchecked Sendable {
   /// Cassette directory. Replay finds nothing and record saves nothing without one.
   public var cassettes: URL? {
     get { locked { _cassettes } }
-    set { locked { _cassettes = newValue; replayCounters = [:]; recordCounters = [:] } }
+    set { locked { _cassettes = newValue; replayCounters = [:]; recordCounters = [:]; latencyCounters = [:] } }
   }
 
   /// Pending faults; exhausted ones are removed.
   public var faults: [HarnessFault] {
     get { locked { _faults } }
     set { locked { _faults = newValue } }
+  }
+
+  /// The run's replay latency. Nil (the default) uses the cassette directory's `match.json` `latency`, if any.
+  public var latency: HarnessLatency? {
+    get { locked { _latency } }
+    set { locked { _latency = newValue; latencyCounters = [:] } }
   }
 
   /// Limits what `record` and `live` send to the real network. Not changed by ``reset()`` or the
@@ -393,13 +507,13 @@ public final class HarnessNetworkState: @unchecked Sendable {
   public func snapshot(since: Int = 0) -> HarnessNetworkSnapshot {
     locked {
       HarnessNetworkSnapshot(mode: _mode.rawValue, cassettes: _cassettes?.path, requests: requests.filter { $0.seq > since }, faults: _faults,
-        liveGuard: _liveGuard?.name, pending: pending)
+        liveGuard: _liveGuard?.name, pending: pending, latency: _latency ?? _cassettes.flatMap { HarnessMatchRules.load(directory: $0).rules?.latency })
     }
   }
 
-  /// Clears the request log, faults and replay positions. Sequence numbers keep increasing.
+  /// Clears the request log, faults, latency and replay positions. Sequence numbers keep increasing.
   public func reset() {
-    locked { requests = []; _faults = []; replayCounters = [:]; recordCounters = [:] }
+    locked { requests = []; _faults = []; _latency = nil; replayCounters = [:]; recordCounters = [:]; latencyCounters = [:] }
   }
 
   // MARK: Used by the protocol
@@ -421,6 +535,20 @@ public final class HarnessNetworkState: @unchecked Sendable {
   }
 
   func started() { locked { pending += 1 } }
+
+  /// How long to hold a request before answering it: the replay latency, in replay mode only.
+  func replayDelayMs(method: String, path: String) -> Int {
+    guard mode == .replay else { return 0 }
+    let configured = latency ?? cassettes.flatMap { rules(in: $0)?.latency }
+    guard let configured else { return 0 }
+    let key = method.uppercased() + " " + path
+    let (occurrence, seed) = locked { () -> (Int, UInt64) in
+      let occurrence = latencyCounters[key, default: 0]
+      latencyCounters[key] = occurrence + 1
+      return (occurrence, runSeed)
+    }
+    return configured.delayMs(method: method, path: path, occurrence: occurrence, fallbackSeed: seed)
+  }
 
   /// A started request that will never be logged (stopped before it was sent).
   func abandoned() { locked { pending = max(pending - 1, 0) } }
@@ -710,7 +838,16 @@ public final class HarnessURLProtocol: URLProtocol, @unchecked Sendable {
     let record = HarnessCassette.Request(method: method, url: url.absoluteString, body: body)
     let exchange = Exchange(state: state, started: started, method: method, url: url, record: record, body: body)
     state.started()
-    guard let fault = state.takeFault(method: method, path: record.path) else { return answer(exchange, fault: nil) }
+    // Faults are taken and latency drawn when the request starts, so both follow start order.
+    let fault = state.takeFault(method: method, path: record.path)
+    let latency = state.replayDelayMs(method: method, path: record.path)
+    guard latency > 0 else { return reply(exchange, fault: fault) }
+    DispatchQueue.global().asyncAfter(deadline: .now() + .milliseconds(latency)) { self.reply(exchange, fault: fault) }
+  }
+
+  /// Answers with `fault`, or normally (after a delay fault's wait).
+  private func reply(_ exchange: Exchange, fault: HarnessFault?) {
+    guard let fault else { return answer(exchange, fault: nil) }
     switch fault.kind {
     case .status:
       respond(exchange, status: fault.status ?? 500, headers: [:], data: Data(), source: "fault", fault: "status", answer: .init(match: .fault))

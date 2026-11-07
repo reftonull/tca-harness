@@ -23,6 +23,10 @@ TARGETS = {
     'v2': '--v2',
     'late': '--late-issue',
     'launch': '--launch-load',
+    'racy': '--race-save',
+    'search': '--search',
+    'stale': '--stale-search',
+    'stale-quiet': '--stale-search --quiet-search',
 }
 
 ADD_BOOK = '''name = "Add a book"

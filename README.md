@@ -98,12 +98,14 @@ A journey names a goal, the steps a user takes (by label) and what must be true 
 tca journey run journeys/*.toml          # launch targets come from harness.toml
 tca explore --runs 50                    # random walks; findings are shrunk to minimal journeys
 tca chaos journeys/add-book.toml         # fail each request in turn
+tca explore --races --runs 30            # double taps and dismissals while requests are in flight (replay latency)
+tca chaos journeys/search.toml --reorder # responses out of order: does a stale one win?
 tca diff journeys/add-book.toml --targets headless,ui
 ```
 
 [Testing guide](docs/testing.md) · [Adopting in a large app](docs/adopting.md) · [Command reference](cli/README.md#behaviour-tests) · [test-tca-app skill](skills/test-tca-app/SKILL.md)
 
-The [Shelf example](examples/shelf/README.md) plants ten bugs behind `SHELF_BUGS`, one for each pattern plus two in vanilla SwiftUI screens (`@Observable` models, one wrapped in TCA with `Hosted`). `examples/shelf/run_ladder.sh` runs every pattern on the headless host, the simulator and a live local backend, and prints which pattern caught which bug.
+The [Shelf example](examples/shelf/README.md) plants eleven bugs behind `SHELF_BUGS`, one for each pattern (two of them races: a double save and a stale search) plus two in vanilla SwiftUI screens (`@Observable` models, one wrapped in TCA with `Hosted`). `examples/shelf/run_ladder.sh` runs every pattern on the headless host, the simulator and a live local backend, and prints which pattern caught which bug.
 
 ### Model-driven goals
 

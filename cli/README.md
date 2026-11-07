@@ -137,6 +137,15 @@ tca chaos journeys/add-book.toml [--faults status500,timeout,offline,malformed,s
 
 Runs the journey once in replay mode to learn its requests, then reruns it once per request and fault with that request failed (the Nth occurrence of a repeated request through the fault's `skip`). Launch requests are failed on a fresh launch through `TCA_HARNESS_FAULTS` (rows marked `launch`; the way forward is the first step). A rerun passes when no oracle fires and, within 5 s, the journey's next step or a retry of the failed step is offered (any operation if the journey is finished). Checks don't have to hold. Each failure becomes a journey with a `[[faults]]` entry that reproduces it. Requires protocol v3.
 
+### Races: `tca explore --races` and `tca chaos --reorder`
+
+```sh
+tca explore --races [--latency 200 --jitter 150] ...   # don't wait while something is in flight
+tca chaos journeys/discover.toml --reorder [--reorder-ms 1000]
+```
+
+`--races` dispatches the next operation while the previous one is still running (biased toward the same operation and toward dismissals) and records each such step with `no_wait = true` and `after_ms`; findings also record the replay latency. `--reorder` holds back the first of two or more same-endpoint requests made by a step or a race of `no_wait` steps, and fails when an oracle or check fires or the final state differs from the in-order run. Every runner takes `--latency MS` and `--jitter MS` (replay latency, seeded). See [Races](../docs/testing.md#races).
+
 ### `tca fixtures coverage` and `tca fixtures record`
 
 ```sh
