@@ -37,7 +37,7 @@ A run fails, and records a finding, when any of these happen:
 - **rejected**: an operation that was offered was then rejected for a reason other than a stale revision.
 - **dead end**: nothing is offered and the journey didn't declare the state terminal.
 
-The oracles run after every step, and once more after the last step when the app has gone quiet: no state change, request or issue for 300 ms (at most 2 s). A real app keeps running after the user's last tap, so effects that land late, like a response delivered to a screen that already closed, still count. Request budgets include those late requests.
+The oracles run after every step, and once more after the last step when the app has gone quiet: no state change, request or issue for 300 ms (at most 2 s). A real app keeps running after the user's last tap, so effects that land late, like a response delivered to a screen that already closed, still count. Request budgets include those late requests. Runs also wait for the same quiet before the first step, so launch fetches that answer after the listener is up land before step 1, as they would before a person's first tap.
 
 ## Journeys
 
@@ -170,7 +170,7 @@ Two methods are added, and every observation gains `issueCount`.
    "faults":[...]},"observation":{...}}
 ```
 
-A fault is `{"match":{"method":"POST","path":"/books"},"kind":"status","status":500,"times":1}`. `kind` is `status` (with `status`), `timeout`, `offline`, `malformed` (200 with invalid JSON body) or `delay` (with `delayMs`, then the normal response). `match` fields are optional; `skip` (default 0) lets that many matching requests through before the fault applies; `times` defaults to 1, `-1` means always. Skipped requests don't count toward `times`. `source` is `fixture`, `live`, `fault` or `blocked`. A `status` fault responds with an empty body; `timeout` and `offline` fail with `URLError.timedOut` and `URLError.notConnectedToInternet`. Exhausted faults disappear from `faults`. The `network` object may also set `cassettes` (a directory path), and `since` limits `requests` to entries after that `seq`.
+A fault is `{"match":{"method":"POST","path":"/books"},"kind":"status","status":500,"times":1}`. `kind` is `status` (with `status`), `timeout`, `offline`, `malformed` (200 with invalid JSON body) or `delay` (with `delayMs`, then the normal response). `match` fields are optional; `skip` (default 0) lets that many matching requests through before the fault applies; `times` defaults to 1, `-1` means always. Skipped requests don't count toward `times`. `source` is `fixture`, `live`, `fault` or `blocked`. A `status` fault responds with an empty body; `timeout` and `offline` fail with `URLError.timedOut` and `URLError.notConnectedToInternet`. Exhausted faults disappear from `faults`. The `network` object may also set `cassettes` (a directory path), and `since` limits `requests` to entries after that `seq`. When the app set a live guard (below), the snapshot includes its name as `liveGuard`; the `network` method can't change or remove it.
 
 ## Swift API
 
@@ -183,6 +183,10 @@ Shelf.harnessDescriptor
 // Network: route URLSession traffic through the harness. Reads TCA_HARNESS_NETWORK / TCA_HARNESS_CASSETTES.
 HarnessNetwork.install()                                   // URLSession.shared
 let session = URLSession(configuration: HarnessNetwork.configure(.ephemeral))   // custom sessions
+
+// Recording from a production service: in `record` and `live`, only GET/HEAD to these hosts leave the
+// process. Everything else fails like `block` and is reported as a `network` issue.
+HarnessNetwork.shared.liveGuard = .readOnly(hosts: ["api.example.com"])
 
 // Deterministic dependencies for runs that ask for them (TCA_HARNESS_SEED set).
 let store = Store(initialState: App.State()) { App().harnessTimeline() } withDependencies: {

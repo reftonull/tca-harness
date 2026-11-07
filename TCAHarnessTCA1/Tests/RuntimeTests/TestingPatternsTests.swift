@@ -425,6 +425,35 @@ struct HarnessNetworkTests {
     #expect(files.isEmpty)
   }
 
+  @Test func liveGuardRefusesWritesAndOtherHostsInRecordAndLive() async throws {
+    let server = try await LoopbackHTTPServer.start(status: 200, body: #"{"ok":true}"#)
+    defer { server.stop(); state.liveGuard = nil }
+    state.liveGuard = .readOnly(hosts: ["127.0.0.1"])
+    let url = "http://127.0.0.1:\(server.port)/locations"
+    for mode in [HarnessNetworkMode.record, .live] {
+      state.mode = mode
+      let before = HarnessIssueLog.shared.count
+      let write = await request("PUT", url, body: #"{"device":"d"}"#)
+      #expect(write.error?.code == .notConnectedToInternet)
+      #expect(networkIssues(since: before) == ["Refused PUT 127.0.0.1/locations (live guard read-only (127.0.0.1))"])
+      #expect(await request("POST", "http://example.invalid/messages", body: "{}").error?.code == .notConnectedToInternet)
+      #expect(await request("GET", "http://localhost:\(server.port)/locations").error?.code == .notConnectedToInternet)
+      #expect(await request("GET", url).status == 200)
+    }
+    // Only the two GETs reached the server; refused requests are logged as blocked and never saved.
+    #expect(server.requests.count == 2 && server.requests.allSatisfy { $0.hasPrefix("GET /locations") })
+    #expect(state.requests().map(\.source) == ["blocked", "blocked", "blocked", "live", "blocked", "blocked", "blocked", "live"])
+    #expect(try FileManager.default.contentsOfDirectory(atPath: directory.path) == ["GET__locations_1.json"])
+    // reset() and the session's `network` method leave the guard in place.
+    state.reset()
+    #expect(state.snapshot().liveGuard == "read-only (127.0.0.1)")
+    // Replay and faults never reach the network, so the guard doesn't apply to them.
+    state.mode = .replay
+    try write("PUT__locations_1.json", #"{"request":{"method":"PUT","url":"http://x/locations","body":null},"response":{"status":200,"headers":{},"body":{"status":"ok"}}}"#)
+    #expect(await request("PUT", url).status == 200)
+    #expect(server.requests.count == 2)
+  }
+
   @Test func sessionReadsAndChangesTheNetwork() async throws {
     try write("POST__books_1.json", #"{"request":{"method":"POST","url":"http://api/books","body":null},"response":{"status":201,"headers":{},"body":{"id":1}}}"#)
     let store = Store(initialState: Library.State()) { Library() }

@@ -22,6 +22,7 @@ TARGETS = {
     'unseeded': '--unseeded-ids',
     'v2': '--v2',
     'late': '--late-issue',
+    'launch': '--launch-load',
 }
 
 ADD_BOOK = '''name = "Add a book"

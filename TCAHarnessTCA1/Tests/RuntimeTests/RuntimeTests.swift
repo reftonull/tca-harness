@@ -351,6 +351,20 @@ struct RuntimeTests {
     #expect(store.withState { $0.isSaving } == false)
   }
 
+  @Test func operationsCanBuildTheirActionFromCurrentState() async throws {
+    let store = Store(initialState: WorkspaceFeature.State()) { WorkspaceFeature() }
+    let descriptor = FeatureDescriptor<WorkspaceFeature.State, WorkspaceFeature.Action>("Workspace")
+      .operation("bumpLast", label: "Increment the last item", available: { !$0.items.isEmpty }) { state in
+        .items(.element(id: state.items.ids.last!, action: .incrementButtonTapped))
+      }
+    let attachment = store.harness(descriptor: descriptor, timeline: nil)
+    let client = Client(attachment.runtime.session)
+    _ = try await client.call("observe")
+    let response = try await client.dispatch(client.id("root/bumpLast@"))
+    #expect(response["ok"] as? Bool == true)
+    #expect(store.withState { $0.items.map(\.count) } == [0, 1])
+  }
+
   @Test func duplicateOperationsFailClosed() {
     let store = Store(initialState: WorkspaceFeature.State()) { WorkspaceFeature() }
     let descriptor = FeatureDescriptor<WorkspaceFeature.State, WorkspaceFeature.Action>("Invalid")

@@ -13,6 +13,7 @@ through a fake network (fixtures, faults, a request log); invariants are reporte
 --unseeded-ids    new book IDs ignore TCA_HARNESS_SEED (nondeterministic)
 --ui              behaves like the app with views: opening the editor focuses its title field
 --v2              protocol v2: no `issues`/`network` methods and no issueCount
+--launch-load     a book arrives 150 ms after launch, like a first fetch that answers after the listener is up
 """
 import argparse
 import copy
@@ -403,7 +404,7 @@ def serve(app, port=0):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', type=int, default=int(os.environ.get('TCA_HARNESS_PORT', '0')))
-    for flag in ('bug', 'strand-on-error', 'crashy', 'stuck', 'unseeded-ids', 'ui', 'v2', 'late-issue'):
+    for flag in ('bug', 'strand-on-error', 'crashy', 'stuck', 'unseeded-ids', 'ui', 'v2', 'late-issue', 'launch-load'):
         parser.add_argument('--' + flag, action='store_true')
     arguments = parser.parse_args()
     seed = os.environ.get('TCA_HARNESS_SEED')
@@ -411,6 +412,8 @@ def main():
                     unseeded=arguments.unseeded_ids, ui=arguments.ui, v2=arguments.v2,
                     network=os.environ.get('TCA_HARNESS_NETWORK'), cassettes=os.environ.get('TCA_HARNESS_CASSETTES'),
                     seed=int(seed) if seed else None, late=arguments.late_issue)
+    if arguments.launch_load:
+        app.later(0.15, lambda: app.state['shelf']['books'].append({'id': 'launch', 'title': 'Launch', 'isRead': False}))
     server = serve(app, arguments.port)
     print('some startup noise', file=sys.stderr, flush=True)
     print(f'TCA harness listening on 127.0.0.1:{server.server_address[1]}', file=sys.stderr, flush=True)

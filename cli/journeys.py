@@ -670,7 +670,11 @@ def run_journey(session, journey, reporter=None, wait_ms=DEFAULT_WAIT_MS, *, che
         if journey.faults and not session.configure_network(faults=journey.faults):
             stop(Finding('faults', 'the journey declares faults but the app has no `network` method (protocol v3)', 0))
         if result.passed:
-            result.problems += runner.collect(0, allow_dead_end=not steps and journey.terminal)
+            # Launch effects (first fetches, permission callbacks) land before the first step, as they
+            # would before a person's first tap, so step 1 and the launch state don't race them.
+            result.problems += runner.quiesce(0)
+            if not runner.crashed:
+                result.problems += runner.collect(0, allow_dead_end=not steps and journey.terminal)
             result.states.append(copy.deepcopy(session.observation['state']))
         for number, step in enumerate(steps, 1):
             if not result.passed and stop_on_finding:

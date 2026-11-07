@@ -70,6 +70,35 @@ public struct HarnessFault: Codable, Sendable, Equatable {
   }
 }
 
+/// Decides which requests may reach the real network in `record` and `live` mode.
+///
+/// Set it in-process on ``HarnessNetworkState/liveGuard``. The `network` method can change the mode but
+/// not the guard, so a client that switches a run to `live` still can't send what the guard refuses.
+/// Refused requests fail with `URLError.notConnectedToInternet`, are logged with source `blocked` and
+/// reported as a `network` issue. Faults and replay are unaffected: they never reach the network.
+public struct HarnessLiveGuard: Sendable {
+  /// Shown in the `network` snapshot and in refusal messages.
+  public var name: String
+  public var allows: @Sendable (_ method: String, _ url: URL) -> Bool
+
+  public init(name: String, allows: @escaping @Sendable (_ method: String, _ url: URL) -> Bool) {
+    self.name = name; self.allows = allows
+  }
+
+  /// Only `GET` and `HEAD`, and when `hosts` is given only to those hosts or their subdomains.
+  /// For recording fixtures from a production service without writing to it.
+  public static func readOnly(hosts: Set<String>? = nil) -> Self {
+    let hosts = hosts.map { Set($0.map { $0.lowercased() }) }
+    let name = "read-only" + (hosts.map { " (" + $0.sorted().joined(separator: ", ") + ")" } ?? "")
+    return Self(name: name) { method, url in
+      guard ["GET", "HEAD"].contains(method.uppercased()) else { return false }
+      guard let hosts else { return true }
+      guard let host = url.host?.lowercased() else { return false }
+      return hosts.contains { host == $0 || host.hasSuffix("." + $0) }
+    }
+  }
+}
+
 /// One request seen by the harness network layer.
 public struct HarnessNetworkRequest: Codable, Sendable, Equatable {
   public let seq: Int
@@ -108,11 +137,22 @@ public struct HarnessNetworkSnapshot: Codable, Sendable, Equatable {
   public let cassettes: String?
   public let requests: [HarnessNetworkRequest]
   public let faults: [HarnessFault]
+  /// Name of the ``HarnessLiveGuard``, if one is set.
+  public let liveGuard: String?
 
-  private enum CodingKeys: String, CodingKey { case mode, cassettes, requests, faults }
+  private enum CodingKeys: String, CodingKey { case mode, cassettes, requests, faults, liveGuard }
 
-  public init(mode: String, cassettes: String?, requests: [HarnessNetworkRequest], faults: [HarnessFault]) {
-    self.mode = mode; self.cassettes = cassettes; self.requests = requests; self.faults = faults
+  public init(mode: String, cassettes: String?, requests: [HarnessNetworkRequest], faults: [HarnessFault], liveGuard: String? = nil) {
+    self.mode = mode; self.cassettes = cassettes; self.requests = requests; self.faults = faults; self.liveGuard = liveGuard
+  }
+
+  public init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    mode = try container.decode(String.self, forKey: .mode)
+    cassettes = try container.decodeIfPresent(String.self, forKey: .cassettes)
+    requests = try container.decode([HarnessNetworkRequest].self, forKey: .requests)
+    faults = try container.decode([HarnessFault].self, forKey: .faults)
+    liveGuard = try container.decodeIfPresent(String.self, forKey: .liveGuard)
   }
 
   public func encode(to encoder: any Encoder) throws {
@@ -121,6 +161,7 @@ public struct HarnessNetworkSnapshot: Codable, Sendable, Equatable {
     try container.encode(cassettes, forKey: .cassettes)
     try container.encode(requests, forKey: .requests)
     try container.encode(faults, forKey: .faults)
+    try container.encodeIfPresent(liveGuard, forKey: .liveGuard)
   }
 }
 
@@ -131,6 +172,7 @@ public final class HarnessNetworkState: @unchecked Sendable {
   private var _mode: HarnessNetworkMode
   private var _cassettes: URL?
   private var _faults: [HarnessFault] = []
+  private var _liveGuard: HarnessLiveGuard?
   private var requests: [HarnessNetworkRequest] = []
   private var sequence = 0
   /// Per method+path occurrence counters: replay serves equal recordings in order, record names files by occurrence.
@@ -173,12 +215,20 @@ public final class HarnessNetworkState: @unchecked Sendable {
     set { locked { _faults = newValue } }
   }
 
+  /// Limits what `record` and `live` send to the real network. Not changed by ``reset()`` or the
+  /// `network` method.
+  public var liveGuard: HarnessLiveGuard? {
+    get { locked { _liveGuard } }
+    set { locked { _liveGuard = newValue } }
+  }
+
   /// Logged requests with `seq` greater than `since`, oldest first.
   public func requests(since: Int = 0) -> [HarnessNetworkRequest] { locked { requests.filter { $0.seq > since } } }
 
   public func snapshot(since: Int = 0) -> HarnessNetworkSnapshot {
     locked {
-      HarnessNetworkSnapshot(mode: _mode.rawValue, cassettes: _cassettes?.path, requests: requests.filter { $0.seq > since }, faults: _faults)
+      HarnessNetworkSnapshot(mode: _mode.rawValue, cassettes: _cassettes?.path, requests: requests.filter { $0.seq > since }, faults: _faults,
+        liveGuard: _liveGuard?.name)
     }
   }
 
@@ -485,6 +535,11 @@ public final class HarnessURLProtocol: URLProtocol, @unchecked Sendable {
       respond(exchange, status: fixture.status, headers: fixture.headers, data: fixture.data, source: "fixture", fault: fault)
     case .record, .live:
       let recording = state.mode == .record
+      if let liveGuard = state.liveGuard, !liveGuard.allows(exchange.method, exchange.url) {
+        state.issues.record(kind: "network", message: "Refused \(exchange.method) \(exchange.url.host ?? "")\(exchange.record.path) (live guard \(liveGuard.name))")
+        return fail(exchange, URLError(.notConnectedToInternet, userInfo: [NSLocalizedDescriptionKey: "Refused by the TCA harness live guard \(liveGuard.name)"]),
+          source: "blocked", fault: fault)
+      }
       if recording, state.cassettes == nil {
         state.issues.record(kind: "network", message: "Record mode without TCA_HARNESS_CASSETTES; \(target) was not saved")
       }

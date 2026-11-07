@@ -164,6 +164,12 @@ class JourneyRunTests(unittest.TestCase):
         code, out, _ = self.workspace.cli('journey', 'run', 'journeys/late.toml', '--target', 'headless')
         self.assertEqual(code, 0, out)
 
+    def test_launch_effects_land_before_the_first_step(self):
+        # The first fetch answers after the listener is up; step 1 depends on it, as a person's first tap would.
+        self.workspace.journey('launch', 'name = "launch"\n[[steps]]\ndo = "Mark Launch read"\n')
+        code, out, _ = self.workspace.cli('journey', 'run', 'journeys/launch.toml', '--target', 'launch')
+        self.assertEqual(code, 0, out)
+
     def test_fixtures_path_is_absolute_when_nothing_but_the_root_is_shared(self):
         journey = journeys.Journey(path=None, name='x', fixtures=str(self.workspace.root / 'fixtures' / 'shelf'))
         near = journeys.journey_document(journey, self.workspace.root / 'journeys' / 'x.toml')

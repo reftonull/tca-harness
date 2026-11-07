@@ -36,6 +36,16 @@ public struct FeatureDescriptor<State, Action> {
       build: { state, _ in action }, completion: completion, cancel: cancel))
   }
 
+  /// An operation whose action is built from the state when it is dispatched, for actions that carry
+  /// a value the user is looking at, such as `.selectRide(ride)` for a row that isn't an identified child.
+  public func operation(_ id: String, label: String? = nil,
+    available: @escaping (State) -> Bool = { _ in true },
+    completion: ((State) -> HarnessOperationStatus)? = nil, cancel: Action? = nil,
+    action: @escaping (State) -> Action) -> Self {
+    adding(DescriptorOperation(id: id, label: label ?? id, schema: nil, available: available,
+      build: { state, _ in action(state) }, completion: completion, cancel: cancel))
+  }
+
   public func operation<Input: HarnessInput>(_ id: String, label: String? = nil,
     arguments: Input.Type, action: @escaping (Input) -> Action,
     available: @escaping (State) -> Bool = { _ in true },
