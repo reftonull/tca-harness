@@ -1,0 +1,22 @@
+# FINDING: turning observation mode on in Settings never stops location updates (and turning it off
+# never starts them). SettingsFeature.observationModeChanged compares the new value against the
+# shared setting that already holds it, so it always returns early. Run on the returning-user target:
+#   tca journey run findings/observation-mode-keeps-gps-on.toml --target headless-returning
+# Expected to FAIL on upstream ef2e06d.
+name = "Observation mode stops location updates"
+goal = "As a returning user, switch to observation mode in Settings and have the app stop using GPS"
+fixtures = "../fixtures/criticalmaps"
+network = "replay"
+
+[[steps]]
+do = "Continue"
+
+[[steps]]
+do = "Open settings"
+
+[[steps]]
+do = "Turn observation mode on"
+
+[checks]
+"observation mode is on" = "settings.observationMode"
+"the GPS is off" = "not map.gps.updating"

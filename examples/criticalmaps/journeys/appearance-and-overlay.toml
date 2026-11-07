@@ -1,0 +1,41 @@
+name = "Appearance and overlay"
+goal = "Switch to the dark theme and the neon icon, hide the info overlay, and find the choices still set when coming back to settings"
+fixtures = "../fixtures/criticalmaps"
+network = "replay"
+
+[[steps]]
+do = "Continue"
+
+[[steps]]
+do = "Open settings"
+
+[[steps]]
+do = "Open appearance"
+
+[[steps]]
+do = "Set the theme"
+args = { value = "dark" }
+
+[[steps]]
+do = "Set the app icon"
+args = { value = "AppIcon-Neon" }
+
+[[steps]]
+do = "Back to settings"
+
+[[steps]]
+do = "Hide the info overlay"
+
+[[steps]]
+do = "Close settings"
+
+[[steps]]
+do = "Open settings"
+
+[[steps]]
+do = "Open appearance"
+
+[checks]
+"dark theme kept" = "settings.appearance.theme == 'dark' and settings.theme == 'dark'"
+"neon icon kept" = "settings.appearance.appIcon == 'AppIcon-Neon'"
+"overlay hidden on the map" = "not map.infoOverlay"

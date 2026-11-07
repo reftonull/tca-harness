@@ -1,0 +1,14 @@
+# FINDING: after a fresh install the user allows location access, but the app only takes one fix
+# (requestLocation) and never starts location updates. The posted position stays frozen until the
+# next launch. Expected to FAIL on upstream ef2e06d.
+name = "Location is tracked after allowing access"
+goal = "Install, allow location access when asked, and have the app follow your position"
+fixtures = "../fixtures/criticalmaps"
+network = "replay"
+
+[[steps]]
+do = "Continue"
+
+[checks]
+"location access was granted" = "map.gps.permission == 'allowed'"
+"the app keeps updating your location" = "map.gps.updating"

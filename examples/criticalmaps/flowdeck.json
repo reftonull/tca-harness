@@ -1,0 +1,14 @@
+{
+  "workspace": "CriticalMapsEmbedded.xcodeproj",
+  "scheme": "CriticalMapsEmbedded",
+  "configuration": "Debug",
+  "platform": "iOS",
+  "simulatorUdid": "F5B2A758-F55B-4980-A3D9-DC7546F158B2",
+  "derivedDataPath": ".build/xcode",
+  "appLaunch": {
+    "env": {
+      "TCA_HARNESS": "1",
+      "TCA_HARNESS_PORT": "8793"
+    }
+  }
+}

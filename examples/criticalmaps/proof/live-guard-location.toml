@@ -1,0 +1,17 @@
+# Proof that recording against production can't write to it:
+#
+#   tca journey run proof/live-guard-location.toml --target live --network record --report /tmp/guard-location.jsonl
+#
+# Expected: FAIL with a `network` finding "Refused PUT api-cdn.criticalmaps.net/locations (live guard ...)",
+# and only GETs with source `live` in the report (the launch's riders, chat and next-ride fetches).
+# Recorded cassettes go to fixtures/raw (gitignored).
+name = "Live guard: location"
+goal = "Try to post the location while recording production; it is refused"
+fixtures = "../fixtures/raw"
+network = "record"
+
+[[steps]]
+do = "Continue"
+
+[[steps]]
+do = "Let 30 seconds pass (the app posts your location)"

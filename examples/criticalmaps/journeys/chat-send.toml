@@ -1,0 +1,22 @@
+name = "Chat send"
+goal = "Open the chat, read the messages, and send one"
+fixtures = "../fixtures/criticalmaps"
+network = "replay"
+
+[[steps]]
+do = "Continue"
+
+[[steps]]
+do = "Open chat and Mastodon"
+
+[[steps]]
+do = "Type a chat message"
+args = { value = "Meet at the fountain?" }
+
+[[steps]]
+do = "Send chat message"
+
+[checks]
+"the messages are shown" = "len(social.chat.messages) >= 3"
+"the draft is cleared" = "social.chat.draft == ''"
+"no error" = "not social.chat.alert and not social.chat.sending"

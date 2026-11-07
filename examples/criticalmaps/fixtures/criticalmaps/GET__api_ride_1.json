@@ -1,0 +1,335 @@
+{
+  "request": {
+    "body": null,
+    "method": "GET",
+    "url": "https://criticalmass.in/api/ride?centerLongitude=13.404406430585189&centerLatitude=52.51997484386475&radius=10&year=2026&month=1&extended=true"
+  },
+  "response": {
+    "body": [
+      {
+        "city": {
+          "activity_score": 0.6398,
+          "city_population": 3613495,
+          "description": "Eine super Gruppenveranstaltung für Leute die das Biken lieben. Kommt dazu.",
+          "id": 7,
+          "latitude": 52.520804,
+          "longitude": 13.409457,
+          "main_slug": {
+            "id": 7,
+            "slug": "berlin"
+          },
+          "name": "Berlin",
+          "slugs": [
+            {
+              "id": 7,
+              "slug": "berlin"
+            }
+          ],
+          "timezone": "Europe/Berlin",
+          "title": "Critical Mass Berlin"
+        },
+        "cycle": {
+          "city": {
+            "activity_score": 0.6398,
+            "city_population": 3613495,
+            "description": "Eine super Gruppenveranstaltung für Leute die das Biken lieben. Kommt dazu.",
+            "id": 7,
+            "latitude": 52.520804,
+            "longitude": 13.409457,
+            "main_slug": {
+              "id": 7,
+              "slug": "berlin"
+            },
+            "name": "Berlin",
+            "slugs": [
+              {
+                "id": 7,
+                "slug": "berlin"
+              }
+            ],
+            "timezone": "Europe/Berlin",
+            "title": "Critical Mass Berlin"
+          },
+          "created_at": 1507576801,
+          "day_of_week": 0,
+          "id": 7,
+          "latitude": 52.51629921056,
+          "location": "Brandenburger Tor",
+          "longitude": 13.377656936646,
+          "time": 50400,
+          "week_of_month": 1
+        },
+        "date_time": 1767531600,
+        "enabled": true,
+        "id": 23996,
+        "latitude": 52.51629921056,
+        "location": "Brandenburger Tor",
+        "longitude": 13.377656936646,
+        "participations_number_maybe": 0,
+        "participations_number_no": 0,
+        "participations_number_yes": 0,
+        "photos": [],
+        "posts": [],
+        "social_network_profiles": [],
+        "subrides": [],
+        "title": "Critical Mass Berlin 04.01.2026",
+        "tracks": []
+      },
+      {
+        "city": {
+          "activity_score": 0,
+          "city_population": 0,
+          "description": "Nicht aktiv (Stand Dezember 2024)",
+          "id": 560,
+          "latitude": 52.5803,
+          "longitude": 13.40089,
+          "main_slug": {
+            "id": 2483,
+            "slug": "berlin---pankow"
+          },
+          "name": "Berlin-Pankow",
+          "slugs": [
+            {
+              "id": 2483,
+              "slug": "berlin---pankow"
+            }
+          ],
+          "timezone": "Europe/Berlin",
+          "title": "Critical Mass Pankow Nord"
+        },
+        "cycle": {
+          "city": {
+            "activity_score": 0,
+            "city_population": 0,
+            "description": "Nicht aktiv (Stand Dezember 2024)",
+            "id": 560,
+            "latitude": 52.5803,
+            "longitude": 13.40089,
+            "main_slug": {
+              "id": 2483,
+              "slug": "berlin---pankow"
+            },
+            "name": "Berlin-Pankow",
+            "slugs": [
+              {
+                "id": 2483,
+                "slug": "berlin---pankow"
+              }
+            ],
+            "timezone": "Europe/Berlin",
+            "title": "Critical Mass Pankow Nord"
+          },
+          "created_at": 1623658039,
+          "day_of_week": 5,
+          "id": 230,
+          "latitude": 52.580498290776,
+          "location": "Waldstr. 1 / gegenüber Güllweg",
+          "longitude": 13.400689945556,
+          "time": 66600,
+          "valid_from": 1623974400,
+          "week_of_month": 3
+        },
+        "date_time": 1768584600,
+        "enabled": true,
+        "id": 23998,
+        "latitude": 52.580498290776,
+        "location": "Waldstr. 1 / gegenüber Güllweg",
+        "longitude": 13.400689945556,
+        "participations_number_maybe": 0,
+        "participations_number_no": 0,
+        "participations_number_yes": 0,
+        "photos": [],
+        "posts": [],
+        "social_network_profiles": [],
+        "subrides": [],
+        "title": "Critical Mass Pankow Nord 16.01.2026",
+        "tracks": []
+      },
+      {
+        "city": {
+          "activity_score": 0,
+          "city_population": 394816,
+          "id": 411,
+          "latitude": 52.597811,
+          "longitude": 13.436382637716,
+          "main_slug": {
+            "id": 200,
+            "slug": "pankow"
+          },
+          "name": "Pankow",
+          "slugs": [
+            {
+              "id": 200,
+              "slug": "pankow"
+            }
+          ],
+          "timezone": "Europe/Berlin",
+          "title": "Critical Mass Pankow"
+        },
+        "cycle": {
+          "city": {
+            "activity_score": 0,
+            "city_population": 394816,
+            "id": 411,
+            "latitude": 52.597811,
+            "longitude": 13.436382637716,
+            "main_slug": {
+              "id": 200,
+              "slug": "pankow"
+            },
+            "name": "Pankow",
+            "slugs": [
+              {
+                "id": 200,
+                "slug": "pankow"
+              }
+            ],
+            "timezone": "Europe/Berlin",
+            "title": "Critical Mass Pankow"
+          },
+          "created_at": 1597407321,
+          "day_of_week": 5,
+          "id": 217,
+          "latitude": 52.547548368639,
+          "location": "Gethsemane Kirche",
+          "longitude": 13.416023254395,
+          "time": 68400,
+          "valid_from": 1585699200,
+          "week_of_month": 0
+        },
+        "date_time": 1769796000,
+        "enabled": true,
+        "id": 24140,
+        "latitude": 52.547548368639,
+        "location": "Gethsemane Kirche",
+        "longitude": 13.416023254395,
+        "participations_number_maybe": 0,
+        "participations_number_no": 0,
+        "participations_number_yes": 0,
+        "photos": [],
+        "posts": [],
+        "social_network_profiles": [],
+        "subrides": [],
+        "title": "Critical Mass Pankow 30.01.2026",
+        "tracks": []
+      },
+      {
+        "city": {
+          "activity_score": 0.6398,
+          "city_population": 3613495,
+          "description": "Eine super Gruppenveranstaltung für Leute die das Biken lieben. Kommt dazu.",
+          "id": 7,
+          "latitude": 52.520804,
+          "longitude": 13.409457,
+          "main_slug": {
+            "id": 7,
+            "slug": "berlin"
+          },
+          "name": "Berlin",
+          "slugs": [
+            {
+              "id": 7,
+              "slug": "berlin"
+            }
+          ],
+          "timezone": "Europe/Berlin",
+          "title": "Critical Mass Berlin"
+        },
+        "cycle": {
+          "city": {
+            "activity_score": 0.6398,
+            "city_population": 3613495,
+            "description": "Eine super Gruppenveranstaltung für Leute die das Biken lieben. Kommt dazu.",
+            "id": 7,
+            "latitude": 52.520804,
+            "longitude": 13.409457,
+            "main_slug": {
+              "id": 7,
+              "slug": "berlin"
+            },
+            "name": "Berlin",
+            "slugs": [
+              {
+                "id": 7,
+                "slug": "berlin"
+              }
+            ],
+            "timezone": "Europe/Berlin",
+            "title": "Critical Mass Berlin"
+          },
+          "created_at": 1509183768,
+          "day_of_week": 5,
+          "id": 101,
+          "latitude": 52.505355445221,
+          "location": "Mariannenplatz",
+          "longitude": 13.418254852295,
+          "time": 72000,
+          "week_of_month": 0
+        },
+        "date_time": 1769799600,
+        "enabled": true,
+        "id": 23997,
+        "latitude": 52.505355445221,
+        "location": "Mariannenplatz",
+        "longitude": 13.418254852295,
+        "participations_number_maybe": 0,
+        "participations_number_no": 0,
+        "participations_number_yes": 0,
+        "photos": [],
+        "posts": [],
+        "social_network_profiles": [],
+        "subrides": [],
+        "title": "Critical Mass Berlin 30.01.2026",
+        "tracks": []
+      },
+      {
+        "city": {
+          "activity_score": 0.6398,
+          "city_population": 3613495,
+          "description": "Eine super Gruppenveranstaltung für Leute die das Biken lieben. Kommt dazu.",
+          "id": 7,
+          "latitude": 52.520804,
+          "longitude": 13.409457,
+          "main_slug": {
+            "id": 7,
+            "slug": "berlin"
+          },
+          "name": "Berlin",
+          "slugs": [
+            {
+              "id": 7,
+              "slug": "berlin"
+            }
+          ],
+          "timezone": "Europe/Berlin",
+          "title": "Critical Mass Berlin"
+        },
+        "date_time": 1769860800,
+        "description": "Gedenkfahrt zum zweijährigen Todestag von Radaktivist Natenom. Er wurde im Januar 2024 von einem Autofahrer auf einer Landstraße bei Neuhausen (Enzkreis) überfahren und verstarb noch an der Unfallstelle. NATENOM ist nicht vergessen!\n\nBerlin trauert um den Radaktivisten Natenom\nAm Samstag 31.Januar 2026 um 13:00 Uhr\nvom Olof-Palme-Platz - vor dem Elefantentor\nBudapester Straße 34, 10787 Berlin.\n\nWir fahren: Budapester Straße - Kantstraße - Joachimsthaler Straße - Kurfürstendamm - Olivaer Platz - Konstanzer Straße - Berliner Straße - Mahnnheimer Straße - Brandenburgische Straße - Hohenzollerndamm - Sächsische Straße - Düsseldorfer Straße - Uhlandstraße - Berliner Straße - Bundesallee - Spichernstraße - Nürnberger Straße - Lietzenburger Straße –Ansbacher Straße - Hohenstaufenstraße - Münchener Straße - Westarpstraße - Bayerischer Platz - Grunewaldstraße - Martin-Luther-Straße - Kleiststraße - Keithstraße - Kurfürstenstraße - Budapester Straße – Abschlusskundgebung vor dem Elefantentor",
+        "enabled": true,
+        "id": 24655,
+        "latitude": 52.505597,
+        "location": "Olof-Palme-Platz",
+        "longitude": 13.340675,
+        "participations_number_maybe": 0,
+        "participations_number_no": 0,
+        "participations_number_yes": 0,
+        "photos": [],
+        "posts": [
+          [],
+          []
+        ],
+        "ride_type": "DEMONSTRATION",
+        "slug": "berlin-trauert-um-natenom",
+        "social_network_profiles": [],
+        "subrides": [],
+        "title": "Berlin trauert um den Radaktivisten Natenom",
+        "tracks": []
+      }
+    ],
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "status": 200
+  }
+}

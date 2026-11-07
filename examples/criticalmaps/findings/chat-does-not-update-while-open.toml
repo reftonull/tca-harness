@@ -1,0 +1,19 @@
+# FINDING: while the chat is open, the poll fetches new messages into AppFeature.socialState, a copy
+# that is never shown, and counts them as unread. The open chat keeps showing the old list; the
+# badge says "1" after closing. Expected to FAIL (invariant) on upstream ef2e06d.
+name = "Chat shows new messages while open"
+goal = "Keep the chat open for a minute and see the message that arrived"
+fixtures = "../fixtures/criticalmaps"
+network = "replay"
+
+[[steps]]
+do = "Continue"
+
+[[steps]]
+do = "Open chat and Mastodon"
+
+[[steps]]
+do = "Let a minute pass (the app refreshes riders)"
+
+[checks]
+"the new message is shown" = "any(m.text == 'Running 5 minutes late' for m in social.chat.messages)"

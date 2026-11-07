@@ -1,0 +1,17 @@
+{
+  "note": "Synthetic: location updates are refused by the live guard and never recorded.",
+  "request": {
+    "method": "PUT",
+    "url": "https://api-cdn.criticalmaps.net/locations",
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "status": "ok"
+    }
+  }
+}

@@ -1,0 +1,27 @@
+name = "Mastodon feed"
+goal = "Read the #CriticalMass Mastodon feed to the end, then pull to refresh"
+fixtures = "../fixtures/criticalmaps"
+network = "replay"
+
+[[steps]]
+do = "Continue"
+
+[[steps]]
+do = "Open chat and Mastodon"
+
+[[steps]]
+do = "Show Mastodon"
+
+[[steps]]
+do = "Scroll to the end of the feed"
+
+[[steps]]
+do = "Scroll to the end of the feed"
+
+[[steps]]
+do = "Pull to refresh"
+
+[checks]
+"the feed is shown" = "social.mastodon.screen == 'list'"
+"the first page is back after refreshing" = "len(social.mastodon.toots) == 40"
+"no toot twice" = "len(set(t.id for t in social.mastodon.toots)) == len(social.mastodon.toots)"

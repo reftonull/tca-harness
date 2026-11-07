@@ -1,0 +1,34 @@
+{
+  "note": "Synthetic: the recorded chat was empty. Shape from SharedModels.ChatMessage.",
+  "request": {
+    "method": "GET",
+    "url": "https://api-gw.criticalmaps.net/messages",
+    "body": null
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "body": [
+      {
+        "identifier": "harness-message-1",
+        "device": "harness-rider-01",
+        "message": "Meeting at Alexanderplatz at 19:00",
+        "timestamp": 1767224700
+      },
+      {
+        "identifier": "harness-message-2",
+        "device": "harness-rider-02",
+        "message": "Bring lights!",
+        "timestamp": 1767225000
+      },
+      {
+        "identifier": "harness-message-3",
+        "device": "harness-rider-03",
+        "message": "See you there",
+        "timestamp": 1767225300
+      }
+    ]
+  }
+}

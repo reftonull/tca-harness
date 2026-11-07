@@ -1,0 +1,18 @@
+# FINDING: the upcoming-rides sheet's VoiceOver escape gesture sends RideEvents.Action.dismiss, which
+# the reducer ignores, so VoiceOver users can't close the sheet that way. Expected to FAIL on ef2e06d.
+name = "VoiceOver escape closes upcoming rides"
+goal = "Open the upcoming rides and close them with the VoiceOver escape gesture"
+fixtures = "../fixtures/criticalmaps"
+network = "replay"
+
+[[steps]]
+do = "Continue"
+
+[[steps]]
+do = "Show upcoming rides"
+
+[[steps]]
+do = "Close with the VoiceOver escape gesture"
+
+[checks]
+"back on the map" = "sheet == None"

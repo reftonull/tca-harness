@@ -1,0 +1,13 @@
+name = "Launch"
+goal = "Get past What's New and see riders and the next Critical Mass on the map"
+fixtures = "../fixtures/criticalmaps"
+network = "replay"
+
+[[steps]]
+do = "Continue"
+
+[checks]
+"riders are on the map" = "map.riders == 12"
+"you are on the map" = "map.you.latitude == 52.5219"
+"the next ride is announced" = "map.nextRideBanner and map.nextRide.title == 'Critical Mass Berlin 04.01.2026'"
+"no sheet covers the map" = "sheet == None"

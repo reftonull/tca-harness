@@ -1,0 +1,87 @@
+{
+  "request": {
+    "body": null,
+    "method": "GET",
+    "url": "https://api-cdn.criticalmaps.net/locations"
+  },
+  "response": {
+    "body": [
+      {
+        "device": "harness-rider-01",
+        "latitude": 52520100,
+        "longitude": 13411800,
+        "timestamp": 1767225541
+      },
+      {
+        "device": "harness-rider-02",
+        "latitude": 52521037,
+        "longitude": 13411777,
+        "timestamp": 1767225581
+      },
+      {
+        "device": "harness-rider-03",
+        "latitude": 52521974,
+        "longitude": 13411754,
+        "timestamp": 1767225552
+      },
+      {
+        "device": "harness-rider-04",
+        "latitude": 52522911,
+        "longitude": 13411731,
+        "timestamp": 1767225575
+      },
+      {
+        "device": "harness-rider-05",
+        "latitude": 52520248,
+        "longitude": 13413108,
+        "timestamp": 1767225577
+      },
+      {
+        "device": "harness-rider-06",
+        "latitude": 52521185,
+        "longitude": 13413085,
+        "timestamp": 1767225582
+      },
+      {
+        "device": "harness-rider-07",
+        "latitude": 52522122,
+        "longitude": 13413062,
+        "timestamp": 1767225466
+      },
+      {
+        "device": "harness-rider-08",
+        "latitude": 52523059,
+        "longitude": 13413039,
+        "timestamp": 1767225575
+      },
+      {
+        "device": "harness-rider-09",
+        "latitude": 52520396,
+        "longitude": 13414416,
+        "timestamp": 1767225597
+      },
+      {
+        "device": "harness-rider-10",
+        "latitude": 52521333,
+        "longitude": 13414393,
+        "timestamp": 1767225586
+      },
+      {
+        "device": "harness-rider-11",
+        "latitude": 52522270,
+        "longitude": 13414370,
+        "timestamp": 1767225590
+      },
+      {
+        "device": "harness-rider-12",
+        "latitude": 52523207,
+        "longitude": 13414347,
+        "timestamp": 1767225572
+      }
+    ],
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "status": 200
+  }
+}

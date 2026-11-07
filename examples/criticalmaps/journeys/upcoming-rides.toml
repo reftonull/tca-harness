@@ -1,0 +1,20 @@
+name = "Upcoming rides"
+goal = "Open the list of upcoming rides, show the last Berlin ride of the month on the map, and close the list"
+fixtures = "../fixtures/criticalmaps"
+network = "replay"
+
+[[steps]]
+do = "Continue"
+
+[[steps]]
+do = "Show upcoming rides"
+
+[[steps]]
+do = "root/rides/3/select"
+
+[[steps]]
+do = "Swipe the upcoming rides down"
+
+[checks]
+"back on the map" = "sheet == None"
+"the next ride is still announced" = "map.nextRideBanner"
