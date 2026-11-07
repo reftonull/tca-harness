@@ -1,5 +1,11 @@
 // swift-tools-version: 6.0
+import Foundation
 import PackageDescription
+
+// A path dependency's identity is its directory name: `tca-harness` in a normal clone, something
+// else in a git worktree or a renamed checkout.
+let harness = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+  .appendingPathComponent("../../..").standardizedFileURL.resolvingSymlinksInPath().lastPathComponent
 
 // Runs the upstream isowords AppReducer with no UI, behind the same harness descriptor as the
 // iOS example. Upstream feature modules import UIKit, so this builds for Mac Catalyst: a plain
@@ -24,7 +30,7 @@ let package = Package(
         .product(name: "SettingsFeature", package: ".upstream"),
         .product(name: "SharedModels", package: ".upstream"),
         .product(name: "SoloFeature", package: ".upstream"),
-        .product(name: "TCAHarnessTCA1", package: "tca-harness"),
+        .product(name: "TCAHarnessTCA1", package: harness),
       ]
     ),
   ],

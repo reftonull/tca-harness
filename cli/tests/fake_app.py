@@ -343,15 +343,20 @@ class FakeShelf:
         elif name == 'search':
             query = arguments['value']
             self.searches += 1
+            self.searches_in_flight = getattr(self, 'searches_in_flight', 0) + 1
             token = self.searches
             shelf['query'], shelf['searching'] = query, True
             ok, entry = self.request('GET', '/search?q=' + query.replace(' ', '+')[:40])
 
             def done():
+                self.searches_in_flight -= 1
                 if self.search == 'ok' and token != self.searches:
                     finish('cancelled')  # A newer search replaced this one.
                     return
-                shelf['resultsFor'], shelf['searching'] = query, False
+                # The stale bug applies every response, but still shows a spinner while any search is in
+                # flight, so in order nothing is wrong; only an older response landing last is.
+                still_searching = self.search == 'stale' and self.searches_in_flight > 0
+                shelf['resultsFor'], shelf['searching'] = query, still_searching
                 finish('succeeded' if ok else 'failed')
             receipt['status'] = 'running'
             self.later(0.005 + entry['ms'] / 1000, done)

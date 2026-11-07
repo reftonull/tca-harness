@@ -1,5 +1,11 @@
 // swift-tools-version: 6.2
+import Foundation
 import PackageDescription
+
+// A path dependency's identity is its directory name: `tca-harness` in a normal clone, something
+// else in a git worktree or a renamed checkout.
+let harness = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+  .appendingPathComponent("../../..").standardizedFileURL.resolvingSymlinksInPath().lastPathComponent
 
 // Runs the upstream Critical Maps AppFeature with no UI, behind the same harness descriptor as the
 // iOS app (CriticalMapsHarness.swift, symlinked here). Upstream features import UIKit, so this
@@ -34,7 +40,7 @@ let package = Package(
         .product(name: "SocialFeature", package: "CriticalMapsKit"),
         .product(name: "UIApplicationClient", package: "CriticalMapsKit"),
         .product(name: "ComposableCoreLocation", package: "composable-core-location"),
-        .product(name: "TCAHarnessTCA1", package: "tca-harness"),
+        .product(name: "TCAHarnessTCA1", package: harness),
       ]
     ),
   ],
