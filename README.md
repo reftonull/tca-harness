@@ -42,7 +42,7 @@ TCA already enforces the hard part: actions in, state out, one place where state
 - Refreshing while the next page loads appends the stale page (a race found by `tca chaos --reorder`).
 - A second tap on Send while posting sends the message twice (a race).
 - The privacy indicator keeps saying "protected" after the zone is deleted.
-- …and four more. [All ten, with reproductions](examples/criticalmaps/README.md#findings); videos of them on the simulator are in [#3](https://github.com/reftonull/tca-harness/pull/3).
+- …and four more. [All ten, with reproductions](examples/criticalmaps/README.md#findings); videos of the first six on the simulator are in [#3](https://github.com/reftonull/tca-harness/pull/3).
 
 The [isowords integration](examples/isowords/README.md) shows the other side: a model plays the real game through the store ([video](examples/isowords/recordings/actual-isowords-gameplay.mp4)), and the same game runs headless about 24 times faster (4 s instead of 100 s).
 
