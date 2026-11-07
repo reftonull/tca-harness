@@ -61,6 +61,8 @@ try harness.startIfEnabled()
 
 Launch a Debug build with `TCA_HARNESS=1` (and optionally `TCA_HARNESS_PORT`, default 8765). Release builds compile the listener out.
 
+To run the same reducers with no UI, call `try await store.harness(RootFeature.self).runHeadless(port: 8790)` from a small executable. The same descriptors and CLI work with or without a UI, which makes agent loops and behavior tests fast. See [Run headless](TCAHarnessTCA1/README.md#run-headless).
+
 - `@HarnessSchema` generates typed argument schemas for payload actions.
 - `@HarnessIgnore` and redaction keep fields out of observations.
 - Explicit `FeatureDescriptor`s handle unusual scopes, availability rules and completion. App state does not need to be `Codable`.
@@ -83,6 +85,10 @@ tca do setMusicVolume '{"value": 0.25}' --port 8767
 ```
 
 `ls` focuses the deepest mounted feature, the way a user only sees the top of the stack, and lists the actions ancestors lend to it (back, dismiss, tab selection). `inspect`, `observe`, `dispatch`, `wait` and `cancel` expose the full protocol with revisions and request IDs.
+
+### Let your coding agent drive it
+
+Agents with a shell (Claude Code, Codex, Cursor) need nothing extra: `tca ls` and `tca do` are the interface. The [drive-tca-app skill](skills/drive-tca-app/SKILL.md) teaches the loop: look, act once, check the new state, and prove results with state rather than descriptions. Claude Code picks up this repo's skills automatically through `.claude/skills`; elsewhere, copy the skill folder into your agent's skills directory.
 
 ### Model-driven goals
 
@@ -127,7 +133,7 @@ The listener binds `127.0.0.1` only, has no authentication, and exists only in D
 
 Early and experimental. The protocol may change before 1.0.
 
-- **Requirements:** Swift 6.3+, iOS 17+ / macOS 14+, TCA 1.13+ (tested with TCA 1.26 on Swift 6.4). TCA 2 support tracks the private beta.
+- **Requirements:** Swift 6.3+, iOS 17+ / macOS 14+, TCA 1.13+ (tested with TCA 1.26 on Swift 6.4; the isowords example pins 1.26.2). TCA 2 support tracks the private beta.
 - **Not covered by generated descriptors:** payload actions without an annotation, child state/action names that don't match, and some unusual scopes; use explicit descriptors.
 - **App-defined:** availability, privacy projections, effect completion and cancellation.
 

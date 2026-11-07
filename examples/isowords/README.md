@@ -16,13 +16,15 @@ The recorded run opened Solo → Unlimited and submitted **SUN for 12 points**. 
 | [upstream.py](upstream.py), [client-pins.json](client-pins.json) | Compatibility preparation for this upstream revision |
 | [play_word.py](play_word.py) | Drive the app through the CLI client and verify a scored move |
 | [run_goals.py](run_goals.py) | Bounded multi-capability agent goals, state verifiers and latency reporting |
+| [play_long.py](play_long.py) | Play a whole unlimited game through the harness and report actions/s and per-action latency |
+| [headless](headless) | The same `AppReducer` and descriptor in a macOS process with no UI (see [Headless](#headless)) |
 | [recordings](recordings) | Evidence from the verified run |
 
 Upstream source is fetched into `.upstream/`, which is ignored by Git. Only our integration code, setup recipe and demonstration artifacts are committed.
 
 ## Run it
 
-Tested with Xcode 26.4.1 / Swift 6.3 and an iOS 26 simulator. Install Python 3.10+, Git LFS, XcodeGen and FlowDeck first. Setup uses `/usr/share/dict/words`; supply `--words /path/to/words.txt` if unavailable.
+Tested with Xcode 27.2 / Swift 6.4 and an iOS 26.4 simulator, with TCA 1.26.2 (older TCA releases do not build on Swift 6.4; [client-pins.json](client-pins.json) pins the matching Point-Free packages). Install Python 3.10+, Git LFS, XcodeGen and FlowDeck first. Setup uses `/usr/share/dict/words`; supply `--words /path/to/words.txt` if unavailable.
 
 From the repository root:
 
@@ -30,9 +32,11 @@ From the repository root:
 python3 examples/isowords/setup.py
 cd examples/isowords
 flowdeck config set -w IsowordsEmbedded.xcodeproj -s IsowordsEmbedded -S 'YOUR_SIMULATOR'
-flowdeck build --config flowdeck.json
-flowdeck run --config flowdeck.json --no-build --launch-env TCA_HARNESS=1
+flowdeck build
+flowdeck run --no-build --launch-env 'TCA_HARNESS=1'
 ```
+
+If port 8767 is taken (for example by a copy still running in another simulator), add `TCA_HARNESS_PORT=8768` inside the `--launch-env` string and pass `--port 8768` to `tca`.
 
 Select an installed simulator name or UDID in the configuration step. An existing isowords checkout can be supplied with `setup.py --source /path/to/isowords` to reuse Git objects and populated assets; that source checkout is read only. Setup refuses an unexpected revision and is repeatable for the prepared checkout.
 
@@ -87,10 +91,44 @@ The suite also attempts an out-of-range music volume and checks that schema vali
 
 The runner waits for renderer readiness instead of asking the classifier to act while the game is loading. Its default 0.8-second pacing gives upstream presentation animations time to settle; this is included in end-to-end goal duration but excluded from individual model/RPC timings. A separate three-second settling delay before resume works around an observed upstream transition/lifecycle race; it is configurable with `--transition-delay` and is not a generic completion signal. Resume checks in-memory state within the running app, not persistence across launches. The offline mock settings dependency does not promise settings persistence across recreated Settings reducers. Settings goals verify reducer values; no-op audio and settings-stream dependencies do not demonstrate audible volume or persistent app-wide appearance changes.
 
+## Headless
+
+[headless/](headless) hosts the upstream `AppReducer` in a plain macOS process with no UI, no simulator and no window. It uses the same [EmbeddedIsowordsHarness.swift](EmbeddedIsowordsHarness.swift) descriptor (symlinked into the target), the same offline `configureHarnessDependencies`, `.harnessTimeline()` and the launch `didFinishLaunching`. Tools see the same features, operations, observation and verify conditions as with the app, so `tca` and `play_long.py` work unchanged. The host is [a few lines](headless/Sources/isowords-headless/IsowordsHeadless.swift) on top of [`runHeadless(port:)`](../../TCAHarnessTCA1/README.md#run-headless).
+
+Run `setup.py` first, which prepares `.upstream/` and the dictionary. Then, from the repository root:
+
+```sh
+cd examples/isowords/headless
+swift build --triple arm64-apple-ios-macabi
+.build/out/Products/Debug-maccatalyst/isowords-headless --port 8790 &   # logs "TCA harness listening on 127.0.0.1:8790"
+cd ../../..
+./scripts/tca doctor --port 8790
+python3 examples/isowords/play_long.py --port 8790 --words 60 --pace 0 > /tmp/headless.jsonl
+```
+
+**Why Mac Catalyst.** Every upstream feature module, GameCore included, depends on modules that import UIKit unconditionally (UserSettingsClient, UIApplicationClient, FeedbackGeneratorClient, Styleguide and others). None of them builds for native macOS without patching upstream. A Catalyst executable is an ordinary macOS process that links UIKit but never calls `UIApplicationMain`, so the full, unmodified `AppReducer` runs. Use the unversioned `arm64-apple-ios-macabi` triple. With `ios17.0-macabi`, SwiftPM applies that deployment target to every package, and swift-perception's back-ported `Bindable` (obsoleted in iOS 17) fails to compile.
+
+**Debug build.** The harness listener is compiled only with `DEBUG`, so build the debug configuration. In principle `-c release -Xswiftc -DDEBUG` keeps the listener in an optimized build, but on Swift 6.4.2 it crashes the compiler in swift-issue-reporting (`withExpectedIssue`).
+
+**What differs from the app.** There are no views, so the host sends the view-lifecycle actions the SwiftUI views would: `Home.Action.task` at launch, plus `Solo.Action.task` and `Game.Action.task` when those features are presented (`headlessViewLifecycle()`, a reducer `.onChange(of:)` around `AppReducer`). Without `Game.Action.task` a game never becomes `ready`. These effects run in the presented feature's scope and are cancelled on dismissal. They show up in the timeline as effect actions, not app actions. `didChangeScenePhase` is not sent; on `.active` upstream only registers for notifications, which is a no-op offline. The timeline records without `TCA_HARNESS=1`. The host runs `RunLoop.main` because upstream schedules its game timer on the main run loop.
+
+### Measured
+
+These runs used a MacBook with Apple silicon, both Debug builds, and `play_long.py`. Every accepted word removes faces, so an unlimited board runs out of playable dictionary words (`no_words_left`) after about 20 words. `--words 60` and `--words 200` both end there. For scale, the last row is ten fresh hosts back to back. Each launch generates a random puzzle, so scores are not comparable across rows.
+
+| Run | Words | Actions | Play time | Actions/s | Median ms/action | Score |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| iOS app in simulator, `--pace 0.35` | 20 | 260 | 100.7 s | 2.6 | 384 (350 of it pacing) | 6570 |
+| Headless, `--words 60 --pace 0` | 18 | 270 | 4.3 s | 63.2 | 15.1 (p95 22.7) | 10259 |
+| Headless, `--words 200 --pace 0` | 20 | 268 | 4.5 s | 59.6 | 16.2 (p95 26.1) | 7898 |
+| Headless, 10 fresh games, `--pace 0` | 196 | 2818 | 42.2 s | 66.8 | 11.8–16.7 per game | 5791–12884 |
+
+Actions are the dispatched operations: per word, select and release for each face, then submit (or clear on a rejected word; there were none). Headless latency is measured by `play_long.py` (the `finished` event's `actions`, `actionsPerSecond`, `medianActionMs` and `p95ActionMs`). It covers one `observe` plus one `dispatch` round trip, and most of it is the Debug-build host computing availability for about 90 operations and the board observation. For the UI run, the per-word time is divided by its action count. The UI run was paced so animations stay watchable, and it was not rerun unpaced here, so the 25× gap mostly reflects pacing. What headless removes is the wait for rendering and animation, plus the simulator itself. The host is listening about 50 ms after launch, or about 0.5 s the first time.
+
 ## Fixture boundaries
 
 Harness mode uses offline API, Game Center, notification and purchase dependencies; in-memory SQLite/settings; and no-op saved-game files. Onboarding is skipped. Dictionary lookup, puzzle generation, selection rules, scoring and rendering remain upstream implementations. The public-bootstrap dictionary comes from the system word list; it is not the proprietary production dictionary. Fonts fall back to system fonts and audio is disabled.
 
-The checkout is pinned to `c727d3a7c49cf0c98f2fa4f24c562f81e30165f7`. Setup applies dependency/compiler adjustments and fixes directory creation for SQLite's `:memory:` URL on current Foundation. Home, Solo, Game, AppReducer and their views are unchanged.
+The checkout is pinned to `c727d3a7c49cf0c98f2fa4f24c562f81e30165f7`. Setup applies dependency/compiler adjustments (client packages are pinned to TCA 1.26.2 and its dependencies, plus swift-parsing 0.15.2, which builds against current swift-case-paths) and fixes directory creation for SQLite's `:memory:` URL on current Foundation. Home, Solo, Game, AppReducer and their views are unchanged.
 
 isowords retains its [educational-use license](https://github.com/pointfreeco/isowords/blob/c727d3a7c49cf0c98f2fa4f24c562f81e30165f7/LICENSE.md). This example does not vendor or relicense its source or proprietary assets.

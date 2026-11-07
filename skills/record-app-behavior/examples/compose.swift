@@ -1,10 +1,12 @@
 // Example (macOS, no ffmpeg needed): put two recordings side by side with AVFoundation.
 // LEFT_OFFSET/RIGHT_OFFSET are the seconds into each source that line up with output t=0.
 // Usage: swift compose.swift LEFT.mp4 LEFT_OFFSET RIGHT.mp4 RIGHT_OFFSET DURATION OUTPUT.mp4
+// Optional environment: COMPOSE_HEIGHT=1080 (output height in pixels), COMPOSE_FPS=24.
 import AVFoundation
 
 let a = CommandLine.arguments
-let height = 1080.0, gap = 16.0
+let env = ProcessInfo.processInfo.environment
+let height = Double(env["COMPOSE_HEIGHT"] ?? "1080")!, gap = (16 * height / 1080).rounded()
 // Tracks do not retain their asset, so the assets stay referenced until export finishes.
 var assets: [AVURLAsset] = []
 func source(_ path: String) async throws -> (Double, AVAssetTrack, CGSize) {
@@ -39,7 +41,7 @@ instruction.layerInstructions = layers
 instruction.backgroundColor = CGColor(red: 0.086, green: 0.094, blue: 0.153, alpha: 1)
 let video = AVMutableVideoComposition()
 video.renderSize = render
-video.frameDuration = CMTime(value: 1, timescale: 24)
+video.frameDuration = CMTime(value: 1, timescale: CMTimeScale(env["COMPOSE_FPS"] ?? "24")!)
 video.instructions = [instruction]
 let output = URL(fileURLWithPath: a[6])
 try? FileManager.default.removeItem(at: output)
