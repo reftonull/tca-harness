@@ -41,7 +41,7 @@ The bug list is in [Models.swift](Sources/ShelfCore/Models.swift) (`ShelfBug`). 
 | [App](App), [project.yml](project.yml), [flowdeck.json](flowdeck.json) | Rung 2: SwiftUI views over ShelfCore; xcodegen spec; FlowDeck config for the iPhone 17 Pro simulator |
 | [server.py](server.py) | The backend: in-memory books CRUD plus `/events`, `/stats`, `/goal` and `/catalog?q=`, standard library only |
 | [harness.toml](harness.toml) | Targets `headless`, `ui`, `live`, and `record` (the headless host with its own fresh `server.py` per run) |
-| [journeys](journeys) | `add-book`, `mark-read`, `delete-book`, `search`, `retry-after-error`, `discover` (two catalog searches, the second `no_wait`), and for the vanilla screens `view-stats`, `set-goal`. `mark-read` and `search` pin the requests each step makes (recorded by `tca record`) |
+| [journeys](journeys) | `add-book`, `mark-read`, `delete-book`, `search`, `retry-after-error`, `discover` (two catalog searches, the second `no_wait`), and for the vanilla screens `view-stats`, `set-goal`; `retry-load`, `retry-stats` and `retry-goal` fail the first load (the shelf's at launch) and press Retry. `mark-read` and `search` pin the requests each step makes (recorded by `tca record`) |
 | [fixtures/shelf](fixtures/shelf) | Cassettes recorded from `server.py` by the journeys, plus [match.json](fixtures/shelf/match.json); [record_fixtures.sh](record_fixtures.sh) re-records them |
 | [ladder.py](ladder.py), [run_ladder.sh](run_ladder.sh) | Run every pattern for both bug settings and print the matrix |
 

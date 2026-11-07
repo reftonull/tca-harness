@@ -1,0 +1,11 @@
+name = "Swipe What's New away"
+goal = "Swipe What's New down instead of tapping a button; it is marked as seen all the same"
+fixtures = "../fixtures/criticalmaps"
+network = "replay"
+
+[[steps]]
+do = "Swipe down to close What's New"
+
+[checks]
+"no sheet covers the map" = "sheet == None"
+"What's New is marked as seen" = "whatsNewSeen == '4.10.1'"

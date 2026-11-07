@@ -35,11 +35,22 @@ enum CriticalMapsHeadless {
 }
 
 extension Reducer where Self == AppFeature {
-  /// Sends what the SwiftUI views send when they appear: `ChatView` and `MastodonFeedView` when their
-  /// tab is shown in the social sheet, `SettingsView` when the sheet opens and whenever a pushed
-  /// settings page is popped (SwiftUI calls `.onAppear` again then).
+  /// Sends what the SwiftUI views send when they appear and disappear: `ChatView` and
+  /// `MastodonFeedView` when their tab is shown in the social sheet, `SettingsView` when the sheet
+  /// opens and whenever a pushed settings page is popped (SwiftUI calls `.onAppear` again then), and
+  /// each sheet's `onDismiss` once it has gone away, however it was closed (a button, a swipe, or
+  /// another sheet taking its place). The app sends `onDismiss` when the dismissal animation ends;
+  /// here it follows the closing action at once, so the late-dismissal race (finding 6) stays a
+  /// UI-rung finding.
   func headlessViewLifecycle() -> some ReducerOf<AppFeature> {
     self
+      .onChange(of: { Sheet($0) }) { closed, _ in
+        Reduce { _, _ in closed.map { .send($0.onDismiss) } ?? .none }
+      }
+      // MapFeatureView's share sheet: `onDismiss: { store.send(.showShareSheet(false)) }`.
+      .onChange(of: \.mapFeatureState.presentShareSheet) { wasShown, isShown in
+        Reduce { _, _ in wasShown && !isShown ? .send(.map(.showShareSheet(false))) : .none }
+      }
       .onChange(of: { socialTab($0) }) { _, tab in
         Reduce { _, _ in
           switch tab {
@@ -52,6 +63,29 @@ extension Reducer where Self == AppFeature {
       .onChange(of: { settingsTopVisible($0) }) { _, visible in
         Reduce { _, _ in visible ? .send(.destination(.presented(.settings(.view(.onAppear))))) : .none }
       }
+  }
+}
+
+/// The sheets `AppView` and `AppNavigationView` present, each with the action its `onDismiss` sends.
+private enum Sheet: Equatable {
+  case whatsNew, social, settings, rides
+
+  init?(_ state: AppFeature.State) {
+    switch CriticalMapsHarness.destination(state) {
+    case .whatsNew?: self = .whatsNew
+    case .social?: self = .social
+    case .settings?: self = .settings
+    case .rideEvents?: self = .rides
+    case nil: return nil
+    }
+  }
+
+  var onDismiss: AppFeature.Action {
+    switch self {
+    case .whatsNew: .whatsNewDismissed
+    case .social, .settings: .dismissDestination
+    case .rides: .dismissEventList
+    }
   }
 }
 

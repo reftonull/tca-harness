@@ -1,0 +1,39 @@
+# FINDING: after a failed send, the chat's error alert can't be dismissed. ChatView presents it with
+# `.alert($store.scope(state: \.alert, action: \.alert))`, so OK sends `.alert(.dismiss)`, but
+# ChatFeature has no `.ifLet(\.$alert, action: \.alert)` and returns `.none` for every alert action:
+# `alert` stays set. Expected to FAIL on ef2e06d (step 5).
+name = "Dismiss a chat send error"
+goal = "Sending a chat message fails; dismiss the error and send the kept draft again"
+fixtures = "../fixtures/criticalmaps"
+network = "replay"
+
+[[faults]]
+match = { method = "POST", path = "/messages" }
+kind = "status"
+status = 500
+times = 1
+
+[[steps]]
+do = "Continue"
+
+[[steps]]
+do = "Open chat and Mastodon"
+
+[[steps]]
+do = "Type a chat message"
+args = { value = "Meet at the fountain?" }
+
+[[steps]]
+do = "Send chat message"
+expect = "social.chat.alert"
+
+[[steps]]
+do = "Dismiss the error"
+expect = "not social.chat.alert"
+
+[[steps]]
+do = "Send chat message"
+
+[checks]
+"the draft is sent" = "social.chat.draft == ''"
+"no error" = "not social.chat.alert and not social.chat.sending"

@@ -1,0 +1,55 @@
+# FINDING: the info overlay's "in a privacy zone" status is computed only when the GPS reports a new
+# position (AppFeature, `.locationManager(.didUpdateLocations)`). Creating, deleting or switching off
+# a zone, or turning privacy zones off, doesn't recompute it, and MapFeature's 200 m distance filter
+# means a rider standing still gets no new fix. Here the overlay says you're protected while the app
+# posts your location again. Posting itself is right: `postLocation` checks the zones each time.
+# Run on the returning-user target, where location updates run (on first launch they don't, finding 1):
+#   tca journey run findings/privacy-indicator-stale-after-zone-removed.toml --target headless-returning
+# Expected to FAIL on ef2e06d ("the overlay no longer says you're protected").
+name = "Privacy indicator after removing a zone"
+goal = "Delete the privacy zone you're standing in; the overlay stops saying you're in a privacy zone"
+fixtures = "../fixtures/criticalmaps"
+network = "replay"
+
+[[steps]]
+do = "Continue"
+
+[[steps]]
+do = "Open settings"
+
+[[steps]]
+do = "Open privacy zones"
+
+[[steps]]
+do = "Turn privacy zones on"
+
+[[steps]]
+do = "Add a privacy zone"
+
+[[steps]]
+do = "Place the zone at your position"
+
+[[steps]]
+do = "Name the zone"
+args = { value = "Home" }
+
+[[steps]]
+do = "Create the zone"
+
+[[steps]]
+do = "The GPS reports your position again"
+expect = "map.inPrivacyZone"
+
+[[steps]]
+do = "Delete this zone"
+
+[[steps]]
+do = "Delete the zone"
+
+[[steps]]
+do = "Let 30 seconds pass (the app posts your location)"
+requests = ["PUT /locations"]
+
+[checks]
+"your location is shared again" = "map.locationsPosted == 1 and not map.insideActiveZone"
+"the overlay no longer says you're protected" = "not map.inPrivacyZone"

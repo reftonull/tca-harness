@@ -34,7 +34,7 @@ Where it gets harder in a real app:
 
 `tca exposure` answers that per feature path. The descriptor's catalog lists every feature it can mount, so screens no run has reached show up too. Each feature lists the operations it declares, how many dispatches ran each, and the action cases no operation sends, with why. `@HarnessFeature` fills that list itself (`ignored`, `unannotated`, `binding`, `unsupported payload`, `multiple payloads`). Explicit descriptors declare their own with `.unexposed("case", reason: "...")`. On day one, run it against the app (`tca exposure --port 8767`) and read the unexposed list as a to-do list. On a hundred screens, sort it by reason: `unannotated` and `unsupported payload` are decisions nobody has made yet; `ignored` is a decision someone made.
 
-Critical Maps, with its six journeys (`tca exposure --journeys 'journeys/*.toml'`, trimmed):
+Critical Maps on day one, with its first six journeys (`tca exposure --journeys 'journeys/*.toml'`, trimmed):
 
 ```text
 exposure: 13 feature(s) from 6 journey run(s)
@@ -82,6 +82,16 @@ What that shows, and what to do about it:
 - **Worth a journey: exposed but never run.** 32 of 53 operations, among them the app's core loop (`halfway` posts your location, `fullCycle` refetches riders), map tracking, the share sheet, observation mode and the chat's Dismiss error. Explore reaches most of them at random; a journey pins the important ones.
 - **Fine to leave:** `lifecycle`, `effect` and `response` (23 cases) are sent by views on appear or by the app's own effects; the host sends the lifecycle ones and the time operations drive the timer. The GPX importer needs the system file picker. Route to event calls `MKMapItem.openInMaps` directly rather than through a dependency, so it can't be recorded like the links are. `updateCenterRegion` comes from `MKMapView`. The two `binding` cases are the rides sheet's detent and the privacy-zone toggles, which are exposed through their actions.
 
+#### Closing the gaps, then letting the patterns hunt
+
+What was done with that list, in the order a team would do it ([the Critical Maps README](../examples/criticalmaps/README.md) has the details):
+
+1. **Host fidelity.** The headless host sends each sheet's `onDismiss` action once the sheet's destination is gone, next to the `onAppear` it already replayed. Close on What's New now marks it seen on headless as in the app (`whatsNewSeen == '4.10.1'`, checked on both rungs). What's New, chat and settings got "Swipe down to close" operations, labelled so `explore --races` counts them as dismissals.
+2. **Privacy zones.** The create sheet is a child feature whose "Place the zone at your position" sends the `setMapCenter` a map tap sends, with the fixed coordinate; each zone row can be switched or deleted. The invariant that matters, "no location is posted from inside an active privacy zone", wraps `apiService.postRiderLocation` in the harness dependencies and checks the zones when the app makes the call, so it doesn't depend on when a request completes. Two recorded journeys pin `requests = []` for "Let 30 seconds pass" while a zone protects you and `["PUT /locations"]` once it's gone or switched off.
+3. **Journeys for what was never run**, recorded with `tca record` so every step pins its requests: the core loop, observation mode, map tracking and sharing, Mastodon links, a failed chat send.
+
+Afterwards the same command reports 16 of 16 features reached and 46 of 70 operations exercised (65.7%, up from 21 of 53). Two new bugs came out of the newly reachable surface. Pressing "Dismiss the error" after a failed send did nothing; on the simulator, the error comes back after the next successful send (no `ifLet` for the chat alert). And the info overlay's "in a privacy zone" status is only recomputed on a GPS fix, so it can claim you're protected while the location is posted again. Explore and chaos on the new journeys found no new bugs. They did surface one invariant that compared an internal copy of the riders nobody sees, which was fixed.
+
 ## Step 2: route the network (a day per backend)
 
 Route the app's `URLSession` through the harness. With one API client dependency this is one override.
@@ -113,7 +123,7 @@ Rules a user would notice if broken: a badge that disagrees with its list, dupli
 
 Have an agent do the flow with `tca do` while `tca record` captures it. A recorded journey pins the steps by label, the checks on what the user sees, and the requests each step makes (`requests = ["GET /cards", "POST /cards/{id}/lock"]`), which is the contract a server-driven screen most often breaks. When a flow changes, the run fails with the current screen and the goal, and an agent re-solves it.
 
-To pick the flows, and to see what is still uncovered once they exist, run `tca exposure --journeys 'journeys/*.toml' --reports explore.jsonl`. On Shelf the eight journeys exercise 17 of 26 operations (65%), and a 20-run explore report brings that to 23 (88%). The three left are Retry buttons that only appear after a failed load. `tca chaos` checks they are offered but doesn't press them, so each needs a journey with a `[[faults]]` entry that taps Retry. `--min-exercised 80` makes it a gate.
+To pick the flows, and to see what is still uncovered once they exist, run `tca exposure --journeys 'journeys/*.toml' --reports explore.jsonl`. On Shelf the first eight journeys exercised 17 of 26 operations (65%), and a 20-run explore report brought that to 23 (88%). The three left were Retry buttons that only appear after a failed load. `tca chaos` checks they are offered but doesn't press them, so each got a journey with a `[[faults]]` entry that taps Retry (`retry-load`, with the fault `at = "launch"`, `retry-stats`, `retry-goal`): the eleven journeys exercise 20 (77%). `--min-exercised 75` makes it a gate.
 
 ## Step 5: let the patterns find bugs (headless)
 

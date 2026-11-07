@@ -62,6 +62,7 @@ public enum CriticalMapsHarness {
     // Runs advance it explicitly instead ("Let 30 seconds pass", "Let a minute pass").
     values.serverConfiguration.pollIntervalSeconds = 24 * 60 * 60
     values.locationManager = HarnessLocation.shared.manager(environment: environment)
+    values.apiService = HarnessPosting.watching(values.apiService)
     values.uiApplicationClient = HarnessApplication.client(headless: headless)
     values.feedbackGenerator = .noop
     // Every run starts as a fresh install, and nothing a run saves reaches the next one.
@@ -91,6 +92,14 @@ extension CriticalMapsHarness {
           return chatLoaded(social)
         })
       .operation("openSettings", label: "Open settings", action: .settingsButtonTapped, available: noSheet)
+      // Swiping a sheet down sets its item binding to nil (`.destination(.dismiss)`); the headless host
+      // then sends the sheet's `onDismiss`, as SwiftUI does once the sheet is gone.
+      .operation("swipeDownWhatsNew", label: "Swipe down to close What's New", action: .destination(.dismiss),
+        available: { if case .whatsNew? = destination($0) { true } else { false } })
+      .operation("swipeDownSocial", label: "Swipe down to close chat and Mastodon", action: .destination(.dismiss),
+        available: { if case .social? = destination($0) { true } else { false } })
+      .operation("swipeDownSettings", label: "Swipe down to close settings", action: .destination(.dismiss),
+        available: { if case .settings? = destination($0) { true } else { false } })
       .operation("showRides", label: "Show upcoming rides", action: .didTapNextRideOverlayButton,
         available: { noSheet($0) && nextRideBanner($0) })
       .operation("tracking", label: "Change map tracking (follow, follow with heading, free)",
@@ -104,11 +113,16 @@ extension CriticalMapsHarness {
         action: .requestTimer(.halfwayPoint), available: { $0.requestTimer.isTimerActive })
       .operation("fullCycle", label: "Let a minute pass (the app refreshes riders)",
         action: .requestTimer(.fullCycle), available: { $0.requestTimer.isTimerActive })
+      // Location. The fake reports one fix when updates start; a moving rider's GPS reports again
+      // every 200 m (MapFeature's distance filter). This sends what the location manager would.
+      .operation("gpsFix", label: "The GPS reports your position again", available: { _ in HarnessLocation.shared.isUpdating }) { _ in
+        .map(.locationManager(.didUpdateLocations([HarnessLocation.shared.location])))
+      }
       .child("social", state: { if case let .social(s)? = destination($0) { s } else { nil } },
         action: { .destination(.presented(.social($0))) }, descriptor: social)
       .child("settings", state: { if case let .settings(s)? = destination($0) { s } else { nil } },
         action: { .destination(.presented(.settings($0))) }, descriptor: settings)
-      .operation("swipeDownRides", label: "Swipe the upcoming rides down", action: .destination(.dismiss),
+      .operation("swipeDownRides", label: "Swipe down to close the upcoming rides", action: .destination(.dismiss),
         available: { if case .rideEvents? = destination($0) { true } else { false } })
       .child("rides", state: { if case let .rideEvents(s)? = destination($0) { s } else { nil } },
         action: { .destination(.presented(.rideEvents($0))) }, descriptor: rides)
@@ -119,17 +133,25 @@ extension CriticalMapsHarness {
       .unexposed("fetchChatMessages", reason: "effect").unexposed("nextRide", reason: "effect")
       .unexposed("fetchLocationsResponse", reason: "response").unexposed("postLocationResponse", reason: "response")
       .unexposed("fetchChatMessagesResponse", reason: "response")
-      // SwiftUI sends these from each sheet's `onDismiss`; the headless host doesn't (finding 6).
-      .unexposed("dismissEventList", reason: "sheet onDismiss").unexposed("dismissDestination", reason: "sheet onDismiss")
-      .unexposed("whatsNewDismissed", reason: "sheet onDismiss")
+      // Each sheet's `onDismiss` sends one of these once the sheet is gone; the headless host does too.
+      .unexposed("dismissEventList", reason: "lifecycle").unexposed("dismissDestination", reason: "lifecycle")
+      .unexposed("whatsNewDismissed", reason: "lifecycle")
       .unexposed("binding", reason: "binding")  // eventListPresentation: the rides sheet's detent, dragged
       .unexposed("map.routeToEvent", reason: "opens Apple Maps")
       .unexposed("map.updateCenterRegion", reason: "map gesture")
-      .invariant("the map shows the riders that were fetched") { $0.riderLocations == $0.mapFeatureState.riderLocations }
-      .invariant("no rider appears twice") { Set($0.riderLocations.map(\.id)).count == $0.riderLocations.count }
+      // The map draws `mapFeatureState.riderLocations`. AppFeature's own copy is never shown, and a
+      // failed refresh empties it while the map keeps the last positions, so only a successful fetch
+      // (a non-empty copy) is compared.
+      .invariant("the map shows the riders that were fetched") {
+        $0.riderLocations.isEmpty || $0.riderLocations == $0.mapFeatureState.riderLocations
+      }
+      .invariant("no rider appears twice") { Set($0.mapFeatureState.riderLocations.map(\.id)).count == $0.mapFeatureState.riderLocations.count }
       .invariant("unread badge never exceeds the messages") {
         Int($0.chatMessageBadgeCount) <= ($0.socialState.chatFeatureState.chatMessages.elements?.count ?? 0)
       }
+      // Checked against what the app handed its API client, at the moment it did: a request's
+      // completion order can't attribute it to the step that started it, the call can.
+      .invariant("no location is posted from inside an active privacy zone") { _ in HarnessPosting.shared.fromInsideZone == 0 }
       .invariant("the open chat shows the messages the app fetched") { state in
         guard case let .social(social)? = destination(state), social.socialControl == .chat,
           case .results = social.chatFeatureState.chatMessages else { return true }
@@ -277,20 +299,71 @@ extension CriticalMapsHarness {
   }
 
   static var privacyZones: FeatureDescriptor<PrivacyZoneFeature.State, PrivacyZoneFeature.Action> {
-    FeatureDescriptor<PrivacyZoneFeature.State, PrivacyZoneFeature.Action>("Privacy zones", observation: { _ in
+    typealias P = PrivacyZoneFeature.State
+    let zonesOn: (P) -> Bool = { _ in @Shared(.privacyZoneSettings) var zones; return zones.isEnabled }
+    let idle: (P) -> Bool = { zonesDestination($0) == nil && zoneAlert($0) == nil }
+    // `ZoneRow`: the switch writes `isActive` through an internal subscript binding, which does what
+    // `toggleZoneActive` does; the swipe action sends `deleteZone`.
+    let row = FeatureDescriptor<PrivacyZone, PrivacyZoneFeature.Action>("Privacy zone", observation: observeZone, identity: { $0.id })
+      .operation("off", label: "Turn this zone off", available: { $0.isActive }) { .toggleZoneActive($0) }
+      .operation("on", label: "Turn this zone on", available: { !$0.isActive }) { .toggleZoneActive($0) }
+      .operation("delete", label: "Delete this zone") { .deleteZone($0) }
+    let descriptor = FeatureDescriptor<P, PrivacyZoneFeature.Action>("Privacy zones", observation: observePrivacyZones)
+      // The empty screen's button sends `togglePrivacyZones`; the form's switch writes the same
+      // shared setting directly.
+      .operation("on", label: "Turn privacy zones on", action: .togglePrivacyZones, available: { idle($0) && !zonesOn($0) })
+      .operation("off", label: "Turn privacy zones off", action: .togglePrivacyZones, available: { idle($0) && zonesOn($0) })
+      .operation("toggleMap", label: "Show or hide zones on the map", action: .toggleShowZonesOnMap,
+        available: { idle($0) && zonesOn($0) })
+      // The + button, disabled while the feature is off.
+      .operation("add", label: "Add a privacy zone", action: .addZoneButtonTapped, available: { idle($0) && zonesOn($0) })
+      .operation("swipeDownCreate", label: "Swipe down to close the new zone", action: .destination(.dismiss),
+        available: { zonesDestination($0) != nil })
+      .operation("confirmDelete", label: "Delete the zone", action: .alert(.presented(.deleteZoneButtonTapped)),
+        available: { zoneAlert($0) != nil })
+      .operation("cancelDelete", label: "Keep the zone", action: .alert(.dismiss), available: { zoneAlert($0) != nil })
+      .child("create", state: { if case let .createZoneSheet(s)? = zonesDestination($0) { s } else { nil } },
+        action: { .destination(.presented(.createZoneSheet($0))) }, descriptor: createZone)
+      .covering("deleteZone", "toggleZoneActive")  // Sent by the rows
+      .unexposed("selectZone", reason: "no view sends it")
+      .unexposed("binding", reason: "binding")  // ZoneRow's switch, exposed as toggleZoneActive
+    // "Your zones": the zones live in `@Shared(.privacyZoneSettings)`; one child per position, like the rides.
+    var list = FeatureDescriptor<P, PrivacyZoneFeature.Action>("Your zones", observation: { _ in .object([:]) })
+    for index in 0..<10 {
+      list = list.child("\(index)", state: { _ in
+        @Shared(.privacyZoneSettings) var zones
+        return zones.zones.indices.contains(index) ? zones.zones[index] : nil
+      }, action: { $0 }, descriptor: row)
+    }
+    return descriptor.child("zones", state: { state in
       @Shared(.privacyZoneSettings) var zones
-      return .object([
-        "zonesOn": .bool(zones.isEnabled), "showOnMap": .bool(zones.shouldShowZonesOnMap),
-        "zones": .array(zones.zones.map { .object(["name": .string($0.name), "active": .bool($0.isActive), "radius": .number($0.radius)]) }),
+      return zones.zones.isEmpty ? nil : state
+    }, action: { $0 }, descriptor: list)
+  }
+
+  /// `CreatePrivacyZoneView`. Tapping the map sends `setMapCenter` with the tapped coordinate; the
+  /// harness offers the one coordinate it knows, your (fixed) position.
+  static var createZone: FeatureDescriptor<CreateZoneFeature.State, CreateZoneFeature.Action> {
+    FeatureDescriptor<CreateZoneFeature.State, CreateZoneFeature.Action>("New privacy zone", observation: { state in
+      .object([
+        "name": .string(state.newZoneName), "radius": .number(state.newZoneRadius),
+        "placed": .bool(state.mapCenter != nil), "canCreate": .bool(state.canCreateZone),
       ])
     })
-      .operation("toggle", label: "Turn privacy zones on or off", action: .togglePrivacyZones)
-      .operation("toggleMap", label: "Show or hide zones on the map", action: .toggleShowZonesOnMap)
-      // Creating a zone takes a map drag (CreateZoneFeature.setMapCenter); the rest needs a zone.
-      .unexposed("addZoneButtonTapped", reason: "needs a map drag").unexposed("destination", reason: "needs a map drag")
-      .unexposed("deleteZone", reason: "needs a zone").unexposed("toggleZoneActive", reason: "needs a zone")
-      .unexposed("selectZone", reason: "needs a zone").unexposed("alert", reason: "needs a zone")
-      .unexposed("binding", reason: "binding")
+      .operation("placeHere", label: "Place the zone at your position",
+        action: .setMapCenter(Coordinate(latitude: coordinate.latitude, longitude: coordinate.longitude)))
+      .operation("name", label: "Name the zone", arguments: String.self, action: { .binding(.set(\.newZoneName, $0)) })
+      // The slider: 100 to 1000 m in steps of 50, disabled until the zone is placed.
+      .operation("radius", label: "Set the zone radius (m)", arguments: Int.self,
+        action: { .binding(.set(\.newZoneRadius, Double($0))) }, available: { $0.mapCenter != nil },
+        validate: { _, value in
+          guard (100...1000).contains(value), value % 50 == 0 else { throw HarnessArgumentError("100 to 1000 m in steps of 50") }
+        })
+      // The sheet closes from an effect (`delegate(.zoneCreated)`, then `dismiss()`): running until it's gone.
+      .operation("create", label: "Create the zone", action: .createZone, available: \.canCreateZone,
+        completion: { _ in .running })
+      .operation("cancel", label: "Cancel the new zone", action: .dismiss)
+      .unexposed("delegate", reason: "effect")
   }
 
   static var rides: FeatureDescriptor<RideEvents.State, RideEvents.Action> {
@@ -345,10 +418,12 @@ extension CriticalMapsHarness {
     case nil: nil
     }
     @Shared(.hasConnectionError) var connectionError
+    @Shared(.privacyZoneSettings) var zones
+    @Shared(.lastSeenWhatsNewVersion) var whatsNewSeen
     var root: [String: HarnessValue] = [
       "sheet": sheet.map(HarnessValue.string) ?? .null,
       "map": .object([
-        "riders": .number(Double(state.riderLocations.count)),
+        "riders": .number(Double(map.riderLocations.count)),  // what the map draws
         "riderCountShown": .string(state.ridersCount),
         "you": map.location.map { .object(["latitude": .number($0.coordinate.latitude), "longitude": .number($0.coordinate.longitude)]) } ?? .null,
         "gps": HarnessLocation.shared.observation,
@@ -359,10 +434,16 @@ extension CriticalMapsHarness {
         "nextRideBanner": .bool(nextRideBanner(state)),
         "loadingRiders": .bool(state.isRequestingRiderLocations),
         "connectionError": .bool(connectionError),
+        // What the info overlay shows ("in a privacy zone"), next to what the zones say about you.
         "inPrivacyZone": .bool(state.isCurrentLocationInPrivacyZone),
+        "insideActiveZone": .bool(map.location.map { zones.isLocationInPrivacyZone(
+          Coordinate(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude)) } ?? false),
+        "locationsPosted": .number(Double(HarnessPosting.shared.posted)),
         "shareSheet": .bool(map.presentShareSheet),
       ]),
       "chatBadge": .number(Double(state.chatMessageBadgeCount)),
+      // `lastSeenWhatsNewVersion`: set by `whatsNewDismissed`, which the sheet's `onDismiss` sends.
+      "whatsNewSeen": whatsNewSeen.isEmpty ? .null : .string(whatsNewSeen),
       "openedURLs": .array(HarnessApplication.opened.value.map(HarnessValue.string)),
     ]
     switch destination(state) {
@@ -458,6 +539,31 @@ extension CriticalMapsHarness {
   }
 }
 
+extension CriticalMapsHarness {
+  nonisolated static func zonesDestination(_ state: PrivacyZoneFeature.State) -> PrivacyZoneFeature.Destination.State? {
+    presented(state, "destination")
+  }
+  nonisolated static func zoneAlert(_ state: PrivacyZoneFeature.State) -> AlertState<PrivacyZoneFeature.Action.Alert>? {
+    presented(state, "alert")
+  }
+
+  static func observeZone(_ zone: PrivacyZone) -> HarnessValue {
+    .object(["name": .string(zone.name), "active": .bool(zone.isActive), "radius": .number(zone.radius),
+      "latitude": .number(zone.center.latitude), "longitude": .number(zone.center.longitude)])
+  }
+
+  static func observePrivacyZones(_ state: PrivacyZoneFeature.State) -> HarnessValue {
+    @Shared(.privacyZoneSettings) var zones
+    var value: [String: HarnessValue] = [
+      "zonesOn": .bool(zones.isEnabled), "showOnMap": .bool(zones.shouldShowZonesOnMap),
+      "zones": .array(zones.zones.map(observeZone)),
+      "confirmingDelete": .bool(zoneAlert(state) != nil),
+    ]
+    if case let .createZoneSheet(create)? = zonesDestination(state) { value["creating"] = createZone.snapshot(create) }
+    return .object(value)
+  }
+}
+
 // MARK: - Arguments
 
 /// A string argument limited to an enum's raw values.
@@ -544,6 +650,7 @@ final class HarnessLocation: @unchecked Sendable {
   }
 
   private var isAllowed: Bool { status == .authorizedAlways || status == .authorizedWhenInUse }
+  var isUpdating: Bool { locked { updating } }
 
   private func decide() {
     let decided = locked { () -> CLAuthorizationStatus? in
@@ -563,6 +670,31 @@ final class HarnessLocation: @unchecked Sendable {
   }
 
   private func locked<T>(_ body: () -> T) -> T { lock.lock(); defer { lock.unlock() }; return body() }
+}
+
+/// Every location the app hands its API client to post, checked against the privacy zones at that
+/// moment. The request itself still goes through `HarnessNetwork` (and the live guard refuses it).
+final class HarnessPosting: @unchecked Sendable {
+  static let shared = HarnessPosting()
+  private let lock = NSLock()
+  private var _posted = 0
+  private var _fromInsideZone = 0
+  var posted: Int { lock.withLock { _posted } }
+  var fromInsideZone: Int { lock.withLock { _fromInsideZone } }
+
+  static func watching(_ service: APIService) -> APIService {
+    var watched = service
+    watched.postRiderLocation = { body in
+      @Shared(.privacyZoneSettings) var zones
+      let inside = body.location.map { zones.isLocationInPrivacyZone($0.coordinate) } ?? false
+      shared.lock.withLock {
+        shared._posted += 1
+        if inside { shared._fromInsideZone += 1 }
+      }
+      return try await service.postRiderLocation(body)
+    }
+    return watched
+  }
 }
 
 /// Outside-the-app effects are recorded, not performed: no Safari, no icon-change alert.

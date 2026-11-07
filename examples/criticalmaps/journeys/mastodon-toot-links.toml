@@ -1,0 +1,34 @@
+# Tapping a toot opens it in the browser; tapping its author opens their profile. The harness records
+# the URLs instead of opening them (`openedURLs`).
+name = "Mastodon toot links"
+goal = "Open the first toot and its author's profile from the #CriticalMass feed"
+fixtures = "../fixtures/criticalmaps"
+network = "replay"
+launch_requests = ["GET /locations", "GET /messages", "GET /api/ride"]
+
+[[steps]]
+do = "Continue"
+requests = []
+
+[[steps]]
+do = "Open chat and Mastodon"
+requests = ["GET /messages"]
+
+[[steps]]
+do = "Show Mastodon"
+requests = ["GET /api/v1/timelines/tag/CriticalMass"]
+
+[[steps]]
+do = "Open toot in the browser"
+path = "root/social/mastodon/toots/117571628657226288"
+requests = []
+
+[[steps]]
+do = "Open the author's profile"
+path = "root/social/mastodon/toots/117571628657226288"
+requests = []
+
+[checks]
+"the toot was opened" = "len(openedURLs) == 2 and openedURLs[0] == 'https://mastodon.social/users/rider1/statuses/117571628657226288'"
+"then its author" = "openedURLs[1] == 'https://mastodon.social/@rider1'"
+"the feed is still shown" = "social.mastodon.screen == 'list'"

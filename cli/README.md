@@ -183,7 +183,7 @@ How much of the app an agent can reach, and which reachable operations no run ha
 
 An operation counts as exercised when a `dispatch` event has a receipt (it ran); routes are compared without the `@instance` suffix. Paths and operation names are templated with the catalog's patterns, else by shape like request paths (numeric, UUID and long hex segments become `{id}`), so the rows of a list are one feature. The totals line gives features reached, exposed operations, the share exercised and unexposed actions by reason. `--min-exercised PCT` exits 1 below that share; a failed journey also exits 1. `--json` prints `{features: [{path, name, reached, operations: [{name, label, exercised}], unexposed: [{action, reason}]}], totals, runs}`.
 
-On Shelf, with its eight journeys and a 20-run explore report (`tca explore --fixtures fixtures/shelf --runs 20 --seed 1 --report /tmp/explore.jsonl`):
+On Shelf, with its first eight journeys and a 20-run explore report (`tca explore --fixtures fixtures/shelf --runs 20 --seed 1 --report /tmp/explore.jsonl`):
 
 ```text
 $ tca exposure --journeys 'journeys/*.toml' --reports /tmp/explore.jsonl
@@ -206,7 +206,7 @@ exposure: 7 feature(s) from 8 journey run(s), 1 report(s)
 totals: 7 of 7 feature(s) reached, 26 exposed operation(s), 23 exercised (88.5%); 10 unexposed action(s): ignored 10
 ```
 
-The three gaps are Retry buttons that only appear after a failed load. `tca chaos` checks that they are offered but doesn't press them; a journey with a `[[faults]]` entry that taps Retry would. The journeys alone exercise 17 (65%). [Adopting in a large app](../docs/adopting.md#step-1-attach-and-look-around-a-day) has the Critical Maps output and what it means.
+The three gaps were Retry buttons that only appear after a failed load. `tca chaos` checks that they are offered but doesn't press them; the three `retry-*` journeys, each with a `[[faults]]` entry, press them. The first eight journeys alone exercised 17 (65%); with the retry journeys, 20 (77%). [Adopting in a large app](../docs/adopting.md#step-1-attach-and-look-around-a-day) has the Critical Maps output and what it means.
 
 Where the unexposed list comes from: `@HarnessFeature` records every action case it didn't turn into an operation or a child scope (`ignored` for `@HarnessIgnore`, `unannotated`, `binding`, `unsupported payload`, `multiple payloads`), and explicit descriptors add entries with `.unexposed("case", reason: "...")`. An entry disappears once an operation sends that case. See the [package guide](../TCAHarnessTCA1/README.md#exposure).
 

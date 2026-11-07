@@ -1,0 +1,45 @@
+name = "Observation mode"
+goal = "Watch in observation mode: no location is posted; turning it off posts again"
+fixtures = "../fixtures/criticalmaps"
+network = "replay"
+launch_requests = ["GET /locations", "GET /messages", "GET /api/ride"]
+
+[[steps]]
+do = "Continue"
+requests = []
+
+[[steps]]
+do = "Open settings"
+requests = []
+
+[[steps]]
+do = "Turn observation mode on"
+requests = []
+
+[[steps]]
+do = "Swipe down to close settings"
+requests = []
+
+[[steps]]
+do = "Let 30 seconds pass (the app posts your location)"
+requests = []
+
+[[steps]]
+do = "Open settings"
+requests = []
+
+[[steps]]
+do = "Turn observation mode off"
+requests = []
+
+[[steps]]
+do = "Close settings"
+requests = []
+
+[[steps]]
+do = "Let 30 seconds pass (the app posts your location)"
+requests = ["PUT /locations"]
+
+[checks]
+"posted once, after observation mode was turned off" = "map.locationsPosted == 1"
+"observation mode is off" = "not map.observationMode"

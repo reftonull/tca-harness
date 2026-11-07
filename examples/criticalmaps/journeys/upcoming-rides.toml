@@ -13,7 +13,7 @@ do = "Show upcoming rides"
 do = "root/rides/3/select"
 
 [[steps]]
-do = "Swipe the upcoming rides down"
+do = "Swipe down to close the upcoming rides"
 
 [checks]
 "back on the map" = "sheet == None"

@@ -13,6 +13,8 @@ First public release candidate.
 - `FeatureDescriptor.operation(_:label:available:completion:cancel:action:)` with `action: (State) -> Action`, for actions that carry the value on screen.
 - Journeys, explore, chaos and the other runners wait for launch effects to settle (the post-run quiet rule) before the first step.
 - Example: Critical Maps, a production app, integrated with a read-only guard against its live service.
+- Example: Critical Maps closes the gaps `tca exposure` showed. The headless host sends each sheet's `onDismiss`, and swipe-down operations close What's New, chat and settings. Privacy zones can be created at the fixed position, switched and deleted, and the invariant "no location is posted from inside an active privacy zone" checks each post against the zones at the moment the app makes it. Nine new journeys cover the core loop and the operations no run had pressed. Features reached went from 12 to 16 of 16, operations exercised from 21 of 53 to 46 of 70, and two new findings came out (the chat error returns after a successful send; the privacy indicator goes stale).
+- Example: Shelf journeys press Retry after a failed load on the shelf (launch fault), Reading stats and Reading goal.
 - Example: Shelf plants `double-save` as the realistic race (Save tappable while its POST is in flight), found by `tca explore --races`, and `stale-search` (a catalog search that doesn't cancel the one in flight), found by `tca chaos --reorder`.
 - Fixture tooling for server-driven apps:
   - Every logged request says how it was answered (`match`: `exact`, `ordered`, `template`, `path`, `synthetic`, `fault`, `blocked`, `live`) and which `cassette`; the `network` snapshot counts `pending` requests. Additive, no protocol version change.

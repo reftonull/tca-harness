@@ -1,0 +1,24 @@
+name = "Retry after the reading goal fails to load"
+goal = "GET /goal fails with a 500 on open; Retry shows the goal of 12 books"
+fixtures = "../fixtures/shelf"
+network = "replay"
+launch_requests = ["GET /books"]
+
+[[faults]]
+match = { method = "GET", path = "/goal" }
+kind = "status"
+status = 500
+times = 1
+
+[[steps]]
+do = "Reading goal"
+expect = "goal.error and goal.yearly == 0 and not goal.isLoading"
+requests = ["GET /goal"]
+
+[[steps]]
+do = "Retry"
+requests = ["GET /goal"]
+
+[checks]
+"the goal is shown" = "goal.yearly == 12 and goal.progressPercent == 8"
+"the error is gone" = "not goal.error and not goal.isLoading"
