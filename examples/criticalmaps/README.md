@@ -68,6 +68,8 @@ Invariants (root unless noted): the map shows the riders that were fetched; no r
 - The GPX file importer and privacy-zone creation, which need a system file picker and a map drag.
 - "Route to event", which opens Apple Maps.
 - App Intents and Live Activities.
+- The sheets' `onDismiss` callbacks, which the headless host doesn't send.
+- Every other action case, with its reason, is declared on the descriptors with `.unexposed(...)`; `../../scripts/tca exposure --journeys 'journeys/*.toml'` lists them next to what the journeys exercise. The triage is in [Adopting in a large app](../../docs/adopting.md#how-much-of-the-app-can-an-agent-reach).
 - On the UI rung, the map's visible-rider count and centering. `MKMapView` follows the OS location authorization, which the fake location manager never requests, so the map stays on its default region and `riderCountShown` stays 0 while the store has you in Berlin with 12 riders.
 
 ## How it's wired, and what was hard

@@ -23,6 +23,7 @@ Tests here describe what a user does and sees: a goal, steps by label, and check
 | Flaky journey or state that differs between runs | `tca determinism FILE` | headless |
 | Backend contract may have changed | `tca journey run FILE --network record --target live` and review the cassette diff | live |
 | Replays pass but you don't trust the fixtures | `tca fixtures coverage journeys/*.toml --strict`: fix every `path` fallback and `blocked` request with a cassette or a `match.json` rule | headless |
+| Which operations no journey or walk has ever run | `tca exposure --journeys 'journeys/*.toml' --reports explore.jsonl`: write journeys for the core flows it shows as `.`, and check each `unexposed` reason is intended | headless |
 | Re-recording fixtures from the backend | `tca fixtures record journeys/*.toml --target live [--sanitize SCRIPT]` (it prints the coverage afterwards) | live |
 
 ## Write a journey by solving it

@@ -43,6 +43,7 @@ class Host:
         self.process = None
         self.connection = None
         self.stream = None
+        self.inspected = {}  # path -> the latest `inspect` entry seen on this connection (`tca exposure`)
         if port is not None:
             try:
                 self.connection = socket.create_connection(('127.0.0.1', port), timeout=15)
@@ -647,6 +648,9 @@ def mounted_features(host):
     features = []
     response = host.call('inspect')
     if response.get('ok') and isinstance(response.get('features'), list):
+        inspected = getattr(host, 'inspected', None)
+        if isinstance(inspected, dict):
+            inspected.update((f['path'], f) for f in response['features'] if isinstance(f, dict) and isinstance(f.get('path'), str))
         features = [(f['path'], f.get('name') or f['path'].rsplit('/', 1)[-1]) for f in response['features']
                     if isinstance(f, dict) and isinstance(f.get('path'), str)]
     known = {path for path, _ in features}
@@ -957,7 +961,7 @@ def doctor(host):
 
 
 RECORDING = '.tca/recording.json'  # `tca record start` writes this; `tca do` appends steps to it.
-TEST_COMMANDS = ('journey', 'record', 'explore', 'chaos', 'determinism', 'diff', 'fixtures')  # Handled in journeys.py.
+TEST_COMMANDS = ('journey', 'record', 'explore', 'chaos', 'determinism', 'diff', 'fixtures', 'exposure')  # Handled in journeys.py.
 COMMANDS = ['doctor', 'ls', 'do', 'setup', 'shell', 'observe', 'inspect', 'dispatch', 'wait', 'cancel', 'demo',
             'arguments-demo', 'hybrid-demo', 'run', 'trace', 'devtools', 'protocol', 'build', *TEST_COMMANDS]
 APP_ONLY = ('doctor', 'ls', 'do')

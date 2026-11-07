@@ -42,6 +42,22 @@ from urllib.parse import urlsplit
 
 API = 'http://api.shelf.test'
 
+# What `inspect` reports beyond the mounted operations (`tca exposure`): every declared operation,
+# available or not, and the action cases no operation sends.
+CATALOG_NAMES = [('root', 'Shelf app'), ('root/shelf', 'Shelf'), ('root/shelf/editor', 'Editor')]
+CATALOG = {
+    'root': {'declaredOperations': [], 'unexposed': [{'action': 'task', 'reason': 'lifecycle'}]},
+    'root/shelf': {
+        'declaredOperations': [{'id': i, 'label': l} for i, l in (
+            ('addBook', 'Add book'), ('closeEditor', 'Close editor'), ('addSample', 'Add sample book'),
+            ('refresh', 'Refresh'), ('dismissError', 'Dismiss error'))],
+        'unexposed': [{'action': 'booksResponse', 'reason': 'ignored'}, {'action': 'swipeToDelete', 'reason': 'unannotated'}]},
+    'root/shelf/editor': {
+        'declaredOperations': [{'id': i, 'label': l} for i, l in (
+            ('setTitle', 'Set title'), ('setRating', 'Set rating'), ('setDetails', 'Set details'), ('save', 'Save'))],
+        'unexposed': [{'action': 'binding', 'reason': 'binding'}]},
+}
+
 
 class FakeShelf:
     def __init__(self, bug=False, strand=False, crashy=False, stuck=False, unseeded=False, ui=False, v2=False,
@@ -378,10 +394,16 @@ class FakeShelf:
                 return {'ok': True, 'observation': self.observe()}
             if method == 'inspect':
                 observation = self.observe()
-                return {'ok': True, 'protocolVersion': 2 if self.v2 else 3, 'diagnostics': [], 'observation': observation,
-                        'features': [{'path': p, 'name': n, 'instanceID': i,
-                                      'operations': [c for c in observation['candidates'] if c['feature'] == p]}
-                                     for p, n, i in self.features()]}
+                response = {'ok': True, 'protocolVersion': 2 if self.v2 else 3, 'diagnostics': [], 'observation': observation,
+                            'features': [{'path': p, 'name': n, 'instanceID': i,
+                                          'operations': [c for c in observation['candidates'] if c['feature'] == p]}
+                                         for p, n, i in self.features()]}
+                if not self.v2:  # A newer harness: declared operations, unexposed actions and the catalog.
+                    for feature in response['features']:
+                        feature.update(CATALOG[feature['path']])
+                    if request.get('catalog'):
+                        response['catalog'] = [dict(path=p, name=n, **CATALOG[p]) for p, n in CATALOG_NAMES]
+                return response
             if method == 'issues' and not self.v2:
                 since = request.get('since', 0)
                 return {'ok': True, 'issues': [i for i in self.issues if i['seq'] > since], 'observation': self.observe()}

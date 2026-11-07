@@ -112,6 +112,19 @@ extension CriticalMapsHarness {
         available: { if case .rideEvents? = destination($0) { true } else { false } })
       .child("rides", state: { if case let .rideEvents(s)? = destination($0) { s } else { nil } },
         action: { .destination(.presented(.rideEvents($0))) }, descriptor: rides)
+      // What no operation sends, for `tca exposure` (docs/adopting.md has the triage).
+      .unexposed("onAppear", reason: "lifecycle").unexposed("onDisappear", reason: "lifecycle")
+      .unexposed("didBecomeActive", reason: "lifecycle")
+      .unexposed("fetchLocations", reason: "effect").unexposed("postLocation", reason: "effect")
+      .unexposed("fetchChatMessages", reason: "effect").unexposed("nextRide", reason: "effect")
+      .unexposed("fetchLocationsResponse", reason: "response").unexposed("postLocationResponse", reason: "response")
+      .unexposed("fetchChatMessagesResponse", reason: "response")
+      // SwiftUI sends these from each sheet's `onDismiss`; the headless host doesn't (finding 6).
+      .unexposed("dismissEventList", reason: "sheet onDismiss").unexposed("dismissDestination", reason: "sheet onDismiss")
+      .unexposed("whatsNewDismissed", reason: "sheet onDismiss")
+      .unexposed("binding", reason: "binding")  // eventListPresentation: the rides sheet's detent, dragged
+      .unexposed("map.routeToEvent", reason: "opens Apple Maps")
+      .unexposed("map.updateCenterRegion", reason: "map gesture")
       .invariant("the map shows the riders that were fetched") { $0.riderLocations == $0.mapFeatureState.riderLocations }
       .invariant("no rider appears twice") { Set($0.riderLocations.map(\.id)).count == $0.riderLocations.count }
       .invariant("unread badge never exceeds the messages") {
@@ -146,6 +159,8 @@ extension CriticalMapsHarness {
         available: { $0.alert == nil && !$0.chatInputState.isSendButtonDisabled },
         completion: { $0.chatInputState.isSending ? .running : .succeeded })
       .operation("dismissAlert", label: "Dismiss the error", action: .alert(.dismiss), available: { $0.alert != nil })
+      .unexposed("onAppear", reason: "lifecycle").unexposed("fetchChatMessages", reason: "effect")
+      .unexposed("fetchChatMessagesResponse", reason: "response").unexposed("chatInputResponse", reason: "response")
       .invariant("no message is listed twice") { Set($0.messages.map(\.id)).count == $0.messages.count }
     let toot = FeatureDescriptor<TootFeature.State, TootFeature.Action>("Toot", observation: observeToot)
       .operation("open", label: "Open toot in the browser", action: .openTweet)
@@ -159,7 +174,9 @@ extension CriticalMapsHarness {
       .operation("loadMore", label: "Scroll to the end of the feed", action: .loadNextPage,
         available: { feedScreen($0) == "list" && $0.hasMore && !$0.isLoadingNextPage },
         completion: { $0.isLoadingNextPage ? .running : .succeeded })
-      .identified("toots", state: \.toots, action: \.toot, descriptor: toot)
+      .identified("toots", state: \.toots, action: \.toot, descriptor: toot).covering("toot")
+      .unexposed("onAppear", reason: "lifecycle")
+      .unexposed("fetchDataResponse", reason: "response").unexposed("fetchNextPageResponse", reason: "response")
       .invariant("no toot is listed twice") { Set($0.toots.map(\.uri)).count == $0.toots.count }
     return FeatureDescriptor<SocialFeature.State, SocialFeature.Action>("Social", observation: observeSocial)
       .operation("showMastodon", label: "Show Mastodon", action: .binding(.set(\.socialControl, .toots)),
@@ -206,6 +223,12 @@ extension CriticalMapsHarness {
         available: { top($0) && $0.userSettings.gpxRoute != nil })
       .operation("close", label: "Close settings", action: .view(.dismiss), available: top)
       .operation("back", label: "Back to settings", action: .destination(.dismiss), available: { !top($0) })
+      .unexposed("view.onAppear", reason: "lifecycle")
+      .unexposed("view.gpxImportButtonTapped", reason: "system file picker")
+      .unexposed("view.gpxFileSelected", reason: "system file picker")
+      .unexposed("gpxRouteParsed", reason: "effect").unexposed("gpxImportFailed", reason: "effect")
+      .unexposed("openURL", reason: "effect").unexposed("alert", reason: "effect")  // the GPX import error
+      .unexposed("view.observationModeChanged", reason: "effect")  // onAppear's publisher of the shared setting
       .child("rideEvents", state: { if case let .rideEventSettings(s)? = settingsDestination($0) { s } else { nil } },
         action: { .destination(.presented(.rideEventSettings($0))) }, descriptor: rideEventSettings)
       .child("appearance", state: { if case let .appearanceSettings(s)? = settingsDestination($0) { s } else { nil } },
@@ -232,7 +255,7 @@ extension CriticalMapsHarness {
       .operation("radius", label: "Set the ride search radius (km)", arguments: Choice<EventDistanceKm>.self,
         action: { .binding(.set(\.eventSearchRadius, EventDistance(rawValue: Int($0.value.rawValue)!)!)) },
         available: { $0.isEnabled })
-      .identified("types", state: \.rideEventTypes, action: \.rideEventType, descriptor: type)
+      .identified("types", state: \.rideEventTypes, action: \.rideEventType, descriptor: type).covering("rideEventType")
       .invariant("the screen matches the saved event settings") { state in
         @Shared(.rideEventSettings) var saved
         return saved.isEnabled == state.isEnabled && saved.eventDistance == state.eventSearchRadius
@@ -263,6 +286,11 @@ extension CriticalMapsHarness {
     })
       .operation("toggle", label: "Turn privacy zones on or off", action: .togglePrivacyZones)
       .operation("toggleMap", label: "Show or hide zones on the map", action: .toggleShowZonesOnMap)
+      // Creating a zone takes a map drag (CreateZoneFeature.setMapCenter); the rest needs a zone.
+      .unexposed("addZoneButtonTapped", reason: "needs a map drag").unexposed("destination", reason: "needs a map drag")
+      .unexposed("deleteZone", reason: "needs a zone").unexposed("toggleZoneActive", reason: "needs a zone")
+      .unexposed("selectZone", reason: "needs a zone").unexposed("alert", reason: "needs a zone")
+      .unexposed("binding", reason: "binding")
   }
 
   static var rides: FeatureDescriptor<RideEvents.State, RideEvents.Action> {
@@ -271,6 +299,7 @@ extension CriticalMapsHarness {
     var descriptor = FeatureDescriptor<RideEvents.State, RideEvents.Action>("Upcoming rides", observation: { _ in .object([:]) })
       // AppView: `.accessibilityAction(.escape) { store.send(.dismiss) }`. Swiping down is on the root.
       .operation("escape", label: "Close with the VoiceOver escape gesture", action: .dismiss)
+      .covering("selectRide")  // Sent by the rows ("Show this ride on the map")
     // `rideEvents` is internal to AppFeature and not an IdentifiedArray: one child per position.
     for index in 0..<10 {
       descriptor = descriptor.child("\(index)", state: { state in

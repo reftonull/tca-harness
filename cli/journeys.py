@@ -599,19 +599,41 @@ class Reporter:
         self.started = time.monotonic()
         self.sequence = itertools.count(1)
 
+    @property
+    def active(self):
+        """Whether events go anywhere, so optional ones (`mounts`) are worth collecting."""
+        return self.file is not None
+
+    def record(self, event, data):
+        return dict(event=event, traceVersion=1, seq=next(self.sequence),
+                    timestamp=datetime.now().astimezone().isoformat(),
+                    tMs=round((time.monotonic() - self.started) * 1000, 2), **data)
+
     def emit(self, event, **data):
         if not self.file:
             return
-        record = dict(event=event, traceVersion=1, seq=next(self.sequence),
-                      timestamp=datetime.now().astimezone().isoformat(),
-                      tMs=round((time.monotonic() - self.started) * 1000, 2), **data)
-        self.file.write(json.dumps(record, default=str) + '\n')
+        self.file.write(json.dumps(self.record(event, data), default=str) + '\n')
         self.file.flush()
 
     def close(self):
         if self.file:
             self.file.close()
             self.file = None
+
+
+class MemoryReporter(Reporter):
+    """Keeps the events in `events` instead of writing them (`tca exposure --journeys`)."""
+
+    def __init__(self):
+        super().__init__()
+        self.events = []
+
+    @property
+    def active(self):
+        return True
+
+    def emit(self, event, **data):
+        self.events.append(json.loads(json.dumps(self.record(event, data), default=str)))
 
 
 # Findings and the step runner ---------------------------------------------------------------------
@@ -708,6 +730,38 @@ class Runner:
         self.network_reported = False
         self.raced = []         # (step, operation, requestID, dispatched at) of receipts nobody waited for
         self.last_dispatch = None
+        self.mounts_reported = set()  # Templated feature paths already in a `mounts` event
+
+    def note_mounts(self, number, refresh=False):
+        """Report features inspected on this run that no `mounts` event named yet (by templated path):
+        path, name, declared operations and unexposed actions, for `tca exposure`; and, once per report,
+        the descriptor's `catalog`. Steps inspect the app anyway (`tca do` focuses the view); `refresh`
+        inspects once more, e.g. at the end of a run."""
+        if not self.reporter.active:
+            return
+        host = self.session.host
+        if not getattr(self.reporter, 'catalog_sent', False) and not self.crashed:
+            # Once per report: every feature the descriptor can mount, mounted or not (newer harness).
+            self.reporter.catalog_sent = True
+            try:
+                response = host.call('inspect', catalog=True)
+            except RuntimeError:
+                response = {}
+            if isinstance(response.get('catalog'), list):
+                self.reporter.emit('catalog', features=response['catalog'])
+        if refresh and not self.crashed and self.session.alive():
+            try:
+                sibling('tca').mounted_features(host)
+            except RuntimeError:
+                pass
+        features = []
+        for path, feature in (getattr(host, 'inspected', None) or {}).items():
+            key = templated_path(path)
+            if key not in self.mounts_reported:
+                self.mounts_reported.add(key)
+                features.append({k: feature[k] for k in ('path', 'name', 'declaredOperations', 'unexposed') if k in feature})
+        if features:
+            self.reporter.emit('mounts', step=number, features=features)
 
     def play(self, number, step, raced=False):
         """Run a journey step with its timing. `raced`: the next step is `no_wait`, so this one's receipt
@@ -767,9 +821,11 @@ class Runner:
             if not wait and receipt.get('status') == 'running':
                 self.raced.append((number, operation, receipt.get('requestID'), started))
         self.reporter.emit('dispatch', step=number, query=query, candidate=candidate['id'] if candidate else None,
+                           feature=candidate.get('feature') if candidate else None,
                            arguments=arguments or {}, ok=result['ok'], error=result.get('error'), waited=wait,
                            detail=result.get('detail'), receipt=result.get('receipt'),
                            latencyMs=round((time.monotonic() - started) * 1000, 2), observation=self.session.observation)
+        self.note_mounts(number)
         if candidate is not None and not result['dispatched'] and result.get('error') not in TOLERATED_REJECTIONS:
             outcome.findings.append(Finding('rejected', f'{operation} was offered, then rejected: {result.get("error")}'
                                             + (f' ({result["detail"]})' if result.get('detail') else ''),
@@ -1037,6 +1093,7 @@ def run_journey(session, journey, reporter=None, wait_ms=DEFAULT_WAIT_MS, *, che
         outcome = runner._broken(Outcome(len(result.outcomes) + 1, ''), error)
         result.problems += outcome.findings or [Finding('step', str(error), outcome.number)]
     result.problems += contract
+    runner.note_mounts(len(steps), refresh=True)
     result.requests = list(runner.requests)
     result.elapsed = time.monotonic() - started
     result.output = session.output()
@@ -1399,6 +1456,7 @@ def build_parser():
     diff.add_argument('--out', type=Path, help='Where to write findings (default .tca/findings)')
 
     sibling('fixtures').add_parsers(commands)
+    sibling('exposure').add_parser(commands)
     return parser
 
 
@@ -1416,6 +1474,10 @@ def main(argv):
         return record_start(arguments) if arguments.action == 'start' else record_stop(arguments)
     if arguments.command == 'fixtures':
         return sibling('fixtures').main(arguments)
+    if arguments.command == 'exposure':
+        if arguments.min_exercised is not None and not 0 <= arguments.min_exercised <= 100:
+            parser.error('--min-exercised is a percentage, 0 to 100')
+        return sibling('exposure').exposure_command(arguments)
     exploration = sibling('exploration')
     if arguments.command == 'explore':
         if arguments.runs < 1 or arguments.steps < 1 or arguments.shrink_trials < 0:

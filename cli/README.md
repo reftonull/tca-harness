@@ -168,6 +168,48 @@ fallback matches (7): no cassette for the exact request, so the latest one for i
 
 `record` runs each journey with `--network record` on the target (respecting the app's live guard, whose name it prints; refused requests are listed and not recorded), then the `--sanitize` script once with the cassette directories as arguments, then the coverage report for the journeys replayed against their own fixtures. See [docs/testing.md](../docs/testing.md#matching-rules) for the `match.json` rules that remove fallbacks.
 
+### `tca exposure`
+
+```sh
+tca exposure [--port N | --target T] [--journeys 'journeys/*.toml'] [--reports explore.jsonl ...] [--json] [--min-exercised PCT]
+```
+
+How much of the app an agent can reach, and which reachable operations no run has exercised. For every feature path it prints the operations the descriptor declares (available now or not) with how many dispatches ran each one, then the action cases no operation sends, grouped by reason. Features come from four places:
+
+- **The catalog.** `inspect` with `"catalog": true` returns every feature the root descriptor can mount, mounted or not, with collection elements as `{id}` (`root/books/{id}`). A feature nothing mounted is marked `(not reached)` and listed at the bottom.
+- **A live app**: `--port N` attaches; `--target T` (or, with no other source, the default target) launches it with the network blocked and inspects it once it is quiet.
+- **`--journeys`**: runs them (on `--target`, or attached with `--port`) and counts what they mount and dispatch.
+- **`--reports`**: JSON-lines reports of earlier runs from any command (`journey run`, `explore`, `chaos`, ... `--report FILE`). Reports carry a `catalog` event and a `mounts` event whenever a run reaches a feature it hadn't, so features only a random walk reached still get their unexposed actions. Older reports work too: their dispatches count by route, and their features are marked as never inspected.
+
+An operation counts as exercised when a `dispatch` event has a receipt (it ran); routes are compared without the `@instance` suffix. Paths and operation names are templated with the catalog's patterns, else by shape like request paths (numeric, UUID and long hex segments become `{id}`), so the rows of a list are one feature. The totals line gives features reached, exposed operations, the share exercised and unexposed actions by reason. `--min-exercised PCT` exits 1 below that share; a failed journey also exits 1. `--json` prints `{features: [{path, name, reached, operations: [{name, label, exercised}], unexposed: [{action, reason}]}], totals, runs}`.
+
+On Shelf, with its eight journeys and a 20-run explore report (`tca explore --fixtures fixtures/shelf --runs 20 --seed 1 --report /tmp/explore.jsonl`):
+
+```text
+$ tca exposure --journeys 'journeys/*.toml' --reports /tmp/explore.jsonl
+exposure: 7 feature(s) from 8 journey run(s), 1 report(s)
+
+  root  Shelf
+    OPERATION  LABEL          EXERCISED
+    add        Add book       51
+    refresh    Refresh        44
+    retry      Retry          .
+    ...
+    unexposed (ignored): task, markShelfSeen, searchDebounced, booksResponse, saveResponse
+  ...
+  root/goal  Goal
+    OPERATION  LABEL      EXERCISED
+    setGoal    Set goal   20
+    save       Save goal  7
+    retry      Retry      .
+
+totals: 7 of 7 feature(s) reached, 26 exposed operation(s), 23 exercised (88.5%); 10 unexposed action(s): ignored 10
+```
+
+The three gaps are Retry buttons that only appear after a failed load. `tca chaos` checks that they are offered but doesn't press them; a journey with a `[[faults]]` entry that taps Retry would. The journeys alone exercise 17 (65%). [Adopting in a large app](../docs/adopting.md#step-1-attach-and-look-around-a-day) has the Critical Maps output and what it means.
+
+Where the unexposed list comes from: `@HarnessFeature` records every action case it didn't turn into an operation or a child scope (`ignored` for `@HarnessIgnore`, `unannotated`, `binding`, `unsupported payload`, `multiple payloads`), and explicit descriptors add entries with `.unexposed("case", reason: "...")`. An entry disappears once an operation sends that case. See the [package guide](../TCAHarnessTCA1/README.md#exposure).
+
 ### `tca determinism` and `tca diff`
 
 ```sh
@@ -321,6 +363,7 @@ These tests need no app, model credentials, network, or Swift build. They cover:
 - check expressions, including refused inputs, and the TOML writer
 - targets, journeys, recording, explore and shrinking, chaos, determinism and diff end to end against [a fake protocol v3 app](tests/fake_app.py) with planted bugs
 - request patterns and per-step expectations, launch faults (journeys and chaos), fixture coverage and the recording sweep
+- `exposure` from a live app, journey runs and reports (including reports from before `mounts` events)
 - both providers against a mocked network
 - `setup`
 - the devtools relay and connection failures

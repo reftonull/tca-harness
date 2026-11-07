@@ -190,6 +190,7 @@ def walk(opener, settings, rng, prefix, max_steps, reporter, label, races=False)
         return [], None, f'could not start {opener.name}: {error}'
     taken = list(prefix)
     found = []
+    runner = None
     try:
         reporter.emit('goal_started', goal=label, description=f'Random walk, up to {max_steps} steps'
                       + (' with races' if races else ''))
@@ -255,6 +256,8 @@ def walk(opener, settings, rng, prefix, max_steps, reporter, label, races=False)
                 return taken, findings[0], None
         return taken, None, None
     finally:
+        if runner:
+            runner.note_mounts(len(taken), refresh=True)
         reporter.emit('goal_finished', goal=label, status='failed' if found else 'passed',
                       reason=found[0].describe(taken) if found else None, steps=len(taken))
         session.close()

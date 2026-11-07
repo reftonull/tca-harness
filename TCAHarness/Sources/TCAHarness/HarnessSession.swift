@@ -84,6 +84,8 @@ private struct Request: Decodable {
   var since: Int?
   var arguments: [String: HarnessJSON]?
   var network: NetworkUpdate?
+  /// `inspect` only: also return the descriptor's whole feature tree.
+  var catalog: Bool?
 }
 
 /// `{"network":{"mode":"replay","faults":[...],"cassettes":"/abs/dir","latency":{"ms":200}}}`; every field is optional.
@@ -94,13 +96,60 @@ private struct NetworkUpdate: Decodable {
   var latency: HarnessLatency?
 }
 
+/// An action case a feature has that no operation sends, and why (`ignored`, `unannotated`,
+/// `binding`, `unsupported payload`, `multiple payloads`, or an app-supplied reason).
+public struct HarnessUnexposedAction: Codable, Equatable, Sendable {
+  public let action: String
+  public let reason: String
+  public init(action: String, reason: String) { self.action = action; self.reason = reason }
+}
+
+/// An operation a feature declares, whether or not it is available right now.
+public struct HarnessDeclaredOperation: Codable, Equatable, Sendable {
+  /// The route segment after the feature path, as in candidate IDs.
+  public let id: String
+  public let label: String
+  public init(id: String, label: String) { self.id = id; self.label = label }
+}
+
+/// A feature the descriptor can mount, whether or not it is mounted now. Collection elements have
+/// `{id}` as their segment, e.g. `root/books/{id}`.
+public struct HarnessCatalogFeature: Codable, Equatable, Sendable {
+  public let path: String
+  public let name: String
+  public let declaredOperations: [HarnessDeclaredOperation]
+  public let unexposed: [HarnessUnexposedAction]
+  public init(path: String, name: String, declaredOperations: [HarnessDeclaredOperation], unexposed: [HarnessUnexposedAction]) {
+    self.path = path; self.name = name; self.declaredOperations = declaredOperations; self.unexposed = unexposed
+  }
+}
+
 public struct HarnessFeatureInfo: Codable, Sendable {
   public let path: String
   public let name: String
   public let instanceID: String
+  /// The operations available now.
   public let operations: [HarnessCandidate]
-  public init(path: String, name: String, instanceID: String, operations: [HarnessCandidate]) {
+  /// Every operation the descriptor declares, available or not (`tca exposure`).
+  public let declaredOperations: [HarnessDeclaredOperation]
+  /// Action cases no operation sends (`tca exposure`).
+  public let unexposed: [HarnessUnexposedAction]
+  public init(path: String, name: String, instanceID: String, operations: [HarnessCandidate],
+    declaredOperations: [HarnessDeclaredOperation] = [], unexposed: [HarnessUnexposedAction] = []) {
     self.path = path; self.name = name; self.instanceID = instanceID; self.operations = operations
+    self.declaredOperations = declaredOperations; self.unexposed = unexposed
+  }
+
+  private enum CodingKeys: String, CodingKey { case path, name, instanceID, operations, declaredOperations, unexposed }
+
+  public init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    path = try c.decode(String.self, forKey: .path)
+    name = try c.decode(String.self, forKey: .name)
+    instanceID = try c.decode(String.self, forKey: .instanceID)
+    operations = try c.decode([HarnessCandidate].self, forKey: .operations)
+    declaredOperations = try c.decodeIfPresent([HarnessDeclaredOperation].self, forKey: .declaredOperations) ?? []
+    unexposed = try c.decodeIfPresent([HarnessUnexposedAction].self, forKey: .unexposed) ?? []
   }
 }
 
@@ -127,6 +176,7 @@ private struct Response<State: Encodable>: Encodable {
   var error: String?
   var detail: String?
   var features: [HarnessFeatureInfo]?
+  var catalog: [HarnessCatalogFeature]?
   var protocolVersion: Int?
   var diagnostics: [String]?
   var timeline: HarnessTimelinePage?
@@ -142,6 +192,7 @@ public final class HarnessSession<State: Codable & Equatable> {
   private let readOffers: () -> [HarnessOffer]
   private let verify: (String) -> Bool?
   private let inspect: (() -> [HarnessFeatureInfo])?
+  private let catalog: (() -> [HarnessCatalogFeature])?
   private let diagnostics: () -> [String]
   private let timeline: ((Int) -> HarnessTimelinePage?)?
   private let issueLog: HarnessIssueLog
@@ -165,6 +216,7 @@ public final class HarnessSession<State: Codable & Equatable> {
     offers: @escaping () -> [HarnessOffer],
     verify: @escaping (String) -> Bool? = { _ in nil },
     inspect: (() -> [HarnessFeatureInfo])? = nil,
+    catalog: (() -> [HarnessCatalogFeature])? = nil,
     diagnostics: @escaping () -> [String] = { [] },
     timeline: ((Int) -> HarnessTimelinePage?)? = nil,
     issues: HarnessIssueLog = .shared,
@@ -175,6 +227,7 @@ public final class HarnessSession<State: Codable & Equatable> {
     readOffers = offers
     self.verify = verify
     self.inspect = inspect
+    self.catalog = catalog
     self.diagnostics = diagnostics
     self.timeline = timeline
     self.issueLog = issues
@@ -182,7 +235,9 @@ public final class HarnessSession<State: Codable & Equatable> {
     self.beforeObserve = beforeObserve
   }
 
-  /// The protocol version reported by `inspect`. Version 3 added `issues`, `network` and `issueCount`.
+  /// The protocol version reported by `inspect`. Version 3 added `issues`, `network` and `issueCount`;
+  /// `declaredOperations` and `unexposed` on inspected features, and `inspect` with `"catalog": true`,
+  /// were added later without a version change.
   public static var protocolVersion: Int { 3 }
 
   /// One JSON request in; one JSON response out. Transport is kept separate.
@@ -224,7 +279,8 @@ public final class HarnessSession<State: Codable & Equatable> {
     case "inspect":
       guard let inspect else { return failure("inspection_unavailable") }
       let features = inspect().filter { request.path == nil || $0.path == request.path || $0.path.hasPrefix(request.path! + "/") }
-      return Response(observation: observe(), features: features, protocolVersion: Self.protocolVersion, diagnostics: diagnostics())
+      return Response(observation: observe(), features: features, catalog: request.catalog == true ? catalog?() : nil,
+        protocolVersion: Self.protocolVersion, diagnostics: diagnostics())
     case "observe":
       return Response(observation: observe())
     case "issues":

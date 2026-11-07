@@ -170,6 +170,36 @@ struct RuntimeTests {
     return (store, HarnessRuntime(descriptor: descriptor, read: { store.withState { $0 } }, send: { store.send($0) }))
   }
 
+  @Test func inspectReportsDeclaredAndUnexposedActions() async throws {
+    let (_, runtime) = fixture()
+    let features = try await Client(runtime.session).call("inspect")["features"] as! [[String: Any]]
+    let root = features.first { $0["path"] as? String == "root" }!
+    // saveButtonTapped is @HarnessIgnore'd, but the fixture's "save" operation sends it.
+    let unexposed = (root["unexposed"] as! [[String: String]]).map { "\($0["action"]!): \($0["reason"]!)" }
+    #expect(unexposed == ["saveResponse: ignored", "cancelSave: ignored"])
+    #expect((root["declaredOperations"] as! [[String: String]]).map { $0["id"]! } == ["openButtonTapped", "closeButtonTapped", "save"])
+    let item = features.first { $0["path"] as? String == "root/items/1" }!
+    #expect((item["unexposed"] as! [Any]).isEmpty)
+    // The catalog lists what can be mounted, mounted or not; it is only sent when asked for.
+    let client = Client(runtime.session)
+    #expect(try await client.call("inspect")["catalog"] == nil)
+    let catalog = try await client.call("inspect", ["catalog": true])["catalog"] as! [[String: Any]]
+    #expect(catalog.map { $0["path"] as! String } == ["root", "root/child", "root/items/{id}", "root/path/{id}"])
+    #expect((catalog[1]["declaredOperations"] as! [[String: String]]).map { $0["id"]! } == ["incrementButtonTapped", "rename", "priority"])
+
+    let store = Store(initialState: TimelineFeature.State()) { TimelineFeature() }
+    let descriptor = TimelineFeature.harnessDescriptor
+      .operation("setTitle", label: "Set title", arguments: String.self, action: { .titleChanged($0) })
+      .operation("finish", action: .saveResponse)
+      .unexposed("swipe", reason: "needs a gesture")
+    let explicit = HarnessRuntime(descriptor: descriptor, read: { store.withState { $0 } }, send: { store.send($0) })
+    let info = explicit.inspect().first { $0.path == "root" }!
+    #expect(info.unexposed.map { "\($0.action): \($0.reason)" } == [
+      "save: unannotated", "response: unsupported payload", "tagged: unsupported payload",
+      "mode: unsupported payload", "swipe: needs a gesture",
+    ])
+  }
+
   @Test func generatedAttachmentUsesTheExistingStore() async throws {
     let store = Store(initialState: WorkspaceFeature.State()) { WorkspaceFeature() }
     let attachment = store.harness(WorkspaceFeature.self)

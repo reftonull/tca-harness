@@ -129,6 +129,8 @@ struct HarnessMacroTests {
             FeatureDescriptor<State, Action>("Feature", observation: { state in
                 .object([:])
               })
+            .unexposed("response", reason: "unsupported payload")
+            .unexposed("gesture", reason: "multiple payloads")
           )
         }
       }
@@ -136,6 +138,90 @@ struct HarnessMacroTests {
       extension Feature: HarnessFeatureProvider {
       }
       """
+    }
+  }
+
+  @Test func unexposedActionsCarryTheirReason() {
+    assertMacro {
+      """
+      @HarnessFeature
+      struct Feature {
+        struct State {
+          var child: Child.State?
+        }
+        enum Action: BindableAction {
+          case saveButtonTapped
+          case task
+          case binding(BindingAction<State>)
+          case child(Child.Action)
+          case delegate(Delegate)
+          case drag(Double, Double)
+          @HarnessIgnore case response(Int), timerTicked
+        }
+      }
+      """
+    } diagnostics: {
+      """
+      @HarnessFeature
+      struct Feature {
+        struct State {
+          var child: Child.State?
+        }
+        enum Action: BindableAction {
+          case saveButtonTapped
+          case task
+               ┬───
+               ╰─ ⚠️ Action 'task' is not exposed; add @HarnessOperation or @HarnessIgnore to declare intent
+          case binding(BindingAction<State>)
+          case child(Child.Action)
+          case delegate(Delegate)
+               ┬─────────────────
+               ╰─ ⚠️ Cannot derive action 'delegate'; add @HarnessOperation with a HarnessInput payload, @HarnessIgnore, or compose an explicit descriptor
+          case drag(Double, Double)
+               ┬───────────────────
+               ╰─ ⚠️ Action 'drag' has multiple payloads; wrap them in a @HarnessSchema struct or add @HarnessIgnore
+          @HarnessIgnore case response(Int), timerTicked
+        }
+      }
+      """
+    } expansion: {
+      #"""
+      struct Feature {
+        struct State {
+          var child: Child.State?
+        }
+        enum Action: BindableAction {
+          case saveButtonTapped
+          case task
+          case binding(BindingAction<State>)
+          case child(Child.Action)
+          case delegate(Delegate)
+          case drag(Double, Double)
+          case response(Int), timerTicked
+        }
+
+        @MainActor public static var harnessDescriptor: FeatureDescriptor<State, Action> {
+          customizeHarnessDescriptor(
+            FeatureDescriptor<State, Action>("Feature", observation: { state in
+                .object(["child": state.child.map {
+                        Child.harnessDescriptor.snapshot($0)
+                      } ?? .null])
+              })
+            .operation("saveButtonTapped", label: "saveButtonTapped", action: .saveButtonTapped)
+            .optional("child", state: \.child, action: \.child, descriptor: Child.harnessDescriptor)
+            .unexposed("task", reason: "unannotated")
+            .unexposed("binding", reason: "binding")
+            .unexposed("delegate", reason: "unsupported payload")
+            .unexposed("drag", reason: "multiple payloads")
+            .unexposed("response", reason: "ignored")
+            .unexposed("timerTicked", reason: "ignored")
+          )
+        }
+      }
+
+      extension Feature: HarnessFeatureProvider {
+      }
+      """#
     }
   }
 
@@ -211,6 +297,7 @@ struct HarnessMacroTests {
             .valueOperation("rename", label: "Rename item", value: String.self, action: {
                 .rename($0)
               })
+            .unexposed("response", reason: "ignored")
           )
         }
       }

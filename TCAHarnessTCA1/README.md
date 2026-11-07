@@ -34,6 +34,19 @@ struct Editor {
 
 `Editor.harnessDescriptor` contains typed observation readers and action constructors. Named `ButtonTapped` actions are exposed by convention; other operations opt in with `@HarnessOperation`. Unsupported payloads produce diagnostics. `@HarnessIgnore` excludes a state field or action from generated metadata. Known credential field names are redacted. Nested observations compose child descriptors, preserving child exclusions; opaque leaf values still use bounded `StateInspection`.
 
+### Exposure
+
+The macro also records what it didn't expose: every action case that isn't an operation or a child scope, with a reason (`ignored` for `@HarnessIgnore`, `unannotated` for a payload-free case that isn't `…ButtonTapped`, `binding`, `unsupported payload`, `multiple payloads`). The compile-time warnings stay. `inspect` returns them per feature as `unexposed`, next to `declaredOperations` (every operation the descriptor declares, available now or not), and `inspect` with `"catalog": true` returns the whole tree the descriptor can mount, mounted or not, with collection elements as `{id}`. `tca exposure` turns that into a reachability and coverage report.
+
+An entry is dropped once something sends that case: an operation with a fixed action (`action: .saveButtonTapped`), an operation with arguments (the case is read from a sample input built from the schema), an operation whose ID is the case name, or a child, presentation or stack scope (presentations and stacks by their case, other children by their name). For the rest, say so:
+
+```swift
+Shelf.harnessDescriptor
+  .identified("books", state: \.rows, action: \.bookRows, descriptor: row)
+  .covering("bookRows")                               // mounted under another name
+  .unexposed("routeToEvent", reason: "opens Apple Maps")   // explicit descriptors list their own
+```
+
 Schemas support explicit stored fields, recursively annotated structs, String raw-value enums, primitives, arrays, and nullable values. Input types remain Codable and may provide their own HarnessInput implementation. Struct payloads use their fields directly; scalar/enum/array payloads are wrapped in `{ "value": ... }`. Optional schema fields are required on the wire with `null` representing absence. Schema and typed decoding both run before dispatch.
 
 ## Compose typed scopes

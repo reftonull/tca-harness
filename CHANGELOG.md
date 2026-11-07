@@ -19,6 +19,11 @@ First public release candidate.
   - `match.json` matching rules beside the cassettes: `ignore_query`, per-path `ignore_body`, `path_templates` (one cassette for `/users/{id}`; recordings are named after the template) and `pagination` terminal pages.
   - `tca fixtures coverage` (per-endpoint match kinds, unused cassettes, fallbacks; `--strict`) and `tca fixtures record` (record, sanitize, then coverage).
   - Journey steps declare the requests they make (`requests = ["GET /books"]`, `launch_requests`), checked as a multiset after quiet; `tca record` writes them.
+- Exposure:
+  - `@HarnessFeature` records every action case it didn't expose, with why (`ignored`, `unannotated`, `binding`, `unsupported payload`, `multiple payloads`); explicit descriptors add `.unexposed("case", reason:)` and `.covering(...)`. Entries an operation or child turns out to send are dropped.
+  - `inspect` features gain `declaredOperations` and `unexposed`, and `inspect` with `"catalog": true` returns every feature the descriptor can mount. Additive, no protocol version change.
+  - Reports gain `catalog` and `mounts` events, and `dispatch` events carry the operation's `feature`.
+  - `tca exposure`: per feature path, declared operations and how often runs exercised them, unexposed actions by reason, features never reached; from a live app, `--journeys` and `--reports`; `--min-exercised PCT`.
 - Races:
   - Replay latency: `HarnessLatency` (fixed, per path, and a jitter that is a pure function of the seed, endpoint and occurrence), from `TCA_HARNESS_LATENCY`, the `network` method, `match.json` `latency`, a journey's `latency`, or `--latency`/`--jitter` on every runner.
   - Journey steps `no_wait = true` (dispatch without waiting for the previous step) and `after_ms` (the gap); raced receipts are settled, and checked for stuck, when the race ends.

@@ -50,6 +50,7 @@ public final class HarnessRuntime<State, Action> {
     verify: { [weak self] condition in
       guard let self else { return nil }; return self.verify(self.read(), condition)
     }, inspect: { [weak self] in self?.inspect() ?? [] },
+    catalog: { [weak self] in self?.catalog() ?? [] },
     diagnostics: { [weak self] in self?.diagnostics ?? ["Runtime was released; retain the StoreHarness attachment alongside the store"] },
     timeline: timeline.map { timeline in { timeline.page(since: $0) } },
     issues: issues, network: network,
@@ -78,6 +79,8 @@ public final class HarnessRuntime<State, Action> {
     return graph.offers.map { $0.intercepting { candidate, perform in try timeline.asAgent(candidate.id, perform) } }
   }
   public func inspect() -> [HarnessFeatureInfo] { refresh(); return graph.features }
+  /// Every feature the descriptor can mount, mounted or not (`inspect` with `"catalog": true`).
+  public func catalog() -> [HarnessCatalogFeature] { descriptor.catalog() }
   public var diagnostics: [String] { refresh(); return graph.diagnostics }
 
   private func refresh() {

@@ -109,7 +109,7 @@ operations with no schema skip the generative call entirely.
 
 ## Typed capability runtime
 
-The `TCAHarnessTCA1` package adds generated/explicit feature descriptors and a runtime over the app's existing store. Protocol v2 accepts nested JSON argument objects and supports `inspect` (optional feature `path`) and `cancel` (operation `requestID`) in addition to existing session operations. Inspection returns mounted features, their instance IDs, and currently available operations. The shared schema validator checks types, fields, choices and supported constraints before application decoding. Explicit cancellation hooks are optional; unsupported cancellation returns an error.
+The `TCAHarnessTCA1` package adds generated/explicit feature descriptors and a runtime over the app's existing store. Protocol v2 accepts nested JSON argument objects and supports `inspect` (optional feature `path`) and `cancel` (operation `requestID`) in addition to existing session operations. Inspection returns mounted features, their instance IDs, and currently available operations. Each feature also lists `declaredOperations` (available or not) and `unexposed` action cases with a reason, and `"catalog": true` adds `catalog`, every feature the descriptor can mount. These are additive and keep protocol version 3. The shared schema validator checks types, fields, choices and supported constraints before application decoding. Explicit cancellation hooks are optional; unsupported cancellation returns an error.
 
 ## Issues, invariants and network (protocol v3)
 

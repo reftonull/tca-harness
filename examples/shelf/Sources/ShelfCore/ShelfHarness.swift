@@ -62,6 +62,7 @@ public enum ShelfHarness {
       .operation("closeGoal", label: "Done", action: .goalDoneButtonTapped, available: { $0.goal?.isSaving == false })
       .operation("discover", label: "Find books", action: .discoverButtonTapped, available: noSheet)
       .identified("books", state: \.rows, action: \.bookRows, descriptor: row)
+      .covering("bookRows")  // Mounted as `books`; `tca exposure` would otherwise list the case as unexposed.
       .presentation("addBook", state: \.addBook, action: \.addBook, descriptor: addBook)
       .presentation("detail", state: \.detail, action: \.detail, descriptor: detail)
       .presentation("discover", state: \.discover, action: \.discover, descriptor: discover)

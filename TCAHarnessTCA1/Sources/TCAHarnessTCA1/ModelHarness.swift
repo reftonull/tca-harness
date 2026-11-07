@@ -104,7 +104,7 @@ extension FeatureDescriptor {
   /// checks and `tca ls` see it with the rest of the state.
   public func model<Model: AnyObject>(_ name: String, _ model: @escaping (State) -> Model?,
     descriptor: ModelDescriptor<Model>, issues: HarnessIssueLog = .shared) -> Self {
-    var copy = self
+    var copy = addingChildCatalog(routeSegment(name), descriptor)
     copy.children.append { context, graph in
       let read = { context.read().flatMap(model) }
       descriptor.mount(MountContext(path: context.path + "/" + routeSegment(name), parent: context.instance,
@@ -293,6 +293,7 @@ public struct Hosted<Model: AnyObject & Sendable>: Reducer {
     for child in model.childInvariants {
       hosted.childInvariants.append { state, path, results in child(state.model, path, &results) }
     }
+    hosted.childCatalogs = model.childCatalogs
     for child in model.children {
       // Nested models keep calling their own methods directly.
       hosted.children.append { context, graph in

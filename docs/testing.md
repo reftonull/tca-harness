@@ -187,6 +187,7 @@ tca determinism FILE [--target headless] [--runs 3]
 tca diff FILE --targets headless,ui
 tca fixtures coverage [FILE...] [--target headless] [--fixtures DIR] [--report run.jsonl]... [--strict]
 tca fixtures record FILE... --target live [--into DIR] [--sanitize SCRIPT] [--strict] [--no-coverage]
+tca exposure [--port N | --target T] [--journeys GLOB...] [--reports FILE...] [--json] [--min-exercised PCT]
 ```
 
 All commands print a short plain-text summary, write JSON lines with `--report` (the `tca trace` format), and exit 1 when they found something, 2 for usage or configuration errors. All take `--wait-ms` (the stuck budget, default 5000), `--seed`, and `--latency MS`/`--jitter MS` (replay latency, [Races](#races)); finding commands take `--out DIR`. Each finding is written as a minimal journey under `.tca/findings/` that reproduces it with `tca journey run` (determinism and diff findings reproduce with the command that found them). Against a protocol v2 app the issue, invariant and network oracles are skipped, and the summary says so once.
@@ -197,6 +198,7 @@ All commands print a short plain-text summary, write JSON lines with `--report` 
 - **determinism** runs the journey several times from fresh launches with the same seed and compares the published state after every step; it reports the first step where runs differ and the differing paths.
 - **diff** runs the journey on two targets and compares published state after every step, reporting the first difference.
 - **fixtures coverage** runs the journeys in their own network mode (replay) on fresh launches, or reads the `request` events of earlier `--report` files (from any command), and prints, per endpoint (method and templated path), how many requests were answered each way (`match`, below). Then the cassettes no request was answered with, and the requests that only matched by fallback (`path`) or were blocked, each with where it happened. `--strict` exits 1 when there are any of those. A failed journey exits 1 too.
+- **exposure** reports, per feature path, the operations the descriptor declares with how many dispatches ran each, and the action cases no operation sends, from a live app (`--port`/`--target`), journey runs (`--journeys`) and earlier reports (`--reports`). Features in the descriptor's catalog that no run mounted are listed as not reached. `--min-exercised PCT` fails below that share. Reports from every command carry a `catalog` event and `mounts` events for this. See [the command reference](../cli/README.md#tca-exposure).
 - **fixtures record** runs each journey with `--network record` on the given target (cassettes go to the journey's `fixtures`, or `--into DIR`), prints what was written, what the live guard refused, and the guard's name (with a note when the app sets none). Then it runs `--sanitize` once (a `.py` file runs with this Python; the cassette directories are its arguments and the first is in `TCA_HARNESS_CASSETTES`), and replays the journeys for the coverage report (`--no-coverage` skips it). Each journey records in its own process, so recordings of the same endpoint by different journeys share a name and the last one wins.
 
 ```text
