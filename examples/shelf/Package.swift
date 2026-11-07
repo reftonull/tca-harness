@@ -1,5 +1,11 @@
 // swift-tools-version: 6.0
+import Foundation
 import PackageDescription
+
+// A path dependency's identity is its directory name: `tca-harness` in a normal clone, something
+// else in a git worktree or a renamed checkout.
+let harness = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+  .appendingPathComponent("../..").standardizedFileURL.resolvingSymlinksInPath().lastPathComponent
 
 // Shelf: a small reading-list app for demonstrating the harness testing patterns (docs/testing.md).
 // `ShelfCore` holds every feature and imports neither SwiftUI nor UIKit, so the same reducers run in
@@ -20,7 +26,7 @@ let package = Package(
       name: "ShelfCore",
       dependencies: [
         .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
-        .product(name: "TCAHarnessTCA1", package: "tca-harness"),
+        .product(name: "TCAHarnessTCA1", package: harness),
       ],
       // Uses the protocol v3 APIs (invariants, HarnessNetwork, harnessDeterministic). See ShelfHarness.swift.
       swiftSettings: [.define("SHELF_HARNESS_V3")]
@@ -29,7 +35,7 @@ let package = Package(
       name: "shelf-headless",
       dependencies: [
         "ShelfCore",
-        .product(name: "TCAHarnessTCA1", package: "tca-harness"),
+        .product(name: "TCAHarnessTCA1", package: harness),
       ]
     ),
   ],

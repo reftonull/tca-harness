@@ -94,6 +94,63 @@ struct Wallet {
   }
 }
 
+/// A vanilla model with an injected client (a struct of closures) and a slow load.
+@MainActor @Observable
+final class SlowModel {
+  struct Client: Sendable { var fetch: @Sendable () async throws -> Int }
+  var value = 0
+  var isLoading = false
+  var sawCancellation = false
+  private let client: Client
+
+  nonisolated init(client: Client = Client(fetch: { try await Task.sleep(for: .seconds(30)); return 1 })) {
+    self.client = client
+  }
+
+  func load() async {
+    isLoading = true
+    defer { isLoading = false }
+    do { value = try await client.fetch() } catch { sawCancellation = Task.isCancelled }
+  }
+}
+
+extension SlowModel {
+  static var harnessDescriptor: ModelDescriptor<SlowModel> {
+    .model("Slow").operation("load", label: "Load", available: { !$0.isLoading }) { await $0.load() }
+  }
+}
+
+/// Presents a hosted model as a sheet and starts its load, as an app's parent feature would.
+@Reducer
+struct Reader {
+  @ObservableState
+  struct State: Equatable {
+    @Presents var slow: Hosted<SlowModel>.State?
+  }
+  enum Action {
+    case openButtonTapped
+    case slow(PresentationAction<Hosted<SlowModel>.Action>)
+  }
+  var body: some ReducerOf<Self> {
+    Reduce { state, action in
+      switch action {
+      case .openButtonTapped:
+        state.slow = Hosted.State(SlowModel())
+        return .send(.slow(.presented(.call("load") { await $0.load() })))
+      case .slow:
+        return .none
+      }
+    }
+    .ifLet(\.$slow, action: \.slow) { Hosted<SlowModel>() }
+  }
+}
+
+@MainActor
+private func eventually(_ condition: () -> Bool) async throws {
+  for _ in 0..<300 where !condition() { try await Task.sleep(for: .milliseconds(10)) }
+  #expect(condition())
+}
+
 @MainActor
 private func waitFor(_ client: Client, _ response: [String: Any]) async throws -> String? {
   let receipt = try #require(response["receipt"] as? [String: Any])
@@ -185,6 +242,9 @@ struct ModelHarnessTests {
     #expect(try await waitFor(client, hosted) == "succeeded")
     #expect(store.withState { $0.expenses.model.expenses.count } == 2)
     #expect(store.withState { $0.expenses.running }.isEmpty)
+    // What a view does: `ExpensesView(model: store.model)` on the scoped store.
+    let scoped = store.scope(state: \.expenses, action: \.expenses)
+    #expect(scoped.model === store.withState { $0.expenses.model })
   }
 
   @Test(.enabled(if: HarnessServer.isAvailable, "Timelines record only in DEBUG builds"))
@@ -198,8 +258,48 @@ struct ModelHarnessTests {
     _ = try await client.call("observe")
     let load = try await client.dispatch(client.id("root/expenses/load@"))
     #expect(try await waitFor(client, load) == "succeeded")
-    let actions = try #require(timeline.page(since: 0)).entries.map { $0.action.joined(separator: ".") }
-    // Newest first.
-    #expect(actions == ["expenses.finished.load", "expenses.perform.load"])
+    let entries = try #require(timeline.page(since: 0)).entries.sorted { $0.index < $1.index }
+    #expect(entries.map { $0.action.joined(separator: ".") } == ["expenses.perform.load", "expenses.finished.load"])
+    // The model is a reference, but each entry shows it as of that action, so the call's changes
+    // land on `finished`.
+    #expect(entries[0].changes == [])
+    #expect(entries[1].changes.contains("expenses.expenses"))
+    #expect(entries[1].changes.contains("expenses.pendingCount"))
+  }
+
+  @Test func dismissingAHostedModelCancelsItsCalls() async throws {
+    let store = Store(initialState: Reader.State()) { Reader() }
+    let descriptor = FeatureDescriptor<Reader.State, Reader.Action>("Reader")
+      .operation("open", label: "Open", action: .openButtonTapped)
+      .presentation("slow", state: \.slow, action: \.slow,
+        descriptor: Hosted.descriptor(SlowModel.harnessDescriptor).operation("close", label: "Close", action: .dismiss))
+    let harness = store.harness(descriptor: descriptor, timeline: nil, issues: HarnessIssueLog())
+    let client = Client(harness.runtime.session)
+    _ = try await client.call("observe")
+    _ = try await client.dispatch(client.id("root/open@"))
+    let model = try #require(store.withState { $0.slow?.model })
+    // The parent's `.call` started the load as an effect of the sheet.
+    try await eventually { model.isLoading }
+    #expect(store.withState { $0.slow?.running } == ["load": 1])
+
+    // A parent's reflected observation shows the hosted model's stored properties, without its client.
+    _ = try await client.call("observe")
+    let state = try #require(client.observation["state"] as? [String: Any])
+    let slow = try #require(state["slow"] as? [String: Any])
+    #expect(slow["isLoading"] as? Bool == true)
+    #expect(slow["client"] == nil)
+
+    _ = try await client.dispatch(client.id("root/slow/close@"))
+    try await eventually { store.withState { $0.slow } == nil }
+    try await eventually { model.sawCancellation }
+    #expect(model.value == 0)
+  }
+
+  @Test func closuresAreLeftOutOfSnapshots() {
+    let snapshot = StateInspection.snapshot(SlowModel(), reflectingObjects: true)
+    guard case let .object(fields) = snapshot else { Issue.record("expected an object"); return }
+    #expect(Set(fields.keys) == ["value", "isLoading", "sawCancellation"])
+    struct Mixed { var name = "a"; var action: () -> Void = {} }
+    #expect(StateInspection.snapshot(Mixed()) == .object(["name": .string("a")]))
   }
 }

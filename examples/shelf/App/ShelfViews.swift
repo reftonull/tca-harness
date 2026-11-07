@@ -50,12 +50,26 @@ struct ShelfView: View {
         ToolbarItem(placement: .primaryAction) {
           Button("Add book", systemImage: "plus") { store.send(.addButtonTapped) }
         }
+        ToolbarItem(placement: .secondaryAction) {
+          Button("Reading stats", systemImage: "chart.bar") { store.send(.statsButtonTapped) }
+        }
+        ToolbarItem(placement: .secondaryAction) {
+          Button("Reading goal", systemImage: "target") { store.send(.goalButtonTapped) }
+        }
       }
       .sheet(item: $store.scope(state: \.addBook, action: \.addBook)) { store in
         AddBookView(store: store)
       }
       .sheet(item: $store.scope(state: \.detail, action: \.detail)) { store in
         BookDetailView(store: store)
+      }
+      // Vanilla SwiftUI screens. Stats is hosted in the store: the view gets the model, unchanged.
+      .sheet(item: $store.scope(state: \.stats, action: \.stats)) { store in
+        StatsView(model: store.model)
+      }
+      // Goal is held by reference; dismissing tells the store.
+      .sheet(item: Binding(get: { store.goal }, set: { if $0 == nil { store.send(.goalDoneButtonTapped) } })) { goal in
+        GoalView(model: goal)
       }
     }
     .task {

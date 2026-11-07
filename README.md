@@ -103,7 +103,7 @@ tca diff journeys/add-book.toml --targets headless,ui
 
 [Testing guide](docs/testing.md) · [Command reference](cli/README.md#behaviour-tests) · [test-tca-app skill](skills/test-tca-app/SKILL.md)
 
-The [Shelf example](examples/shelf/README.md) plants eight bugs, one for each pattern, behind `SHELF_BUGS`. `examples/shelf/run_ladder.sh` runs every pattern on the headless host, the simulator and a live local backend, and prints which pattern caught which bug.
+The [Shelf example](examples/shelf/README.md) plants ten bugs behind `SHELF_BUGS`, one for each pattern plus two in vanilla SwiftUI screens (`@Observable` models, one wrapped in TCA with `Hosted`). `examples/shelf/run_ladder.sh` runs every pattern on the headless host, the simulator and a live local backend, and prints which pattern caught which bug.
 
 ### Model-driven goals
 

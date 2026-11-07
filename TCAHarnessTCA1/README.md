@@ -189,9 +189,16 @@ There are three ways to host one, depending on how much of TCA you want around i
 | Inside a TCA app | `.model("settings", { $0.settings }, descriptor:)` on any feature descriptor | The same, mounted at `root/…/settings`; its state appears in the parent's observation |
 | Wrapped in TCA | `Hosted<Model>` as a child reducer, with `Hosted.descriptor(Model.harnessDescriptor)` | Calls run as `perform` actions and effects: the devtools timeline shows `settings.perform.load` and `settings.finished.load`, dismissal cancels them, and `TestStore` can test them |
 
+With `Hosted`:
+
+- The parent reducer starts calls itself with `.call`, e.g. the first load when it presents the screen (what a vanilla view does in `.task`, which a headless host has no view to run): `return .send(.settings(.presented(.call("load") { await $0.load() })))`.
+- `Hosted.Action.dismiss` dismisses through `@Dependency(\.dismiss)`; offer it with `Hosted.descriptor(...).operation("close", label: "Close", action: .dismiss)`.
+- `Hosted.State` is `ObservableState`, so a view reads `store.model` from the scoped store. A parent's reflected observation (`@HarnessFeature`'s) shows the model's stored properties.
+- Each timeline entry shows the model as of that action, so a call's changes appear on its `finished` entry. Calls the view makes on the model directly, rather than through the store, aren't recorded.
+
 `Hosted` is the gradual path from vanilla SwiftUI to TCA: the model and its view stay as they are, while the store owns its lifecycle and records every call. Models must be `Sendable` to be hosted, which `@MainActor` models are.
 
-Reflection reads stored properties, skips `_$` bookkeeping such as the observation registrar, follows nested model objects once each, and redacts credential-like names. SwiftData `@Model` classes keep their values in backing data that reflection can't see; give them an explicit `observation:`.
+Reflection reads stored properties, leaves out closures (and structs made only of closures, such as an injected client), skips `_$` bookkeeping such as the observation registrar, follows nested model objects once each, and redacts credential-like names. SwiftData `@Model` classes keep their values in backing data that reflection can't see; give them an explicit `observation:`.
 
 ## Validate
 

@@ -23,13 +23,15 @@ SERVER_PORT = 8799
 
 # bug -> (pattern it was planted for, rung, signature in the CLI's output)
 BUGS = {
-    'stuck-save': ('chaos', 1, r'saving means a save is in flight|addBook/(save|retry) still running|stranded'),
+    'stuck-save': ('chaos', 1, r'saving means a save is in flight|addBook/(save|retry) still running|stranded(?!: neither "Refresh")'),
     'double-save': ('explore', 1, r'no duplicate books'),
     'badge-drift': ('invariant', 1, r'unread badge matches the list'),
     'chatty-search': ('network', 1, r'budget: \d+ requests|POST \S*/events \S* (had no fixture|was blocked)'),
     'wall-clock': ('determinism', 1, r'addedAt'),
     'view-only-seen': ('diff', 2, r'hasNewBooks'),
     'late-delete': ('issue', 1, r'received a presentation action'),
+    'stats-stuck': ('chaos', 1, r'stranded: neither "Refresh"|root/stats/\S+ still running'),
+    'goal-drift': ('invariant', 1, r'progress matches the goal'),
     'v2-contract': ('contract', 3, r"unexpected shape|missing key 'author'"),
 }
 
@@ -106,7 +108,12 @@ def run_patterns(bugs, args, findings_dir):
     step('journey', 1, lambda: tca(['journey', 'run', *journeys], bugs))
     step('explore', 1, lambda: tca(['explore', '--fixtures', 'fixtures/shelf', '--runs', str(args.explore_runs),
                                     '--steps', '40', *out], bugs))
-    step('chaos', 1, lambda: tca(['chaos', 'journeys/add-book.toml', *out], bugs))
+    def chaos():
+        # The TCA editor and the vanilla Reading stats screen (a Hosted @Observable model).
+        runs = [tca(['chaos', journey, *out], bugs) for journey in ('journeys/add-book.toml', 'journeys/view-stats.toml')]
+        return max(r[0] for r in runs), ''.join(r[1] for r in runs), sum(r[2] for r in runs)
+
+    step('chaos', 1, chaos)
     step('determinism', 1, lambda: tca(['determinism', 'journeys/add-book.toml', *out], bugs))
     if not args.skip_ui:
         step('diff', 2, lambda: tca(['diff', 'journeys/mark-read.toml', '--targets', 'headless,ui', *out], bugs))

@@ -1,0 +1,20 @@
+{
+  "request" : {
+    "body" : null,
+    "method" : "GET",
+    "url" : "http://127.0.0.1:8799/goal"
+  },
+  "response" : {
+    "body" : {
+      "read" : 1,
+      "yearly" : 12
+    },
+    "headers" : {
+      "Content-Length" : "25",
+      "Content-Type" : "application/json",
+      "Date" : "Sat, 07 Nov 2026 08:59:22 GMT",
+      "Server" : "BaseHTTP/0.6 Python/3.13.2"
+    },
+    "status" : 200
+  }
+}

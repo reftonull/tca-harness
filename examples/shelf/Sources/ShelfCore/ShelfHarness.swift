@@ -13,7 +13,7 @@ public enum ShelfHarness {
   @MainActor
   public static var descriptor: FeatureDescriptor<Shelf.State, Shelf.Action> {
     let bugs = ShelfBugs.fromEnvironment
-    let noSheet: (Shelf.State) -> Bool = { $0.addBook == nil && $0.detail == nil }
+    let noSheet: (Shelf.State) -> Bool = { !$0.isCovered }
     let loading: (Shelf.State) -> HarnessOperationStatus = { $0.isLoading ? .running : .succeeded }
 
     let addBook = AddBook.harnessDescriptor
@@ -50,9 +50,20 @@ public enum ShelfHarness {
         available: { noSheet($0) && $0.loadError != nil && !$0.isLoading }, completion: loading)
       .operation("search", label: "Search", arguments: String.self, action: { .searchQueryChanged($0) },
         available: noSheet, completion: { $0.appliedQuery == $0.searchQuery ? .succeeded : .running })
+      .operation("stats", label: "Reading stats", action: .statsButtonTapped, available: noSheet,
+        completion: { $0.stats?.running.isEmpty == false ? .running : .succeeded })
+      .operation("goal", label: "Reading goal", action: .goalButtonTapped, available: noSheet,
+        completion: { $0.goal?.isLoading == true ? .running : .succeeded })
+      .operation("closeGoal", label: "Done", action: .goalDoneButtonTapped, available: { $0.goal?.isSaving == false })
       .identified("books", state: \.rows, action: \.bookRows, descriptor: row)
       .presentation("addBook", state: \.addBook, action: \.addBook, descriptor: addBook)
       .presentation("detail", state: \.detail, action: \.detail, descriptor: detail)
+      // Vanilla SwiftUI screens. Stats is wrapped in TCA: its operations become `perform` actions.
+      // Close dismisses through the store, like a TCA child's.
+      .presentation("stats", state: \.stats, action: \.stats,
+        descriptor: Hosted.descriptor(StatsModel.harnessDescriptor).operation("close", label: "Close", action: .dismiss))
+      // Goal is mounted directly: its operations call the model.
+      .model("goal", { $0.goal }, descriptor: GoalModel.harnessDescriptor)
       .withShelfInvariants()
   }
 
@@ -71,6 +82,36 @@ public enum ShelfHarness {
     #if SHELF_HARNESS_V3
     dependencies.harnessDeterministic()
     #endif
+  }
+}
+
+// The vanilla models' descriptors: what a team adds next to an `@Observable` model, with no TCA.
+extension StatsModel {
+  @MainActor
+  public static var harnessDescriptor: ModelDescriptor<StatsModel> {
+    .model("Stats")
+      // Mirrors the toolbar button, disabled while loading.
+      .operation("refresh", label: "Refresh", available: { !$0.isLoading }) { await $0.load() }
+      .operation("retry", label: "Retry", available: { $0.error != nil && !$0.isLoading }) { await $0.load() }
+      .invariant("read and unread add up to the total") { model in
+        model.summary.map { $0.read + $0.unread == $0.total } ?? true
+      }
+  }
+}
+
+extension GoalModel {
+  @MainActor
+  public static var harnessDescriptor: ModelDescriptor<GoalModel> {
+    .model("Goal")
+      .operation("setGoal", label: "Set goal", arguments: Int.self, available: { !$0.isLoading && !$0.isSaving },
+        validate: { _, value in
+          guard (1...1000).contains(value) else { throw HarnessArgumentError("A goal is 1 to 1000 books") }
+        }) { $0.setDraft($1) }
+      .operation("save", label: "Save goal", available: { $0.canSave }) { await $0.save() }
+      .operation("retry", label: "Retry", available: { $0.error != nil && $0.yearly == 0 && !$0.isLoading }) {
+        await $0.load()
+      }
+      .invariant("progress matches the goal") { $0.progressPercent == GoalModel.percent(read: $0.booksRead, of: $0.yearly) }
   }
 }
 

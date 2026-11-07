@@ -1,0 +1,21 @@
+name = "View reading stats"
+goal = "Open Reading stats, see the totals and books by author, refresh them, and close the sheet"
+fixtures = "../fixtures/shelf"
+network = "replay"
+
+[[steps]]
+do = "Reading stats"
+expect = "stats.summary.total == 3 and not stats.isLoading"
+
+[[steps]]
+do = "Refresh"
+
+[[steps]]
+do = "Close"
+
+[checks]
+"back on the shelf" = "not stats"
+"the shelf itself is intact" = "len(books) == 3"
+
+[budget]
+requests = 3    # GET /books at launch, GET /stats on open, GET /stats on Refresh

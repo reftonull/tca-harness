@@ -1,0 +1,22 @@
+name = "Set a reading goal"
+goal = "Raise the yearly goal from 12 to 24 books and see the progress go from 8% to 4%"
+fixtures = "../fixtures/shelf"
+network = "replay"
+
+[[steps]]
+do = "Reading goal"
+expect = "goal.yearly == 12 and goal.progressPercent == 8"
+
+[[steps]]
+do = "Set goal"
+args = { value = 24 }
+
+[[steps]]
+do = "Save goal"
+
+[checks]
+"the goal is saved" = "goal.yearly == 24 and goal.didSave and not goal.error"
+"the progress is toward the new goal" = "goal.progressPercent == 4"
+
+[budget]
+requests = 3    # GET /books at launch, GET /goal on open, PUT /goal

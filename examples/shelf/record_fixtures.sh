@@ -6,7 +6,7 @@ TCA="$HERE/../../scripts/tca"
 cd "$HERE"
 swift build -q
 rm -rf fixtures/shelf
-for journey in fixtures/record-sweep.toml journeys/add-book.toml journeys/mark-read.toml journeys/delete-book.toml journeys/search.toml; do
+for journey in fixtures/record-sweep.toml journeys/add-book.toml journeys/mark-read.toml journeys/delete-book.toml journeys/search.toml journeys/view-stats.toml journeys/set-goal.toml; do
   python3 server.py --quiet --port 8799 </dev/null >/dev/null 2>&1 &
   server=$!
   sleep 0.5

@@ -25,12 +25,21 @@ public struct Shelf {
     public var savesInFlight = 0
     @Presents public var addBook: AddBook.State?
     @Presents public var detail: BookDetail.State?
+    /// Reading stats: a vanilla `@Observable` model hosted in the store (`Hosted`), so its calls are
+    /// actions and effects.
+    @Presents public var stats: Hosted<StatsModel>.State?
+    /// Reading goal: a vanilla model kept by reference. The harness mounts it with `.model` and calls
+    /// it directly; the store only presents and dismisses it.
+    public var goal: GoalModel?
 
     public init() {}
 
+    /// A sheet covers the list.
+    public var isCovered: Bool { addBook != nil || detail != nil || stats != nil || goal != nil }
+
     /// Rows a user can tap: none while a sheet covers the list.
     public var rows: IdentifiedArrayOf<Book> {
-      guard addBook == nil, detail == nil else { return [] }
+      guard !isCovered else { return [] }
       return IdentifiedArray(visibleBooks, uniquingIDsWith: { first, _ in first })
     }
 
@@ -56,6 +65,9 @@ public struct Shelf {
     @HarnessIgnore case refreshButtonTapped
     @HarnessIgnore case retryButtonTapped
     @HarnessIgnore case addButtonTapped
+    @HarnessIgnore case statsButtonTapped
+    @HarnessIgnore case goalButtonTapped
+    @HarnessIgnore case goalDoneButtonTapped
     @HarnessIgnore case searchQueryChanged(String)
     @HarnessIgnore case searchDebounced
     @HarnessIgnore case bookRows(IdentifiedAction<UUID, BookRowAction>)
@@ -63,6 +75,7 @@ public struct Shelf {
     @HarnessIgnore case saveResponse(Result<Book, Error>)
     @HarnessIgnore case addBook(PresentationAction<AddBook.Action>)
     @HarnessIgnore case detail(PresentationAction<BookDetail.Action>)
+    @HarnessIgnore case stats(PresentationAction<Hosted<StatsModel>.Action>)
   }
 
   enum CancelID { case load, search }
@@ -104,6 +117,22 @@ public struct Shelf {
 
       case .addButtonTapped:
         state.addBook = AddBook.State()
+        return .none
+
+      case .statsButtonTapped:
+        state.stats = Hosted.State(StatsModel())
+        // What a vanilla view does in `.task`, done by the store so the headless host does it too.
+        // It runs as an effect of the sheet: dismissing cancels it.
+        return .send(.stats(.presented(.call("load") { await $0.load() })))
+
+      case .goalButtonTapped:
+        let goal = GoalModel()
+        state.goal = goal
+        // The model, not the store, owns this call. Nothing cancels it if the sheet closes first.
+        return .run { _ in await goal.load() }
+
+      case .goalDoneButtonTapped:
+        state.goal = nil
         return .none
 
       case let .searchQueryChanged(query):
@@ -175,12 +204,13 @@ public struct Shelf {
           await send(.detail(.presented(.deleteResponse(Result { try await api.deleteBook(id); return id }))))
         }
 
-      case .addBook, .detail:
+      case .addBook, .detail, .stats:
         return .none
       }
     }
     .ifLet(\.$addBook, action: \.addBook) { AddBook() }
     .ifLet(\.$detail, action: \.detail) { BookDetail() }
+    .ifLet(\.$stats, action: \.stats) { Hosted<StatsModel>() }
   }
 
   private func load(_ state: inout State) -> Effect<Action> {
@@ -191,4 +221,9 @@ public struct Shelf {
     }
     .cancellable(id: CancelID.load, cancelInFlight: true)
   }
+}
+
+/// `Shelf.State` is `Equatable`; a vanilla model held by reference compares by identity.
+extension GoalModel: Equatable {
+  nonisolated public static func == (lhs: GoalModel, rhs: GoalModel) -> Bool { lhs === rhs }
 }

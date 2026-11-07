@@ -211,8 +211,10 @@ public final class HarnessTimeline: @unchecked Sendable {
   /// Without an attached descriptor a projected timeline records no state.
   @MainActor
   private func snapshot(_ state: Any, _ observe: (@MainActor (Any) -> HarnessJSON?)?) -> HarnessJSON {
-    if detail == .reflected { return StateInspection.snapshot(state, depth: 12, budget: 8000).json }
-    return observe?(state) ?? .null
+    HarnessSnapshotContext.$recorded.withValue(true) {
+      if detail == .reflected { return StateInspection.snapshot(state, depth: 12, budget: 8000).json }
+      return observe?(state) ?? .null
+    }
   }
 
   private func locked<T>(_ read: () -> T) -> T {

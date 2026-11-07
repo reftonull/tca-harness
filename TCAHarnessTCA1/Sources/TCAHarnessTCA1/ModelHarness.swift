@@ -24,7 +24,8 @@ public final class ModelAction<Model: AnyObject> {
   private(set) var status: HarnessOperationStatus = .running
   private var task: Task<Void, Never>?
 
-  init(id: String, body: @escaping @MainActor (Model) async throws -> Void) {
+  /// Nonisolated so a reducer can build one (see `Hosted.Action.call`).
+  nonisolated init(id: String, body: @escaping @MainActor (Model) async throws -> Void) {
     self.id = id; self.body = body
   }
 
@@ -194,15 +195,38 @@ func harnessPort(environment: [String: String], defaultPort: UInt16) throws -> U
 /// // View:           SettingsView(model: store.model)
 /// ```
 public struct Hosted<Model: AnyObject & Sendable>: Reducer {
-  public struct State: Equatable {
+  /// `ObservableState`, so a view reads `store.model` from a scoped store.
+  @ObservableState
+  public struct State: Equatable, HarnessSnapshotProviding {
     /// The hosted model. Views observe it directly.
     public let model: Model
     /// Calls in flight, by operation id.
     public var running: [String: Int] = [:]
 
-    public init(_ model: Model) { self.model = model }
+    /// The model as of the last `Hosted` action (DEBUG builds only). The model is a reference, so
+    /// the devtools timeline, which snapshots captured states later, would otherwise show every entry
+    /// with the model's current values and no changes.
+    @ObservationStateIgnored var recorded: HarnessValue?
+
+    public init(_ model: Model) {
+      self.model = model
+      record()
+    }
+
+    mutating func record() {
+      #if DEBUG
+      recorded = StateInspection.snapshot(model, reflectingObjects: true)
+      #endif
+    }
 
     public static func == (lhs: Self, rhs: Self) -> Bool { lhs.model === rhs.model && lhs.running == rhs.running }
+
+    /// A parent's reflected observation (e.g. `@HarnessFeature`'s) shows the model's stored
+    /// properties, the same view as the model descriptor's default.
+    var harnessSnapshot: HarnessValue {
+      if HarnessSnapshotContext.recorded, let recorded { return recorded }
+      return StateInspection.snapshot(model, reflectingObjects: true)
+    }
   }
 
   @CasePathable
@@ -211,7 +235,19 @@ public struct Hosted<Model: AnyObject & Sendable>: Reducer {
     case perform(ModelAction<Model>)
     /// The method returned (or threw; the error is recorded as an issue).
     case finished(ModelCallID)
+    /// Dismiss the hosted screen through `@Dependency(\.dismiss)`, like a TCA child's Close button.
+    /// Give it an operation with `Hosted.descriptor(...).operation("close", label: "Close", action: .dismiss)`.
+    case dismiss
+
+    /// A call the parent reducer starts, e.g. the initial load when it presents the screen:
+    /// `return .send(.stats(.presented(.call("load") { await $0.load() })))`. It runs, and shows in
+    /// the timeline, exactly like a harness operation with the same id.
+    public static func call(_ id: String, _ body: @escaping @MainActor (Model) async throws -> Void) -> Self {
+      .perform(ModelAction(id: id, body: body))
+    }
   }
+
+  @Dependency(\.dismiss) var dismiss
 
   public init() {}
 
@@ -221,6 +257,7 @@ public struct Hosted<Model: AnyObject & Sendable>: Reducer {
       case let .perform(call):
         let id = MainActor.assumeIsolated { call.id }
         state.running[id, default: 0] += 1
+        state.record()
         let model = UncheckedSendable(state.model)
         return .run { send in
           await call.run(on: model.value)
@@ -230,7 +267,10 @@ public struct Hosted<Model: AnyObject & Sendable>: Reducer {
         let id = call.id
         state.running[id, default: 1] -= 1
         if state.running[id] == 0 { state.running[id] = nil }
+        state.record()
         return .none
+      case .dismiss:
+        return .run { [dismiss] _ in await dismiss() }
       }
     }
   }

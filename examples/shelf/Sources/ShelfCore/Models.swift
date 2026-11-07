@@ -34,6 +34,11 @@ public enum ShelfBug: String, CaseIterable, Sendable {
   case viewOnlySeen = "view-only-seen"
   /// Delete closes the detail first and routes the response to it after it's gone. Issue oracle.
   case lateDelete = "late-delete"
+  /// Reading stats (a vanilla `@Observable` model): a failed load leaves the spinner on, with no
+  /// error and no Retry. Caught by `tca chaos journeys/view-stats.toml` (stranded).
+  case statsStuck = "stats-stuck"
+  /// Reading goal (a vanilla model): saving doesn't recompute the progress percentage. Invariant.
+  case goalDrift = "goal-drift"
   /// Server-side: `server.py --v2` renames `author` to `writer`. Contract check at rung 3.
   /// Listed so `SHELF_BUGS=all` parses; the app has no code for it.
   case v2Contract = "v2-contract"

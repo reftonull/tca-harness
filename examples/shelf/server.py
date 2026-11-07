@@ -9,6 +9,9 @@ Endpoints:
     PUT    /books/<id>     -> 200 Book   (404 when missing)
     DELETE /books/<id>     -> 204        (404 when missing)
     POST   /events         -> 202 {}     (analytics; logged, not stored)
+    GET    /stats          -> 200 {"total", "read", "unread", "byAuthor": [{"author", "count"}]}
+    GET    /goal           -> 200 {"yearly", "read"}
+    PUT    /goal           -> 200 {"yearly", "read"}   (422 unless yearly is an integer from 1 to 1000)
 
 A Book is {"id": UUID, "title": str, "author": str, "isRead": bool, "addedAt": seconds since 1970}.
 `--v2` is the planted contract change: responses say "writer" instead of "author" (requests accept
@@ -39,6 +42,22 @@ class Store:
         self.books = {b["id"].upper(): dict(b) for b in books}
         self.order = [b["id"].upper() for b in books]
         self.events = []
+        self.yearly_goal = 12
+
+    def read_count(self):
+        return sum(1 for b in self.books.values() if b.get("isRead"))
+
+    def stats(self):
+        authors = {}
+        for key in self.order:
+            author = self.books[key]["author"]
+            authors[author] = authors.get(author, 0) + 1
+        read = self.read_count()
+        return {"total": len(self.order), "read": read, "unread": len(self.order) - read,
+                "byAuthor": [{"author": a, "count": n} for a, n in sorted(authors.items(), key=lambda p: (-p[1], p[0]))]}
+
+    def goal(self):
+        return {"yearly": self.yearly_goal, "read": self.read_count()}
 
 
 def make_handler(store, v2, latency_ms, quiet):
@@ -111,6 +130,17 @@ def make_handler(store, v2, latency_ms, quiet):
                         if field in update:
                             store.books[key][field] = update[field]
                     return self.reply(200, out(store.books[key]))
+                if parts == ["stats"] and method == "GET":
+                    return self.reply(200, store.stats())
+                if parts == ["goal"] and method == "GET":
+                    return self.reply(200, store.goal())
+                if parts == ["goal"] and method == "PUT":
+                    update = self.body()
+                    yearly = update.get("yearly") if isinstance(update, dict) else None
+                    if not isinstance(yearly, int) or isinstance(yearly, bool) or not 1 <= yearly <= 1000:
+                        return self.reply(422, {"error": "A goal is 1 to 1000 books."})
+                    store.yearly_goal = yearly
+                    return self.reply(200, store.goal())
                 if parts == ["events"] and method == "POST":
                     store.events.append(self.body())
                     return self.reply(202, {})
