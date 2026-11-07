@@ -196,7 +196,7 @@ With `Hosted`:
 - `Hosted.State` is `ObservableState`, so a view reads `store.model` from the scoped store. A parent's reflected observation (`@HarnessFeature`'s) shows the model's stored properties.
 - Each timeline entry shows the model as of that action, so a call's changes appear on its `finished` entry. Calls the view makes on the model directly, rather than through the store, aren't recorded.
 
-`Hosted` is the gradual path from vanilla SwiftUI to TCA: the model and its view stay as they are, while the store owns its lifecycle and records every call. Models must be `Sendable` to be hosted, which `@MainActor` models are.
+`Hosted` is the gradual path from vanilla SwiftUI to TCA: the model and its view stay as they are, while the store owns its lifecycle and records every call that goes through it. Models must be `Sendable` to be hosted, which `@MainActor` models are.
 
 Moving a vanilla screen into TCA can happen in two steps, and each is useful on its own:
 
