@@ -31,6 +31,10 @@ One action per step. Don't chain several `do` calls without looking at the resul
 
 When the task has an outcome ("the task is archived", "the score is above 20"), finish by showing it in `tca ls` output or `tca observe` state, not by describing what you did. If the user needs to see it, take a screenshot or recording of the app too (see the record-app-behavior skill), and use `tca devtools` to show the exact actions and diffs.
 
+## Keep the path as a test
+
+If the path you just found is worth keeping (a flow you built or fixed, a bug reproduction), record it as a journey: `tca record start journeys/NAME.toml --goal "..."` before the first `do`, run the `do` steps from the same directory, then `tca record stop --check "NAME=EXPR"` with the outcome as a check over the state. Only successful `do` calls are recorded, so dead ends you backed out of don't end up in the journey. The test-tca-app skill covers running and repairing journeys.
+
 ## Boundaries
 
 - Only use actions the harness offers. Don't edit app state, databases or files to get somewhere faster.

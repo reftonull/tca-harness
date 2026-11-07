@@ -1,6 +1,6 @@
 # tca: the harness CLI
 
-`tca` connects to a TCA app that embeds the harness listener. You can inspect the app, dispatch its typed operations, watch its actions, and optionally run a bounded model loop toward a goal. It needs Python 3.10+ and uses only the standard library.
+`tca` connects to a TCA app that embeds the harness listener. You can inspect the app, dispatch its typed operations, watch its actions, and optionally run a bounded model loop toward a goal. It needs Python 3.11+ and uses only the standard library.
 
 ## Install
 
@@ -50,7 +50,93 @@ State is looked up by walking the path through the observed state tree (object k
 
 Output is plain text with no colors or progress lines. Add `--json` for machine-readable output: the view (`focus`, `statePath`, `state`, `operations[]` with `name`, `label`, `id`, `feature`, `scope`, `argumentSchema`), or for `do`, `{ok, candidateID, receipt, error, detail, view}`.
 
-`ls` and `do` always connect to the app.
+`ls` and `do` always connect to the app. While `tca record` is active, each successful `do` is also appended to the journey being recorded (see below).
+
+## Behaviour tests
+
+These commands run user-level tests against fresh launches of the app and apply the generic oracles after every step: **crash** (process exit or dropped connection), **issue** and **invariant** (reported by the app), **network** (a request blocked or without a fixture), **stuck** (a receipt still running after `--wait-ms`, default 5000), **rejected** (an offered operation refused for a reason other than a stale revision or invalid arguments) and **dead end** (nothing offered). The design and file formats are in [docs/testing.md](../docs/testing.md).
+
+Every command prints a short plain-text summary, writes JSON lines with `--report FILE` (open them with `tca trace`), and exits 0 when nothing was found, 1 when something was, and 2 for usage or configuration errors. Findings are written as minimal journeys under `.tca/findings/`. Against a protocol v2 app, the issue, invariant and network oracles are skipped and the summary says so once.
+
+### Targets: `harness.toml`
+
+```toml
+[targets.headless]
+launch = ".build/debug/shelf-headless --port {port}"
+port = "auto"                      # or a fixed port
+ready = "TCA harness listening"    # output line meaning ready; without it the port is polled
+ready_timeout = 30
+restart = "per-run"                # or "never": one process (or an app already on the port) for every run
+env = { SHELF_API = "http://127.0.0.1:8799" }
+stop = "..."                       # optional command run after each process is stopped
+```
+
+The CLI finds `harness.toml` by searching upward from the journey file, then the current directory, and uses `--target NAME` (default `headless`, or the only target). Each run gets its own process group, killed afterwards. The launch command sees `TCA_HARNESS=1`, `TCA_HARNESS_NETWORK`, `TCA_HARNESS_CASSETTES`, `TCA_HARNESS_SEED` and `TCA_HARNESS_PORT` in its environment, and `{env}` expands to the same settings plus the target's `env` as `KEY=value` pairs for launchers that can't pass the environment on.
+
+### `tca journey run`
+
+```sh
+tca journey run journeys/*.toml [--target headless] [--network replay] [--seed 0] [--report run.jsonl]
+tca journey run journeys/add-book.toml --port 8790      # attach to a running app instead of launching
+```
+
+Each step is resolved exactly like `tca do` (label, name or ID among the focused and lent operations), dispatched and waited for. After each step the oracles run and the step's `expect` is checked; at the end every `[checks]` expression must hold and `[budget] requests` is compared with the app's request log. Output is one line per passing journey and the first problem for a failing one:
+
+```text
+FAIL  Add a book  (journeys/add-book.toml)
+  step 2 "Set titel": no offered operation matches
+  current view:
+    Editor (root/shelf/editor)  revision 1
+    ...
+  goal: Add a book called Dune and see it on the shelf
+  remaining steps: "Set titel", "Save"
+  hint: re-solve it: `tca record start journeys/add-book.toml`, reach the goal with `tca ls`/`tca do`, then `tca record stop`
+```
+
+A journey with a goal but no steps fails as unsolved with the same hint. Check expressions allow attribute access, indexing, comparisons, `and`/`or`/`not`, arithmetic, generator expressions and `len`, `any`, `all`, `sum`, `min`, `max`, `sorted`, `set`; missing keys read as `None`.
+
+### `tca record`
+
+```sh
+tca record start journeys/add-book.toml --goal "Add a book called Dune and see it on the shelf"
+tca do "Add book" --port 8790
+tca do "Set title" '{"value":"Dune"}' --port 8790
+tca do Save --port 8790
+tca record stop --check "Dune is on the shelf=any(b.title == 'Dune' for b in shelf.books)"
+```
+
+`start` writes `.tca/recording.json` in the current directory; run `tca do` from the same directory. Each successful `do` appends its step by label (falling back to the name or route when the label is ambiguous). `stop` writes the journey, keeping the existing file's other keys (fixtures, network, checks, budget) so re-solving a broken journey only replaces its steps. Checks are validated before anything is written.
+
+### `tca explore`
+
+```sh
+tca explore [--target headless] [--runs 50] [--steps 40] [--seed N] [--fixtures DIR | --journey FILE] [--shrink-trials 100]
+```
+
+Each run launches the app, then repeatedly picks a random offered operation and generates arguments from its schema: strings from a corpus with empty, whitespace, long, unicode and markup values (within `minLength`/`maxLength`), numbers at their bounds, enums, booleans, nulls for optional values, and nested arrays and objects. `--journey FILE` starts every walk from that journey's end state and uses its fixtures. The first finding of a run is shrunk with delta debugging, relaunching for every trial, to the shortest step list that reproduces the same finding, then written to `.tca/findings/<kind>-<n>.toml`. Findings are deduplicated by kind and message (or operation). The walk is reproducible from `--seed`.
+
+```text
+explore: 50 run(s) of up to 40 step(s) on headless, seed 3: 1 finding(s)
+  KIND       STEPS    JOURNEY                         MESSAGE
+  invariant  23 -> 2  .tca/findings/invariant-1.toml  no duplicate books (x5)
+```
+
+### `tca chaos`
+
+```sh
+tca chaos journeys/add-book.toml [--faults status500,timeout,offline,malformed,slow]
+```
+
+Runs the journey once in replay mode to learn its requests, then reruns it once per request and fault with that request failed (the Nth occurrence of a repeated request through the fault's `skip`). A rerun passes when no oracle fires and, within 5 s, the journey's next step or a retry of the failed step is offered (any operation if the journey is finished). Checks don't have to hold. Each failure becomes a journey with a `[[faults]]` entry that reproduces it. Requires protocol v3.
+
+### `tca determinism` and `tca diff`
+
+```sh
+tca determinism journeys/add-book.toml [--runs 3] [--seed 0]
+tca diff journeys/add-book.toml --targets headless,ui
+```
+
+Both capture the root state at launch and after every step and report the first step where it differs, with up to ten differing JSON paths (`shelf.books[0].id: "book-1" vs "9f2c..."`). `sessionID` and `revision` are ignored. Determinism compares fresh launches with the same seed; diff compares two targets, typically the headless host against the app in the simulator.
 
 ## Lower-level commands
 
@@ -193,6 +279,8 @@ These tests need no app, model credentials, network, or Swift build. They cover:
 
 - read-only doctor and protocol diagnosis
 - `ls`/`do` against a fake host
+- check expressions, including refused inputs, and the TOML writer
+- targets, journeys, recording, explore and shrinking, chaos, determinism and diff end to end against [a fake protocol v3 app](tests/fake_app.py) with planted bugs
 - both providers against a mocked network
 - `setup`
 - the devtools relay and connection failures

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inspect and drive a TCA app through its embedded harness: ls, do, doctor, observe, dispatch, run."""
+"""Inspect, drive and test a TCA app through its embedded harness: ls, do, doctor, journey, explore, ..."""
 import argparse
 import importlib
 from datetime import datetime
@@ -820,23 +820,21 @@ def instance_mounted(host, observation, candidate):
     return any(c['id'].rpartition('@')[2] == instance for c in observation['candidates'])
 
 
-def do_command(host, query, arguments=None, path=None, show_all=False, as_json=False, timeout_ms=5000):
-    """Resolve, dispatch at the current revision, wait for the receipt, then print the new focus."""
+def do_operation(host, query, arguments=None, path=None, show_all=False, timeout_ms=5000):
+    """Resolve and dispatch like `tca do`, returning the outcome instead of printing it.
+
+    Keys: ok, error (`no_match`/`ambiguous` when nothing was dispatched), detail, query, candidate,
+    choices, before (the view resolved against), observation (the observation dispatched at),
+    dispatched, response, receipt, view (the new focused view after dispatching).
+    """
     observation = host.call('observe')['observation']
     view = focus_view(observation, mounted_features(host), path, show_all)
     candidate, matches = resolve_operation(view, observation, query)
+    result = dict(query=query, candidate=candidate, before=view, observation=observation, dispatched=False,
+                  response=None, receipt=None, view=None, choices=[], detail=None)
     if candidate is None:
-        choices = matches or [c for c in observation['candidates'] if c['id'] in {o['id'] for o in view['operations']}]
-        problem = 'ambiguous' if matches else 'no_match'
-        if as_json:
-            print(json.dumps({'ok': False, 'error': problem, 'query': query,
-                              'choices': [dict(name=operation_name(c), label=c.get('label', ''), id=c['id']) for c in choices]}, indent=2))
-        else:
-            print(f"{'Ambiguous' if matches else 'No'} action matching {query!r}. "
-                  f"{'Use one of these IDs' if matches else 'Available'}:", file=sys.stderr)
-            for c in choices:
-                print(f"  {operation_name(c)}  - {c.get('label', '')}  ({c['id']})", file=sys.stderr)
-        return 2
+        result['choices'] = matches or [c for c in observation['candidates'] if c['id'] in {o['id'] for o in view['operations']}]
+        return dict(result, ok=False, error='ambiguous' if matches else 'no_match')
     response = host.call('dispatch', candidateID=candidate['id'], revision=observation['revision'],
                          requestID=str(uuid.uuid4()), arguments=arguments or {})
     receipt = response.get('receipt')
@@ -858,6 +856,27 @@ def do_command(host, query, arguments=None, path=None, show_all=False, as_json=F
             ok = True
             response = dict(response, ok=True, error=None, detail=None)
             receipt = dict(receipt, featureClosed=True)
+    return dict(result, ok=ok, dispatched=dispatched, response=response, receipt=receipt, view=after,
+                error=response.get('error'), detail=response.get('detail'))
+
+
+def do_command(host, query, arguments=None, path=None, show_all=False, as_json=False, timeout_ms=5000, record=False):
+    """Resolve, dispatch at the current revision, wait for the receipt, then print the new focus."""
+    result = do_operation(host, query, arguments, path, show_all, timeout_ms)
+    candidate = result['candidate']
+    if candidate is None:
+        choices = result['choices']
+        if as_json:
+            print(json.dumps({'ok': False, 'error': result['error'], 'query': query,
+                              'choices': [dict(name=operation_name(c), label=c.get('label', ''), id=c['id']) for c in choices]}, indent=2))
+        else:
+            ambiguous = result['error'] == 'ambiguous'
+            print(f"{'Ambiguous' if ambiguous else 'No'} action matching {query!r}. "
+                  f"{'Use one of these IDs' if ambiguous else 'Available'}:", file=sys.stderr)
+            for c in choices:
+                print(f"  {operation_name(c)}  - {c.get('label', '')}  ({c['id']})", file=sys.stderr)
+        return 2
+    response, receipt, after, ok = result['response'], result['receipt'], result['view'], result['ok']
     if as_json:
         print(json.dumps({'ok': ok, 'candidateID': candidate['id'], 'receipt': receipt,
                           'error': response.get('error'), 'detail': response.get('detail'), 'view': after}, indent=2))
@@ -867,13 +886,16 @@ def do_command(host, query, arguments=None, path=None, show_all=False, as_json=F
         elif response.get('ok'):
             print(f"{operation_name(candidate)}: {(receipt or {}).get('status', 'dispatched')}")
         else:
-            if dispatched:
+            if result['dispatched']:
                 print(f"{operation_name(candidate)}: dispatched, {(receipt or {}).get('status', 'unknown')}", file=sys.stderr)
             detail = f": {response['detail']}" if response.get('detail') else ''
             print(f"{operation_name(candidate)}: {response.get('error', 'failed')}{detail}", file=sys.stderr)
         if after:
             print()
             print(format_view(after))
+    if ok and record and Path(RECORDING).exists():
+        number, name = sibling('journeys').record_step(result, arguments or {}, path)
+        print(f'recorded step {number}: {name}', file=sys.stderr)
     return 0 if ok else 2
 
 
@@ -885,7 +907,7 @@ def doctor(host):
     if not response.get('ok'):
         return {'ok': False, 'errors': ['Capability inspection is unavailable. Attach a HarnessRuntime or store.harness(...) to the existing store.'],
                 'serverError': response.get('error')}
-    if response.get('protocolVersion') != 2:
+    if response.get('protocolVersion') not in (2, 3):
         errors.append('Unsupported harness protocol version; update the client and embedded package together.')
     diagnostics = response.get('diagnostics', [])
     if not isinstance(diagnostics, list) or not all(isinstance(x, str) for x in diagnostics):
@@ -930,12 +952,17 @@ def doctor(host):
             'errors': errors, 'warnings': warnings}
 
 
+RECORDING = '.tca/recording.json'  # `tca record start` writes this; `tca do` appends steps to it.
+TEST_COMMANDS = ('journey', 'record', 'explore', 'chaos', 'determinism', 'diff')  # Handled in journeys.py.
 COMMANDS = ['doctor', 'ls', 'do', 'setup', 'shell', 'observe', 'inspect', 'dispatch', 'wait', 'cancel', 'demo',
-            'arguments-demo', 'hybrid-demo', 'run', 'trace', 'devtools', 'protocol', 'build']
+            'arguments-demo', 'hybrid-demo', 'run', 'trace', 'devtools', 'protocol', 'build', *TEST_COMMANDS]
 APP_ONLY = ('doctor', 'ls', 'do')
 
 
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if argv and argv[0] in TEST_COMMANDS:
+        return sibling('journeys').main(argv)
     parser = argparse.ArgumentParser(prog='tca', description=__doc__)
     parser.add_argument('command', nargs='?', choices=COMMANDS, default='doctor', metavar='command',
                         help='One of: ' + ', '.join(COMMANDS) + ' (default: doctor)')
@@ -1041,7 +1068,7 @@ def main(argv=None):
         elif args.command == 'ls':
             return list_command(host, args.path, args.all, args.json)
         elif args.command == 'do':
-            return do_command(host, args.params[0], arguments, args.path, args.all, args.json)
+            return do_command(host, args.params[0], arguments, args.path, args.all, args.json, record=True)
         elif args.command == 'observe':
             emit('observation', observation=host.observation)
         elif args.command == 'inspect':
