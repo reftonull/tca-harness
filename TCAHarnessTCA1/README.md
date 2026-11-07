@@ -198,6 +198,11 @@ With `Hosted`:
 
 `Hosted` is the gradual path from vanilla SwiftUI to TCA: the model and its view stay as they are, while the store owns its lifecycle and records every call. Models must be `Sendable` to be hosted, which `@MainActor` models are.
 
+Moving a vanilla screen into TCA can happen in two steps, and each is useful on its own:
+
+1. **Wrap it.** Host the model with `Hosted` and leave the view alone. Calls made by agents, tests and the parent (`.call("load") { await $0.load() }` when presenting) run as effects, appear in the timeline and are cancelled when the screen is dismissed. Buttons in the view still call the model directly, so their calls aren't recorded. The harness still sees the state they change, through the model's observation.
+2. **Send from the view.** Replace `Task { await model.load() }` with `store.send(.call("refresh") { await $0.load() })`. Every tap is now an action, and the view no longer starts work the store can't see or cancel. From here, moving logic out of the model and into the reducer is an ordinary refactor.
+
 Reflection reads stored properties, leaves out closures (and structs made only of closures, such as an injected client), skips `_$` bookkeeping such as the observation registrar, follows nested model objects once each, and redacts credential-like names. SwiftData `@Model` classes keep their values in backing data that reflection can't see; give them an explicit `observation:`.
 
 ## Validate
