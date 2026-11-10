@@ -143,16 +143,15 @@ class TraceTests(unittest.TestCase):
         self.assertIn('latencyMs', events[4])
         self.assertEqual(viewer.normalize(events)['goals'][0]['status'], 'passed')
 
-    def test_trace_command_does_not_connect_build_or_load_model_credentials(self):
+    def test_trace_command_does_not_connect_or_load_model_credentials(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / 'run.jsonl'
             source.write_text('{"event":"goal_started","goal":"offline"}\n')
             import sys
             with patch.dict(sys.modules, {'trace_view': viewer}), patch.object(sys, 'argv', ['tca', 'trace', '--input', str(source)]), \
-                 patch.object(cli, 'build') as build, patch.object(cli, 'Host') as host, \
+                 patch.object(cli, 'Host') as host, \
                  patch.object(cli, 'model_config') as router, contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(cli.main(), 0)
-            build.assert_not_called()
             host.assert_not_called()
             router.assert_not_called()
             self.assertTrue(source.with_suffix('.html').exists())

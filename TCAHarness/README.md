@@ -1,4 +1,4 @@
-# TCAHarness — embeddable prototype
+# TCAHarness
 
 An in-process execution session and local JSON-lines transport for agent-driven
 Swift apps. The app supplies its existing store through typed closures. This
@@ -10,7 +10,7 @@ Requires Swift 6.3 or later and iOS 17 / macOS 14 or later (it uses Observation)
 
 ## Add it to an app
 
-For a TCA 1 app, use the root package's `TCAHarnessTCA1` product and the [Store attachment](../TCAHarnessTCA1/README.md#attach-to-the-existing-store). For a custom model-independent adapter, link the `TCAHarness` product from the root package. The standalone core manifest remains for the separate TCA 2 experiment.
+For a TCA 1 app, use the root package's `TCAHarnessTCA1` product and the [Store attachment](../TCAHarnessTCA1/README.md#attach-to-the-existing-store). For a custom model-independent adapter, link the `TCAHarness` product from the root package. `TCAHarness/Package.swift` builds the core on its own, with no TCA dependency.
 Retain the session and server for as long as the root store is alive:
 
 ```swift
@@ -40,16 +40,16 @@ candidate descriptors, requests, and receipts are encoded.
 For asynchronous work, return `HarnessOperation { ... }` whose closure reads
 current feature state and returns `running`, `succeeded`, `failed`, or `cancelled`.
 Supply a lifetime-aware status closure for a child that may disappear. Rebuild the
-candidate list from current state on each observation. The example task adapter
-is in `DecisionsPackage/Sources/DecisionHarness/TaskHarness.swift`, built from macro-generated
-descriptors ([TCAHarnessTCA2](../TCAHarnessTCA2/README.md)).
+candidate list from current state on each observation. `TCAHarnessTCA1`'s
+`HarnessRuntime` is the reference adapter: it builds offers from typed feature
+descriptors over a TCA 1 store.
 
 ## Transport
 
 `HarnessServer` accepts newline-delimited JSON on IPv4 loopback only. The same
 `HarnessSession.handleJSON` can be attached to another transport, including stdio.
-The protocol supports `observe`, `dispatch`, `wait`, and `verify` (plus `inspect`, `cancel`, `timeline`, `issues` and `network`, below); see the
-[prototype commands](../prototypes/tca-harness/README.md).
+The protocol supports `observe`, `dispatch`, `wait`, and `verify` (plus `inspect`, `cancel`, `timeline`, `issues` and `network`, below); the
+[lower-level CLI commands](../cli/README.md#lower-level-commands) send them one at a time.
 
 The listener is unauthenticated and intended only for a trusted development
 machine. Any local process can connect while it is enabled. It is compiled only
@@ -61,7 +61,7 @@ It is not a production or physical-device transport. Stop it with `server.stop()
 
 Candidate availability is checked again at dispatch. Session IDs prevent commands
 from targeting a different launch, observation revisions reject changed state,
-and in-memory request receipts deduplicate matching retries. These are prototype
+and in-memory request receipts deduplicate matching retries. These are in-memory
 controls, not durable exactly-once execution. The adapter must publish all state
 relevant to a candidate's validity; revision comparison only sees that projection.
 
@@ -97,7 +97,7 @@ let offer = HarnessOffer(
 }
 ```
 
-This prototype supports **flat objects of string fields**, including finite enum
+`HarnessArgumentSchema` here supports **flat objects of string fields**, including finite enum
 fields. It is not a general JSON Schema validator. The app still owns semantic
 validation (for example, valid calendar dates and available targets). Invalid
 arguments return `invalid_arguments` plus `detail` without dispatching an action.

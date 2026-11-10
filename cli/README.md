@@ -46,7 +46,7 @@ State is looked up by walking the path through the observed state tree (object k
 1. An exact operation ID, or an ID without its `@instance` suffix. These match anywhere.
 2. An operation name relative to its feature (`dismiss`, `binding/name`), or its label, compared case-insensitively. Only focused and lent operations are searched; add `--all` to search every operation.
 
-`do` then dispatches at the observed revision with a new request ID, waits up to 5 seconds for the receipt, and prints the new focused view. If the name is ambiguous or matches nothing, `do` lists the choices on stderr and exits with code 2 without dispatching. Rejections (`stale_revision`, `invalid_arguments`, ...) and `failed`/`cancelled` receipts also exit with code 2, except a `cancelled` receipt whose dispatching feature is no longer mounted: navigation such as isowords' Solo → Game closes the feature that sent the action, so `do` reports it as sent and exits 0. Arguments can also be passed with `--arguments`.
+`do` then dispatches at the observed revision with a new request ID, waits up to 5 seconds for the receipt, and prints the new focused view. If the name is ambiguous or matches nothing, `do` lists the choices on stderr and exits with code 2 without dispatching. Rejections (`stale_revision`, `invalid_arguments`, ...) and `failed`/`cancelled` receipts also exit with code 2, except a `cancelled` receipt whose dispatching feature is no longer mounted: navigation such as a game's Solo → Game closes the feature that sent the action, so `do` reports it as sent and exits 0. Arguments can also be passed with `--arguments`.
 
 Output is plain text with no colors or progress lines. Add `--json` for machine-readable output: the view (`focus`, `statePath`, `state`, `operations[]` with `name`, `label`, `id`, `feature`, `scope`, `argumentSchema`), or for `do`, `{ok, candidateID, receipt, error, detail, view}`.
 
@@ -222,11 +222,11 @@ Both capture the root state at launch and after every step and report the first 
 ## Lower-level commands
 
 ```sh
-tca inspect --app --port 8767 [--path root/game]
-tca observe --app --port 8767
-tca dispatch --app --port 8767 --candidate 'EXACT_ID' --arguments '{"value":0}'
-tca wait --app --port 8767 --request-id 'RECEIPT_REQUEST_ID'
-tca cancel --app --port 8767 --request-id 'RECEIPT_REQUEST_ID'
+tca inspect --port 8767 [--path root/game]
+tca observe --port 8767
+tca dispatch --port 8767 --candidate 'EXACT_ID' --arguments '{"value":0}'
+tca wait --port 8767 --request-id 'RECEIPT_REQUEST_ID'
+tca cancel --port 8767 --request-id 'RECEIPT_REQUEST_ID'
 ```
 
 These take operation IDs from a current observation:
@@ -236,7 +236,7 @@ These take operation IDs from a current observation:
 - `cancel` only works if the application provides a cancellation action.
 - These commands print JSON event lines.
 
-In a checkout, leaving out `--app` builds the historical headless demo instead (see below). An installed `tca` has no demo, so it always connects to the app.
+Every command connects to a running app or headless host on `--port` (default 8765). `--app`, which older scripts pass, is accepted and ignored.
 
 ## Check an integration
 
@@ -244,7 +244,7 @@ In a checkout, leaving out `--app` builds the historical headless demo instead (
 tca doctor --port 8767
 ```
 
-With no command, `tca` runs doctor on port 8765. Doctor always connects to the app. It never builds the headless host and never loads model credentials.
+With no command, `tca` runs doctor on port 8765. Doctor is read-only and never loads model credentials.
 
 - It reports protocol and capability checks, plus runtime configuration diagnostics.
 - No available operations is reported as a warning, not an error.
@@ -255,10 +255,10 @@ With no command, `tca` runs doctor on port 8765. Doctor always connects to the a
 `run` loops toward a goal. Each step it observes the app, asks a model to choose one offered operation (or `none`), and, if that operation has an argument schema, asks a model to fill the arguments. It stops when an app-defined predicate verifies the goal:
 
 ```sh
-tca run --app --port 8767 --goal 'Start an unlimited solo game' --verify gameReady
+tca run --port 8790 --goal 'Add "Dune" by Frank Herbert to my shelf' --verify 'onShelf:Dune'
 ```
 
-Verification predicates belong to the app, not the model. The loop has these safeguards:
+Verification predicates belong to the app, not the model: pass a `verify:` closure to `store.harness(...)` that answers named conditions from state (return `nil` for unknown ones). The example above uses [Shelf's](../examples/shelf/Sources/ShelfCore/ShelfHarness.swift) `onShelf:TITLE`. `shell` is an interactive variant: it lists the offered operations by number and lets you dispatch one, or type `goal TEXT` to see a single model-chosen step. The loop has these safeguards:
 
 - A choice that wasn't offered is rejected.
 - If argument generation fails or returns the wrong fields, nothing is dispatched.
@@ -304,11 +304,11 @@ Keep credentials out of the repository.
 ## Inspect a run visually
 
 ```sh
-python3 examples/isowords/run_goals.py > /tmp/run.jsonl
+tca run --port 8790 --goal 'Add "Dune" by Frank Herbert to my shelf' --verify 'onShelf:Dune' > /tmp/run.jsonl
 tca trace --input /tmp/run.jsonl --output /tmp/run.html
 ```
 
-Open the generated file in a modern browser. It works offline, needs no app connection or model credentials, and has no JavaScript dependencies. A [saved isowords run](../examples/isowords/recordings/interpretable-run.html) is included.
+`run` prints the JSONL trace on stdout; start Shelf's headless host first (`cd examples/shelf && swift run shelf-headless --port 8790`). `--report` files from `tca journey run`, `explore` and the other runners open the same way. Open the generated file in a modern browser. It works offline, needs no app connection or model credentials, and has no JavaScript dependencies.
 
 Select a goal, then an event, to inspect:
 
@@ -324,7 +324,7 @@ Events and their contents:
 - New events have a schema version, sequence number, wall-clock timestamp, and monotonic `tMs`.
 - Model-driven runs record the projected observation used for each decision, plus `model`, `provider`, and `latencyMs`.
 - Dispatch events record arguments and the returned observation.
-- The isowords suite also records predicate checks, readiness waits, and pacing.
+- Verification results and pacing (`--step-delay`) are recorded too.
 - These files contain projected app state.
 
 Older JSONL traces still open. They show event order rather than invented timestamps, and they say when snapshots or alternatives are missing. Goal-end summaries are not treated as full state snapshots.
@@ -368,10 +368,4 @@ These tests need no app, model credentials, network, or Swift build. They cover:
 - `setup`
 - the devtools relay and connection failures
 
-The devtools panel checks drive `devtools.html` against a recorded isowords timeline in jsdom. They run when Node can `require("jsdom")` and are skipped otherwise. To enable them, run `npm install jsdom` in a scratch directory and set `NODE_PATH` to its `node_modules`.
-
-## TCA 2 task experiment
-
-In a checkout, running without `--app` builds and launches the historical headless task host in `prototypes/tca-harness`. That demo requires private TCA 2 access, XcodeGen, and FlowDeck. You don't need it to use the CLI against an existing app.
-
-Task-specific demo commands are documented in [the prototype guide](../prototypes/tca-harness/README.md). The isowords scripts load `cli/tca.py` directly and don't need the task host or TCA 2. They pin Router model IDs, so run them with Router credentials.
+The devtools panel checks drive `devtools.html` against a recorded timeline in jsdom. They run when Node can `require("jsdom")` and are skipped otherwise. To enable them, run `npm install jsdom` in a scratch directory and set `NODE_PATH` to its `node_modules`.

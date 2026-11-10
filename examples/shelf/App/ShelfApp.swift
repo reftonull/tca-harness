@@ -12,7 +12,7 @@ struct ShelfApp: App {
   }
 
   /// Retained for the life of the app. Listens only in Debug builds launched with TCA_HARNESS=1.
-  @MainActor static let harness = store.harness(descriptor: ShelfHarness.descriptor)
+  @MainActor static let harness = store.harness(descriptor: ShelfHarness.descriptor, verify: ShelfHarness.verify)
 
   var body: some Scene {
     WindowGroup {

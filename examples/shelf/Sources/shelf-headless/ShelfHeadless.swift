@@ -23,7 +23,7 @@ enum ShelfHeadless {
     } withDependencies: {
       ShelfHarness.prepare(&$0)
     }
-    let harness = store.harness(descriptor: ShelfHarness.descriptor, timeline: timeline)
+    let harness = store.harness(descriptor: ShelfHarness.descriptor, verify: ShelfHarness.verify, timeline: timeline)
     // What ShelfView sends when it appears. Deliberately not `.markShelfSeen` (its `.onAppear`):
     // that's the view-only logic the `view-only-seen` bug relies on, found by `tca diff`.
     // Listen once the first load has finished, as the app does, so every run starts from the

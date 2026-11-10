@@ -85,6 +85,18 @@ public enum ShelfHarness {
     #endif
   }
 
+  /// Conditions `tca run --verify` checks against state, so the app (not the model) decides when a goal
+  /// is done: `onShelf:TITLE` (a book with that title is on the shelf) and `allRead`. `nil` for
+  /// conditions it doesn't know.
+  public static func verify(_ state: Shelf.State, _ condition: String) -> Bool? {
+    if condition.hasPrefix("onShelf:") {
+      let title = condition.dropFirst("onShelf:".count).lowercased()
+      return state.books.contains { $0.title.lowercased() == title }
+    }
+    if condition == "allRead" { return !state.books.isEmpty && state.books.allSatisfy(\.isRead) }
+    return nil
+  }
+
   /// Dependencies for a harness run: seeded uuid, fixed date and random when `TCA_HARNESS_SEED` is set.
   public static func prepare(_ dependencies: inout DependencyValues) {
     #if SHELF_HARNESS_V3

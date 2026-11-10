@@ -32,6 +32,8 @@ agent / CLI / test → loopback JSON → embedded runtime → your existing Stor
 
 TCA already enforces the hard part: actions in, state out, one place where state changes. The harness adds the introspection layer on top of the store you already have, so the same descriptors serve an agent building a feature, a random walk hunting for bugs, and a journey that pins a flow.
 
+[What it found in a real app](#what-it-found-in-a-real-app) · [Add it to your app](#add-it-to-your-app-tca-1x) · [Let your agent drive it](#let-your-coding-agent-drive-it) · [Test behaviour](#test-behaviour-not-implementation) · [Testing guide](docs/testing.md) · [Adopting in a large app](docs/adopting.md)
+
 ## What it found in a real app
 
 [Critical Maps](examples/criticalmaps/README.md) is a production TCA app with a live public backend. Attaching the harness took two small patches and one descriptor file. Then the [testing patterns](docs/testing.md), run headless and on the simulator with recorded, read-only fixtures, found ten real bugs. Each one is kept as a minimal journey that fails on upstream:
@@ -44,9 +46,9 @@ TCA already enforces the hard part: actions in, state out, one place where state
 - The privacy indicator keeps saying "protected" after the zone is deleted.
 - …and four more. [All ten, with reproductions](examples/criticalmaps/README.md#findings); videos of the first six on the simulator are in [#3](https://github.com/reftonull/tca-harness/pull/3).
 
-The [isowords integration](examples/isowords/README.md) shows the other side: a model plays the real game through the store ([video](examples/isowords/recordings/actual-isowords-gameplay.mp4)), and the same game runs headless about 24 times faster (4 s instead of 100 s).
+An earlier [isowords integration](https://github.com/reftonull/tca-harness/tree/archive/experiments/examples/isowords), kept on the `archive/experiments` branch, has a model playing the real game through its store and the same game running headless about 24 times faster (4 s instead of 100 s).
 
-Both apps are fetched at pinned revisions during setup. Their source isn't vendored and keeps its own license.
+Critical Maps is fetched at a pinned revision during setup. Its source isn't vendored and keeps its own license.
 
 ## Add it to your app (TCA 1.x)
 
@@ -78,8 +80,6 @@ Screens built on plain `@Observable` models use the same descriptors: mount them
 - Explicit `FeatureDescriptor`s handle unusual scopes, availability rules and completion. App state does not need to be `Codable`.
 
 [Package guide](TCAHarnessTCA1/README.md) · [Protocol and transport](TCAHarness/README.md) · [Agent skill for integrating it](skills/integrate-tca-harness/SKILL.md)
-
-For TCA 2 (`@Feature`, currently a private beta), see [TCAHarnessTCA2](TCAHarnessTCA2/README.md).
 
 ## Use the CLI
 
@@ -125,10 +125,10 @@ The [Shelf example](examples/shelf/README.md) plants eleven bugs behind `SHELF_B
 
 ```sh
 tca setup      # pick a provider and store the key in ~/.config/tca-harness/model.env (0600)
-tca run --app --port 8767 --goal 'Start an unlimited solo game' --verify gameReady
+tca run --port 8790 --goal 'Add "Dune" by Frank Herbert to my shelf' --verify 'onShelf:Dune'
 ```
 
-Two providers are supported: [Router](https://router.com) (its `/systemone` choice classifier plus `/responses`), or any OpenAI Responses API-compatible endpoint. [Details](cli/README.md#model-driven-goals)
+Predicates are a `verify:` closure you pass to `store.harness(...)`; the example uses [Shelf's](examples/shelf/Sources/ShelfCore/ShelfHarness.swift). Two providers are supported: [Router](https://router.com) (its `/systemone` choice classifier plus `/responses`), or any OpenAI Responses API-compatible endpoint. [Details](cli/README.md#model-driven-goals)
 
 ### Watch every action live
 
@@ -149,6 +149,7 @@ History is read-only. Payload values are hidden by default and snapshots go thro
 ### Inspect a recorded run
 
 ```sh
+tca run --port 8790 --goal '...' --verify '...' > /tmp/run.jsonl   # or any --report file from journey/explore/chaos
 tca trace --input /tmp/run.jsonl --output /tmp/run.html
 ```
 
@@ -162,7 +163,8 @@ The listener binds `127.0.0.1` only, has no authentication, and exists only in D
 
 Early and experimental. The protocol may change before 1.0.
 
-- **Requirements:** Swift 6.3+, iOS 17+ / macOS 14+, TCA 1.13+ (tested with TCA 1.26 on Swift 6.4; the isowords example pins 1.26.2). TCA 2 support tracks the private beta, and `TCAHarnessTCA2` currently doesn't build against the beta's latest `main`.
+- **Requirements:** Swift 6.3+, iOS 17+ / macOS 14+, TCA 1.13+ (tested with TCA 1.26 on Swift 6.4).
+- **Scope:** TCA 1.x apps, including screens built on plain `@Observable` models. Experiments (TCA 2 beta support, the isowords integration, earlier prototypes and design notes) live on the [`archive/experiments`](https://github.com/reftonull/tca-harness/tree/archive/experiments) branch.
 - **Not covered by generated descriptors:** payload actions without an annotation, child state/action names that don't match, and some unusual scopes; use explicit descriptors.
 - **App-defined:** availability, privacy projections, effect completion and cancellation.
 
@@ -172,15 +174,12 @@ Early and experimental. The protocol may change before 1.0.
 | --- | --- |
 | [TCAHarness](TCAHarness) | Model-independent session, JSON schemas, receipts and loopback transport |
 | [TCAHarnessTCA1](TCAHarnessTCA1) | Descriptors, runtime and macros for TCA 1.x (root `Package.swift`) |
-| [TCAHarnessTCA2](TCAHarnessTCA2) | The same for TCA 2; separate package |
 | [cli](cli) | `tca` command-line client, standard-library Python |
-| [docs](docs) | [Testing guide](docs/testing.md), [adopting in a large app](docs/adopting.md), design research |
+| [docs](docs) | [Testing guide](docs/testing.md), [adopting in a large app](docs/adopting.md) |
 | [examples/criticalmaps](examples/criticalmaps) | A production app with a live backend: integration, journeys, findings |
 | [examples/shelf](examples/shelf) | A small app with planted bugs for every testing pattern, including vanilla SwiftUI screens |
-| [examples/isowords](examples/isowords) | The isowords game: model-driven play and a headless host |
 | [skills](skills) | Agent skills: integrate the harness, drive an app, test it, record its behaviour |
-| [DecisionsTCA](DecisionsTCA), [DecisionsPackage](DecisionsPackage) | TCA 2 task demo app |
-| [prototypes](prototypes/README.md), [recordings](recordings), [docs/research](docs/research) | Earlier experiments, recordings and design notes |
+| [scripts/tca](scripts/tca) | Runs the CLI from a checkout without installing it |
 
 ## Contributing
 

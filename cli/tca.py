@@ -7,7 +7,6 @@ import json
 import itertools
 import os
 from pathlib import Path
-import select
 import socket
 import subprocess
 import sys
@@ -18,19 +17,6 @@ import urllib.request
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-HERE = ROOT / "prototypes/tca-harness"
-BINARY = HERE / '.build/Build/Products/Debug/TCAHarnessPrototype'
-
-
-def build(force=False):
-    sources = list((HERE / 'Sources').glob('*.swift')) + list((ROOT / 'DecisionsPackage').rglob('*.swift'))
-    sources += list((ROOT / 'TCAHarness').rglob('*.swift')) + list((ROOT / 'TCAHarnessTCA2' / 'Sources').rglob('*.swift'))
-    sources += [HERE / 'project.yml']
-    if not force and BINARY.exists() and all(p.stat().st_mtime <= BINARY.stat().st_mtime for p in sources):
-        return
-    subprocess.run(['xcodegen', 'generate', '--spec', 'project.yml'], cwd=HERE, check=True, stdout=sys.stderr)
-    subprocess.run(['flowdeck', 'build', '--config', 'flowdeck.json', '-D', 'My Mac',
-                    '--derived-data-path', '.build'], cwd=HERE, check=True, stdout=sys.stderr)
 
 
 def route(candidate_id):
@@ -39,20 +25,15 @@ def route(candidate_id):
 
 
 class Host:
-    def __init__(self, port=None):
-        self.process = None
-        self.connection = None
-        self.stream = None
+    """A connection to the harness listener embedded in a running app (or headless host)."""
+
+    def __init__(self, port=8765):
         self.inspected = {}  # path -> the latest `inspect` entry seen on this connection (`tca exposure`)
-        if port is not None:
-            try:
-                self.connection = socket.create_connection(('127.0.0.1', port), timeout=15)
-                self.stream = self.connection.makefile('rb')
-            except OSError:
-                raise RuntimeError(f'Cannot connect to app harness on 127.0.0.1:{port}; launch the app with TCA_HARNESS=1 and TCA_HARNESS_PORT={port}; retain the store.harness attachment') from None
-        else:
-            self.process = subprocess.Popen([str(BINARY)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                            text=True, bufsize=1)
+        try:
+            self.connection = socket.create_connection(('127.0.0.1', port), timeout=15)
+            self.stream = self.connection.makefile('rb')
+        except OSError:
+            raise RuntimeError(f'Cannot connect to app harness on 127.0.0.1:{port}; launch the app with TCA_HARNESS=1 and TCA_HARNESS_PORT={port}; retain the store.harness attachment') from None
         try:
             response = self.call('observe')
             if not response.get('ok') or not isinstance(response.get('observation'), dict):
@@ -72,18 +53,11 @@ class Host:
         request = dict(method=method, **arguments)
         if hasattr(self, 'observation'):
             request.setdefault('sessionID', self.observation['sessionID'])
-        if self.connection:
-            try:
-                self.connection.sendall((json.dumps(request) + '\n').encode())
-                line = self.stream.readline(262144).decode()
-            except OSError:
-                raise RuntimeError('App harness connection interrupted or timed out; keep the app running and retain its store.harness attachment') from None
-        else:
-            self.process.stdin.write(json.dumps(request) + '\n')
-            self.process.stdin.flush()
-            if not select.select([self.process.stdout], [], [], 15)[0]:
-                raise RuntimeError('Host response timed out')
-            line = self.process.stdout.readline()
+        try:
+            self.connection.sendall((json.dumps(request) + '\n').encode())
+            line = self.stream.readline(262144).decode()
+        except OSError:
+            raise RuntimeError('App harness connection interrupted or timed out; keep the app running and retain its store.harness attachment') from None
         if not line:
             raise RuntimeError('Host disconnected before responding')
         try:
@@ -105,26 +79,13 @@ class Host:
         return response
 
     def close(self):
-        if self.connection:
-            self.stream.close()
-            self.connection.close()
-            return
-        self.process.stdin.close()
-        try:
-            self.process.wait(timeout=2)
-        except subprocess.TimeoutExpired:
-            self.process.terminate()
-            try:
-                self.process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
-                self.process.wait()
-        self.process.stdout.close()
+        self.stream.close()
+        self.connection.close()
 
 
 # Model providers ------------------------------------------------------------
 #
-# The optional model loop (`run`, `shell` goals, the isowords scripts) needs two calls per step:
+# The optional model loop (`run`, `shell` goals) needs two calls per step:
 # choose one offered operation, then fill the chosen operation's typed arguments. Two providers:
 #   router     Router's /systemone choice classifier and /responses argument filling.
 #   responses  Any OpenAI Responses API-compatible endpoint (POST {base}/responses) for both.
@@ -384,18 +345,6 @@ def setup(provider=None, base_url=None, model=None, api_key_stdin=False, stdin=N
     return write_config(path, values)
 
 
-def matches_task(observation, expectation):
-    fields = expectation['fields']
-    for task in observation['state']['tasks']:
-        if all(task.get(key) == value for key, value in fields.items()):
-            notes = task.get('notes', '')
-            if len(notes) >= expectation.get('notesMinLength', 0) and all(
-                word.casefold() in notes.casefold() for word in expectation.get('notesContain', [])
-            ):
-                return True
-    return False
-
-
 _TRACE_STARTED = time.monotonic()
 _TRACE_SEQUENCE = itertools.count(1)
 
@@ -406,16 +355,12 @@ def emit(event, **data):
                           tMs=round((time.monotonic() - _TRACE_STARTED) * 1000, 2), **data)), flush=True)
 
 
-def run_goal(host, goal, model, condition, max_steps, step_delay=0, argument_model=None, expectation=None, provider=None):
+def run_goal(host, goal, model, condition, max_steps, step_delay=0, argument_model=None, provider=None):
     """Bounded model loop. Only a deterministic host predicate proves completion."""
     started = time.monotonic()
     emit('goal_started', goal='run', description=goal)
     for step in range(max_steps):
         observed = host.call('observe')['observation']
-        if expectation and matches_task(observed, expectation):
-            emit('verified', condition='expectedTask', steps=step,
-                 elapsedMs=round((time.monotonic() - started) * 1000), observation=host.observation)
-            return True
         if condition:
             verification = host.call('verify', condition=condition)
             if not verification['ok']:
@@ -452,9 +397,6 @@ def run_goal(host, goal, model, condition, max_steps, step_delay=0, argument_mod
         if step_delay:
             emit('pacing', durationMs=round(step_delay * 1000))
             time.sleep(step_delay)
-    if expectation and matches_task(host.call('observe')['observation'], expectation):
-        emit('verified', condition='expectedTask', steps=max_steps, observation=host.observation)
-        return True
     if condition:
         verification = host.call('verify', condition=condition)
         if verification.get('verified'):
@@ -464,117 +406,13 @@ def run_goal(host, goal, model, condition, max_steps, step_delay=0, argument_mod
     return False
 
 
-def demo(host):
-    """A scripted scenario, no model required. Exercise the design's failure cases."""
-    emit('initial', observation=host.observation)
-    old_revision = host.observation['revision']
-    groceries = host.candidate('root/completeButtonTapped/groceries')
-    first = host.dispatch(groceries, requestID='complete-once')
-    assert first['ok']
-    duplicate = host.dispatch(groceries, requestID='complete-once', revision=old_revision)
-    assert duplicate['ok'] and duplicate['observation']['revision'] == first['observation']['revision']
-    emit('retry_deduplicated', **duplicate)
-    stale = host.dispatch('root/completeButtonTapped/laundry', revision=old_revision)
-    assert stale.get('error') == 'stale_revision'
-    emit('stale_rejected', **stale)
-    conflict = host.dispatch('root/completeButtonTapped/laundry', requestID='complete-once', revision=old_revision)
-    assert conflict.get('error') == 'request_id_conflict'
-    emit('request_conflict_rejected', **conflict)
-    assert host.dispatch('root/openArchiveButtonTapped')['ok']
-    old_save = host.candidate('root/archive/saveButtonTapped')
-    saving = host.dispatch(old_save)
-    assert saving['receipt']['status'] == 'running'
-    emit('async_save_started', **saving)
-    short = host.call('wait', requestID=host.last_operation, timeoutMs=1)
-    assert short.get('error') == 'wait_timeout'
-    emit('bounded_wait', **short)
-    # No wait request drives completion: the runtime progresses while stdin is idle.
-    time.sleep(0.5)
-    completed = host.call('wait', requestID=host.last_operation)
-    assert completed['ok'] and completed['observation']['revision'] > saving['observation']['revision']
-    assert host.call('verify', condition='archiveSaved')['verified']
-    emit('async_state_write_observed', **completed)
-    saved_operation = host.last_operation
-    assert host.dispatch('root/closeArchiveButtonTapped')['ok']
-    assert host.call('wait', requestID=saved_operation)['receipt']['status'] == 'succeeded'
-    assert host.dispatch('root/openArchiveButtonTapped')['ok']
-    # The re-spawned archive is a new instance; the old save candidate cannot reach it.
-    expired = host.dispatch(old_save)
-    assert expired.get('error') == 'unavailable_candidate'
-    emit('old_child_rejected', **expired)
-    assert host.dispatch('root/archive/saveButtonTapped')['ok']
-    operation = host.last_operation
-    assert host.dispatch('root/closeArchiveButtonTapped')['ok']
-    cancelled = host.call('wait', requestID=operation)
-    assert cancelled['receipt']['status'] == 'cancelled'
-    emit('dismount_cancelled_save', **cancelled)
-    for candidate in list(host.observation['candidates']):
-        if route(candidate['id']).startswith('root/completeButtonTapped/'):
-            assert host.dispatch(candidate['id'])['ok']
-    assert host.dispatch('root/openArchiveButtonTapped')['ok']
-    assert host.dispatch('root/archive/saveButtonTapped')['ok']
-    assert host.call('wait', requestID=host.last_operation)['ok']
-    result = host.call('verify', condition='allCompletedAndArchived')
-    assert result['verified']
-    emit('demo_passed', **result)
-
-
-def arguments_demo(host):
-    """Scripted typed-argument exploration, no model calls."""
-    original = host.call('observe')['observation']
-    valid = dict(title='Typed argument task', notes='Draft notes', priority='high', project='work', dueDate='2026-10-30')
-    invalid = [dict(valid, title='   '), dict(valid, dueDate='2026-02-30'),
-               dict(valid, priority='urgent'), dict(valid, notes='x' * 1001),
-               dict(valid, unexpected='extra')]
-    invalid.append({key: value for key, value in valid.items() if key != 'title'})
-    for arguments in invalid:
-        result = host.dispatch('root/createTaskSubmitted', arguments=arguments)
-        assert result.get('error') == 'invalid_arguments'
-        assert host.observation['state'] == original['state']
-        assert host.observation['revision'] == original['revision']
-        emit('invalid_arguments_rejected', detail=result.get('detail'))
-    created = host.dispatch('root/createTaskSubmitted', requestID='typed-create-once', arguments=valid)
-    assert created['ok']
-    duplicate = host.dispatch('root/createTaskSubmitted', requestID='typed-create-once', revision=original['revision'], arguments=valid)
-    assert duplicate['ok'] and len(host.observation['state']['tasks']) == len(original['state']['tasks']) + 1
-    conflict = host.dispatch('root/createTaskSubmitted', requestID='typed-create-once', revision=original['revision'], arguments=dict(valid, notes='Different'))
-    assert conflict.get('error') == 'request_id_conflict'
-    task = next(t for t in host.observation['state']['tasks'] if t['title'] == valid['title'])
-    edited = dict(valid, title='Edited typed task', notes='Edited notes', priority='low')
-    result = host.dispatch('root/editTaskSubmitted/' + task['id'], arguments=edited)
-    assert result['ok']
-    task = next(t for t in host.observation['state']['tasks'] if t['id'] == task['id'])
-    assert all(task[k] == v for k, v in edited.items())
-    emit('arguments_demo_passed', observation=host.observation)
-
-
-def hybrid_demo(host, model, argument_model, step_delay=0, provider=None):
-    """Live three-phase example: generated create, generated edit, finite operations."""
-    started = time.monotonic()
-    reset = host.dispatch('root/resetButtonTapped')
-    if not reset['ok']:
-        raise RuntimeError(reset['error'])
-    phases = [
-        ('create', 'Create a new task titled exactly "Email Sarah about launch", high priority, in Work, due October 30, 2026. Write two friendly sentences of notes addressed to Sarah about coordinating the launch.', 'launch-task.json', None),
-        ('edit', 'Edit the existing task "Email Sarah about launch". Change priority to low, move it to Personal, and reschedule it to November 2, 2026. Replace the notes with a short checklist mentioning preparing slides and sending the agenda. Keep its title unchanged.', 'launch-task-edited.json', None),
-        ('complete_and_archive', 'Mark only the task "Email Sarah about launch" complete, then open the archive and save a snapshot of completed tasks. Leave the saved archive open. Do not complete other tasks.', None, 'archiveSaved'),
-    ]
-    for name, goal, fixture, condition in phases:
-        emit('phase', name=name, goal=goal)
-        expectation = json.loads((HERE / 'fixtures' / fixture).read_text()) if fixture else None
-        if not run_goal(host, goal, model, condition, 4, step_delay, argument_model, expectation, provider):
-            return False
-    emit('hybrid_demo_passed', elapsedMs=round((time.monotonic() - started) * 1000), observation=host.observation)
-    return True
-
-
 def shell(host, model, argument_model, provider=None):
     notice = ''
     while True:
         host.call('observe')
         if sys.stdout.isatty():
             print('\033[2J\033[H', end='')
-        print('TCA harness prototype — ' + ('LIVE iOS app store' if host.connection else 'independent headless session'))
+        print('TCA harness shell')
         print(json.dumps(host.observation['state'], indent=2))
         print(f"Revision {host.observation['revision']} | session {host.observation['sessionID'][:8]}")
         for i, candidate in enumerate(host.observation['candidates'], 1):
@@ -969,9 +807,8 @@ def doctor(host):
 
 RECORDING = '.tca/recording.json'  # `tca record start` writes this; `tca do` appends steps to it.
 TEST_COMMANDS = ('journey', 'record', 'explore', 'chaos', 'determinism', 'diff', 'fixtures', 'exposure')  # Handled in journeys.py.
-COMMANDS = ['doctor', 'ls', 'do', 'setup', 'shell', 'observe', 'inspect', 'dispatch', 'wait', 'cancel', 'demo',
-            'arguments-demo', 'hybrid-demo', 'run', 'trace', 'devtools', 'protocol', 'build', *TEST_COMMANDS]
-APP_ONLY = ('doctor', 'ls', 'do')
+COMMANDS = ['doctor', 'ls', 'do', 'setup', 'shell', 'observe', 'inspect', 'dispatch', 'wait', 'cancel',
+            'run', 'trace', 'devtools', *TEST_COMMANDS]
 
 
 def main(argv=None):
@@ -982,10 +819,11 @@ def main(argv=None):
     parser.add_argument('command', nargs='?', choices=COMMANDS, default='doctor', metavar='command',
                         help='One of: ' + ', '.join(COMMANDS) + ' (default: doctor)')
     parser.add_argument('params', nargs='*', help="For do: ACTION ['{json arguments}']")
-    parser.add_argument('--app', action='store_true', help='Connect to the running app instead of creating a headless store')
-    parser.add_argument('--port', type=int, default=8765)
+    # Every command connects to a running app (or headless host); --app is accepted for older scripts and ignored.
+    parser.add_argument('--app', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--port', type=int, default=8765, help='Harness port of the running app (default 8765)')
     parser.add_argument('--step-delay', type=float, default=0, help='Optional pacing between steps, in seconds')
-    parser.add_argument('--goal')
+    parser.add_argument('--goal', help='run: what the model should accomplish, in plain language')
     parser.add_argument('--path', help='Feature path for inspect, or the feature to focus for ls/do')
     parser.add_argument('--all', action='store_true', help='ls/do: show every mounted operation and the whole state')
     parser.add_argument('--json', action='store_true', help='ls/do: machine-readable output')
@@ -993,14 +831,13 @@ def main(argv=None):
     parser.add_argument('--arguments', default=None, help='JSON argument object for dispatch/do')
     parser.add_argument('--request-id', help='Operation request ID for wait/cancel or dispatch deduplication')
     parser.add_argument('--revision', type=int, help='Expected observation revision for dispatch')
-    parser.add_argument('--verify', dest='condition')
-    parser.add_argument('--max-steps', type=int, default=8)
+    parser.add_argument('--verify', dest='condition', help="run: an app-defined condition (the harness's verify: closure) that proves the goal")
+    parser.add_argument('--max-steps', type=int, default=8, help='run: step limit, 1-20 (default 8)')
     parser.add_argument('--provider', choices=PROVIDERS, help='Model provider (default: configured, else inferred)')
     parser.add_argument('--model', help='Choice model ID (setup: model saved for both calls)')
     parser.add_argument('--argument-model', help='Argument-filling model ID')
     parser.add_argument('--base-url', help='setup: provider base URL')
     parser.add_argument('--api-key-stdin', action='store_true', help='setup: read the API key from standard input')
-    parser.add_argument('--expect-task', type=Path, help='Local JSON fixture for deterministic task-field verification')
     parser.add_argument('--input', type=Path, help='JSONL run trace for the trace viewer')
     parser.add_argument('--output', type=Path, help='Standalone viewer output (defaults beside the input)')
     parser.add_argument('--http-port', type=int, default=8780, help='Local port for the devtools panel')
@@ -1030,8 +867,6 @@ def main(argv=None):
             parser.error(str(error))
         print(str(output))
         return 0
-    if args.command in APP_ONLY or not HERE.exists():
-        args.app = True  # These never build the optional headless demo; installs have no demo to build.
     arguments = {}
     if args.command in ('dispatch', 'do'):
         text = args.arguments
@@ -1056,25 +891,9 @@ def main(argv=None):
         parser.error('run requires --goal')
     if not 1 <= args.max_steps <= 20:
         parser.error('--max-steps must be between 1 and 20')
-    if args.app and args.command in ('build', 'protocol'):
-        parser.error('build and protocol are for the headless demo in a repository checkout; drop --app')
     if not 1 <= args.port <= 65535 or not 0 <= args.step_delay <= 5:
         parser.error('Invalid port or --step-delay (0–5 seconds)')
-    if not args.app:
-        build(force=args.command == 'build')
-    if args.command == 'build':
-        return 0
-    if args.command == 'protocol':
-        os.execv(str(BINARY), [str(BINARY)])
-    expectation = None
-    if args.expect_task:
-        expectation = json.loads(args.expect_task.read_text())
-        allowed = {'title', 'notes', 'priority', 'project', 'dueDate', 'isComplete'}
-        if not isinstance(expectation.get('fields'), dict) or not expectation['fields'] or not set(expectation['fields']) <= allowed:
-            parser.error('--expect-task requires nonempty task fields')
-        if args.condition:
-            parser.error('Use either --verify or --expect-task')
-    host = Host(port=args.port if args.app else None)
+    host = Host(port=args.port)
     try:
         if args.command == 'doctor':
             result = doctor(host)
@@ -1101,19 +920,9 @@ def main(argv=None):
             response = host.call(args.command, requestID=args.request_id)
             emit(args.command, **response)
             return 0 if response.get('ok') else 2
-        elif args.command == 'hybrid-demo':
-            return 0 if hybrid_demo(host, args.model, args.argument_model, args.step_delay, args.provider) else 2
-        elif args.command == 'arguments-demo':
-            if args.app:
-                host.dispatch('root/resetButtonTapped')
-            arguments_demo(host)
-        elif args.command == 'demo':
-            if args.app:
-                host.dispatch('root/resetButtonTapped')
-            demo(host)
         elif args.command == 'run':
             return 0 if run_goal(host, args.goal, args.model, args.condition, args.max_steps, args.step_delay,
-                                 args.argument_model, expectation, args.provider) else 2
+                                 args.argument_model, args.provider) else 2
         else:
             shell(host, args.model, args.argument_model, args.provider)
     finally:

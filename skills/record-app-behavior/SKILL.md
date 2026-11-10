@@ -29,8 +29,8 @@ Before the real run, record about 3 seconds and check duration and frame rate (`
 ## 4. Record
 
 1. Start the app recording, then the panel recording. Note each one's wall-clock start time (the panel recorder prints `START <epoch>`).
-2. Drive the behavior: by hand, a script, or an agent (e.g. `python3 examples/isowords/play_word.py`).
-3. Optionally walk through the panel afterwards: click the action that proves the behavior, open the relevant tab, and caption it. To script this, run JavaScript in the page ([example tour](examples/isowords-tour.js)). Select rows by action name, since rows shift as new actions arrive.
+2. Drive the behavior: by hand, a script, or an agent (e.g. a series of `tca do` calls, or `tca journey run journeys/add-book.toml --pace 1 --port PORT` in `examples/shelf`).
+3. Optionally walk through the panel afterwards: click the action that proves the behavior, open the relevant tab, and caption it. To script this, run JavaScript in the page ([example tour](examples/devtools-tour.js); set its two action names for your app). Select rows by action name, since rows shift as new actions arrive.
 4. Stop the panel recording, then the app recording right away.
 5. Click **Export JSON** in the panel (or save `GET /api/timeline` pages) to keep the exact action log next to the video.
 

@@ -1,4 +1,4 @@
-// Drives cli/devtools.html in jsdom against a recorded isowords timeline.
+// Drives cli/devtools.html in jsdom against a timeline recorded from a word-game app.
 // Usage: NODE_PATH=/path/with/jsdom/node_modules node devtools_checks.js
 const fs = require("fs");
 const path = require("path");
