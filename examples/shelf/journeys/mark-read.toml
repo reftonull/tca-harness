@@ -1,0 +1,25 @@
+name = "Mark a book as read"
+goal = "Find Project Hail Mary, mark it read, and see the unread badge go down"
+fixtures = "../fixtures/shelf"
+network = "replay"
+launch_requests = ["GET /books"]
+
+[[steps]]
+do = "Search"
+args = { value = "Hail Mary" }
+requests = ["POST /events"]
+
+[[steps]]
+do = "Open book"
+requests = []
+
+[[steps]]
+do = "Mark as read"
+requests = ["PUT /books/{id}"]
+
+[checks]
+"it is read" = "all(b.isRead for b in books if b.title == 'Project Hail Mary')"
+"the badge went down" = "unreadCount == 1"
+
+[budget]
+requests = 3

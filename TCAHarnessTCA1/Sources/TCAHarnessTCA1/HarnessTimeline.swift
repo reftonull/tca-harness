@@ -39,6 +39,9 @@ public final class HarnessTimeline: @unchecked Sendable {
   private var pendingEffectActions: [(cause: Int, key: Int, at: ContinuousClock.Instant)] = []
   private var observe: (@MainActor (Any) -> HarnessJSON?)?
   private var mounts: (@MainActor (Any) -> [HarnessTimelineMount]?)?
+  /// The action being reduced, or the last one reduced; names the `action` of recorded issues.
+  private var currentAction: Any?
+  private var afterReduce: (@MainActor (Any) -> Void)?
 
   private struct Record {
     let index: Int
@@ -95,6 +98,28 @@ public final class HarnessTimeline: @unchecked Sendable {
   func setReaders(observe: @escaping @MainActor (Any) -> HarnessJSON?,
     mounts: @escaping @MainActor (Any) -> [HarnessTimelineMount]?) {
     lock.lock(); self.observe = observe; self.mounts = mounts; lock.unlock()
+  }
+
+  /// Called on the main actor with the new state after each reduced action, e.g. to check invariants.
+  func setAfterReduce(_ body: (@MainActor (Any) -> Void)?) {
+    lock.lock(); afterReduce = body; lock.unlock()
+  }
+
+  /// Case path of the action being reduced, or of the last one reduced, joined with dots (e.g. `shelf.deleteResponse`).
+  public var currentActionPath: String? {
+    guard let action = locked({ currentAction }) else { return nil }
+    return actionPath(action).joined(separator: ".")
+  }
+
+  func willReduce(_ action: Any) {
+    lock.lock(); currentAction = action; lock.unlock()
+  }
+
+  func didReduce(_ state: Any) {
+    guard let afterReduce = locked({ afterReduce }), Thread.isMainThread else { return }
+    // TCA 1 stores reduce on the main actor; the value never leaves this thread.
+    let box = UncheckedBox(state)
+    MainActor.assumeIsolated { afterReduce(box.value) }
   }
 
   /// Actions sent inside `body` are attributed to the agent and, when given, the candidate.
@@ -186,8 +211,10 @@ public final class HarnessTimeline: @unchecked Sendable {
   /// Without an attached descriptor a projected timeline records no state.
   @MainActor
   private func snapshot(_ state: Any, _ observe: (@MainActor (Any) -> HarnessJSON?)?) -> HarnessJSON {
-    if detail == .reflected { return StateInspection.snapshot(state, depth: 12, budget: 8000).json }
-    return observe?(state) ?? .null
+    HarnessSnapshotContext.$recorded.withValue(true) {
+      if detail == .reflected { return StateInspection.snapshot(state, depth: 12, budget: 8000).json }
+      return observe?(state) ?? .null
+    }
   }
 
   private func locked<T>(_ read: () -> T) -> T {
@@ -212,12 +239,14 @@ public struct _HarnessTimelineReducer<Base: Reducer>: Reducer {
   public func reduce(into state: inout Base.State, action: Base.Action) -> Effect<Base.Action> {
     guard timeline.isEnabled else { return base.reduce(into: &state, action: action) }
     let previous = state
+    timeline.willReduce(action)
     let began = ContinuousClock.now
     let effect = base.reduce(into: &state, action: action)
     let duration = ContinuousClock.now - began
     let running = !effect.isNone
     let index = timeline.record(action: action, state: state, previous: previous,
       reduceDuration: duration, hasEffect: running)
+    timeline.didReduce(state)
     guard running else { return effect }
     let timeline = timeline
     // Cancellation by an inner id ends the inner effect; that is reported as `ended`.
@@ -235,11 +264,15 @@ extension Effect {
   }
 }
 
+/// A non-enum action payload that names itself in timeline paths, e.g. a model call's operation id.
+protocol HarnessActionSegment { var harnessActionSegment: String { get } }
+
 /// Enum case path of an action, descending through identified and stack elements.
 func actionPath(_ action: Any) -> [String] {
   var path: [String] = []
   var current = action
   while path.count < 16 {
+    if let named = current as? HarnessActionSegment { path.append(named.harnessActionSegment); break }
     let mirror = Mirror(reflecting: current)
     guard mirror.displayStyle == .enum else { break }
     guard let child = mirror.children.first else {
@@ -332,4 +365,9 @@ private extension Double {
   func rounded(toPlaces places: Int) -> Double {
     let scale = pow(10, Double(places)); return (self * scale).rounded() / scale
   }
+}
+
+private struct UncheckedBox: @unchecked Sendable {
+  let value: Any
+  init(_ value: Any) { self.value = value }
 }

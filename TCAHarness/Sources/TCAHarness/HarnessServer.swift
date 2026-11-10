@@ -18,6 +18,7 @@ public final class HarnessServer {
   /// Number of requests handled since the server was created.
   public private(set) var requestCount = 0
   @ObservationIgnored private let handler: @MainActor (Data) async -> Data
+  @ObservationIgnored private var runWaiter: CheckedContinuation<Void, Never>?
 #if DEBUG
   @ObservationIgnored private var listener: NWListener?
   @ObservationIgnored private var peers: [UUID: Peer] = [:]
@@ -81,7 +82,7 @@ public final class HarnessServer {
 #endif
   }
 
-  /// Stops listening and closes open connections.
+  /// Stops listening and closes open connections. Also ends a pending ``run(port:onReady:)``.
   public func stop() {
 #if DEBUG
     listener?.cancel()
@@ -90,6 +91,51 @@ public final class HarnessServer {
     peers.removeAll()
 #endif
     status = "Stopped"
+    runWaiter?.resume()
+    runWaiter = nil
+  }
+
+  /// Starts listening on `127.0.0.1:port`, waits until the listener is ready, calls `onReady`,
+  /// then suspends until ``stop()`` is called or the calling task is cancelled.
+  ///
+  /// Use this to host a store with no UI: the process stays alive serving requests on the main
+  /// actor for as long as this call is suspended.
+  ///
+  /// - Throws: If `port` is invalid or unavailable, if the listener does not become ready within
+  ///   five seconds, or, in builds compiled without `DEBUG`, always (no listener is available).
+  public func run(port: UInt16 = 8765, onReady: () -> Void = {}) async throws {
+#if !DEBUG
+    throw NSError(domain: "TCAHarness", code: 2, userInfo: [
+      NSLocalizedDescriptionKey: "Headless hosting needs the harness listener, which is compiled only in DEBUG builds. "
+        + "Build with the debug configuration (`swift build`), or add `-Xswiftc -DDEBUG` to an optimized build.",
+    ])
+#else
+    try start(port: port)
+    var ready = false
+    for _ in 0..<500 {
+      if status.hasPrefix("Listening") { ready = true; break }
+      // `stop()` before readiness was observed is a normal end; a failed listener reports its error.
+      if listener == nil { if status == "Stopped" { return }; break }
+      // Cancellation while starting ends the host the same way as cancellation while running.
+      if Task.isCancelled { stop(); return }
+      try? await Task.sleep(for: .milliseconds(10))
+    }
+    guard ready else {
+      let reason = status
+      stop()
+      throw NSError(domain: "TCAHarness", code: 3, userInfo: [
+        NSLocalizedDescriptionKey: "Harness listener on 127.0.0.1:\(port) did not start (\(reason))",
+      ])
+    }
+    onReady()
+    await withTaskCancellationHandler {
+      await withCheckedContinuation { continuation in
+        if listener == nil || Task.isCancelled { continuation.resume() } else { runWaiter = continuation }
+      }
+    } onCancel: {
+      Task { @MainActor in self.stop() }
+    }
+#endif
   }
 
 #if DEBUG

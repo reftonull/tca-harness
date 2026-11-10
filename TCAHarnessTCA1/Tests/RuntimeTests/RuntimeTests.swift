@@ -140,7 +140,7 @@ struct TimelineFeature {
 }
 
 @MainActor
-private final class Client {
+final class Client {
   let session: HarnessSession<HarnessValue>
   var observation: [String: Any] = [:]
   init(_ session: HarnessSession<HarnessValue>) { self.session = session }
@@ -168,6 +168,36 @@ struct RuntimeTests {
     let descriptor = WorkspaceFeature.harnessDescriptor.operation("save", action: .saveButtonTapped,
       available: { !$0.isSaving }, completion: { $0.saved ? .succeeded : .running }, cancel: .cancelSave)
     return (store, HarnessRuntime(descriptor: descriptor, read: { store.withState { $0 } }, send: { store.send($0) }))
+  }
+
+  @Test func inspectReportsDeclaredAndUnexposedActions() async throws {
+    let (_, runtime) = fixture()
+    let features = try await Client(runtime.session).call("inspect")["features"] as! [[String: Any]]
+    let root = features.first { $0["path"] as? String == "root" }!
+    // saveButtonTapped is @HarnessIgnore'd, but the fixture's "save" operation sends it.
+    let unexposed = (root["unexposed"] as! [[String: String]]).map { "\($0["action"]!): \($0["reason"]!)" }
+    #expect(unexposed == ["saveResponse: ignored", "cancelSave: ignored"])
+    #expect((root["declaredOperations"] as! [[String: String]]).map { $0["id"]! } == ["openButtonTapped", "closeButtonTapped", "save"])
+    let item = features.first { $0["path"] as? String == "root/items/1" }!
+    #expect((item["unexposed"] as! [Any]).isEmpty)
+    // The catalog lists what can be mounted, mounted or not; it is only sent when asked for.
+    let client = Client(runtime.session)
+    #expect(try await client.call("inspect")["catalog"] == nil)
+    let catalog = try await client.call("inspect", ["catalog": true])["catalog"] as! [[String: Any]]
+    #expect(catalog.map { $0["path"] as! String } == ["root", "root/child", "root/items/{id}", "root/path/{id}"])
+    #expect((catalog[1]["declaredOperations"] as! [[String: String]]).map { $0["id"]! } == ["incrementButtonTapped", "rename", "priority"])
+
+    let store = Store(initialState: TimelineFeature.State()) { TimelineFeature() }
+    let descriptor = TimelineFeature.harnessDescriptor
+      .operation("setTitle", label: "Set title", arguments: String.self, action: { .titleChanged($0) })
+      .operation("finish", action: .saveResponse)
+      .unexposed("swipe", reason: "needs a gesture")
+    let explicit = HarnessRuntime(descriptor: descriptor, read: { store.withState { $0 } }, send: { store.send($0) })
+    let info = explicit.inspect().first { $0.path == "root" }!
+    #expect(info.unexposed.map { "\($0.action): \($0.reason)" } == [
+      "save: unannotated", "response: unsupported payload", "tagged: unsupported payload",
+      "mode: unsupported payload", "swipe: needs a gesture",
+    ])
   }
 
   @Test func generatedAttachmentUsesTheExistingStore() async throws {
@@ -203,8 +233,45 @@ struct RuntimeTests {
     #expect(store.withState { $0.child } == nil)
   }
 
+  @Test(.enabled(if: HarnessServer.isAvailable, "The listener exists only in DEBUG builds"))
+  func headlessHostServesTheStoreOverLoopbackUntilStopped() async throws {
+    let store = Store(initialState: WorkspaceFeature.State()) { WorkspaceFeature() }
+    let attachment = store.harness(WorkspaceFeature.self, timeline: nil)
+    let port = UInt16.random(in: 20000...29999)
+    let host = Task { try await attachment.runHeadless(port: port) }
+    while !attachment.server.status.hasPrefix("Listening") { try await Task.sleep(for: .milliseconds(5)) }
+
+    let replies = try await Task.detached {
+      let socket = try LineSocket(port: port)
+      let observed = try socket.call(["method": "observe"])
+      let observation = observed["observation"] as! [String: Any]
+      let candidate = (observation["candidates"] as! [[String: Any]])
+        .compactMap { $0["id"] as? String }.first { $0.contains("root/openButtonTapped@") }!
+      let dispatched = try socket.call(["method": "dispatch", "sessionID": observation["sessionID"]!,
+        "revision": observation["revision"]!, "requestID": "headless-1", "candidateID": candidate, "arguments": [:]])
+      return (observed["ok"] as? Bool, dispatched["ok"] as? Bool)
+    }.value
+    #expect(replies.0 == true && replies.1 == true)
+    #expect(store.withState { $0.child?.id } == 9)
+
+    attachment.stop()
+    try await host.value
+    #expect(attachment.server.status == "Stopped")
+  }
+
+  @Test(.enabled(if: HarnessServer.isAvailable, "The listener exists only in DEBUG builds"))
+  func headlessHostEndsWhenItsTaskIsCancelled() async throws {
+    let store = Store(initialState: WorkspaceFeature.State()) { WorkspaceFeature() }
+    let attachment = store.harness(WorkspaceFeature.self, timeline: nil)
+    let host = Task { try await attachment.runHeadless(port: UInt16.random(in: 30000...39999)) }
+    while !attachment.server.status.hasPrefix("Listening") { try await Task.sleep(for: .milliseconds(5)) }
+    host.cancel()
+    try await host.value
+    #expect(attachment.server.status == "Stopped")
+  }
+
   /// Run with `swift test -c release -Xswiftc -enable-testing` to check the release side.
-  @Test func listenerAndTimelineAreCompiledOutWithoutDebug() throws {
+  @Test func listenerAndTimelineAreCompiledOutWithoutDebug() async throws {
     let store = Store(initialState: WorkspaceFeature.State()) { WorkspaceFeature() }
     let attachment = store.harness(WorkspaceFeature.self, timeline: nil)
     let timeline = HarnessTimeline(isEnabled: true)
@@ -216,6 +283,7 @@ struct RuntimeTests {
     #expect(!timeline.isEnabled)
     #expect(try attachment.startIfEnabled(environment: ["TCA_HARNESS": "1", "TCA_HARNESS_PORT": "8768"]) == false)
     #expect(throws: (any Error).self) { try attachment.start(port: 8768) }
+    await #expect(throws: (any Error).self) { try await attachment.runHeadless(port: 8768) }
     #endif
     #expect(attachment.server.status == "Stopped")
   }
@@ -311,6 +379,20 @@ struct RuntimeTests {
     let cancelled = try await client.call("cancel", ["requestID": "save-2"])
     #expect((cancelled["receipt"] as? [String: Any])?["status"] as? String == "cancelled")
     #expect(store.withState { $0.isSaving } == false)
+  }
+
+  @Test func operationsCanBuildTheirActionFromCurrentState() async throws {
+    let store = Store(initialState: WorkspaceFeature.State()) { WorkspaceFeature() }
+    let descriptor = FeatureDescriptor<WorkspaceFeature.State, WorkspaceFeature.Action>("Workspace")
+      .operation("bumpLast", label: "Increment the last item", available: { !$0.items.isEmpty }) { state in
+        .items(.element(id: state.items.ids.last!, action: .incrementButtonTapped))
+      }
+    let attachment = store.harness(descriptor: descriptor, timeline: nil)
+    let client = Client(attachment.runtime.session)
+    _ = try await client.call("observe")
+    let response = try await client.dispatch(client.id("root/bumpLast@"))
+    #expect(response["ok"] as? Bool == true)
+    #expect(store.withState { $0.items.map(\.count) } == [0, 1])
   }
 
   @Test func duplicateOperationsFailClosed() {
@@ -492,4 +574,40 @@ struct RuntimeTests {
 extension Trait where Self == ConditionTrait {
   /// Timelines are inert in builds compiled without `DEBUG`.
   static var timelineRecords: Self { .enabled(if: HarnessServer.isAvailable, "Timelines record only in DEBUG builds") }
+}
+
+/// Blocking newline-JSON client over a real TCP socket, for headless-host tests. Use off the main actor.
+private final class LineSocket: @unchecked Sendable {
+  private let descriptor: Int32
+  private var buffer = Data()
+
+  init(port: UInt16) throws {
+    descriptor = socket(AF_INET, SOCK_STREAM, 0)
+    var address = sockaddr_in()
+    address.sin_family = sa_family_t(AF_INET)
+    address.sin_port = port.bigEndian
+    address.sin_addr.s_addr = inet_addr("127.0.0.1")
+    let result = withUnsafePointer(to: &address) {
+      $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(descriptor, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) }
+    }
+    guard result == 0 else { close(descriptor); throw HarnessArgumentError("connect failed: \(errno)") }
+  }
+
+  deinit { close(descriptor) }
+
+  func call(_ request: [String: Any]) throws -> [String: Any] {
+    var line = try JSONSerialization.data(withJSONObject: request)
+    line.append(10)
+    _ = line.withUnsafeBytes { write(descriptor, $0.baseAddress, $0.count) }
+    var chunk = [UInt8](repeating: 0, count: 65536)
+    while !buffer.contains(10) {
+      let count = read(descriptor, &chunk, chunk.count)
+      guard count > 0 else { throw HarnessArgumentError("connection closed") }
+      buffer.append(contentsOf: chunk[..<count])
+    }
+    let newline = buffer.firstIndex(of: 10)!
+    let response = buffer[..<newline]
+    buffer.removeSubrange(...newline)
+    return try JSONSerialization.jsonObject(with: response) as! [String: Any]
+  }
 }

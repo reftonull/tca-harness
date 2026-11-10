@@ -1,4 +1,4 @@
-# TCAHarness — embeddable prototype
+# TCAHarness
 
 An in-process execution session and local JSON-lines transport for agent-driven
 Swift apps. The app supplies its existing store through typed closures. This
@@ -10,7 +10,7 @@ Requires Swift 6.3 or later and iOS 17 / macOS 14 or later (it uses Observation)
 
 ## Add it to an app
 
-For a TCA 1 app, use the root package's `TCAHarnessTCA1` product and the [Store attachment](../TCAHarnessTCA1/README.md#attach-to-the-existing-store). For a custom model-independent adapter, link the `TCAHarness` product from the root package. The standalone core manifest remains for the separate TCA 2 experiment.
+For a TCA 1 app, use the root package's `TCAHarnessTCA1` product and the [Store attachment](../TCAHarnessTCA1/README.md#attach-to-the-existing-store). For a custom model-independent adapter, link the `TCAHarness` product from the root package. `TCAHarness/Package.swift` builds the core on its own, with no TCA dependency.
 Retain the session and server for as long as the root store is alive:
 
 ```swift
@@ -40,16 +40,16 @@ candidate descriptors, requests, and receipts are encoded.
 For asynchronous work, return `HarnessOperation { ... }` whose closure reads
 current feature state and returns `running`, `succeeded`, `failed`, or `cancelled`.
 Supply a lifetime-aware status closure for a child that may disappear. Rebuild the
-candidate list from current state on each observation. The example task adapter
-is in `DecisionsPackage/Sources/DecisionHarness/TaskHarness.swift`, built from macro-generated
-descriptors ([TCAHarnessTCA2](../TCAHarnessTCA2/README.md)).
+candidate list from current state on each observation. `TCAHarnessTCA1`'s
+`HarnessRuntime` is the reference adapter: it builds offers from typed feature
+descriptors over a TCA 1 store.
 
 ## Transport
 
 `HarnessServer` accepts newline-delimited JSON on IPv4 loopback only. The same
 `HarnessSession.handleJSON` can be attached to another transport, including stdio.
-The protocol supports `observe`, `dispatch`, `wait`, and `verify`; see the
-[prototype commands](../prototypes/tca-harness/README.md).
+The protocol supports `observe`, `dispatch`, `wait`, and `verify` (plus `inspect`, `cancel`, `timeline`, `issues` and `network`, below); the
+[lower-level CLI commands](../cli/README.md#lower-level-commands) send them one at a time.
 
 The listener is unauthenticated and intended only for a trusted development
 machine. Any local process can connect while it is enabled. It is compiled only
@@ -61,7 +61,7 @@ It is not a production or physical-device transport. Stop it with `server.stop()
 
 Candidate availability is checked again at dispatch. Session IDs prevent commands
 from targeting a different launch, observation revisions reject changed state,
-and in-memory request receipts deduplicate matching retries. These are prototype
+and in-memory request receipts deduplicate matching retries. These are in-memory
 controls, not durable exactly-once execution. The adapter must publish all state
 relevant to a candidate's validity; revision comparison only sees that projection.
 
@@ -97,7 +97,7 @@ let offer = HarnessOffer(
 }
 ```
 
-This prototype supports **flat objects of string fields**, including finite enum
+`HarnessArgumentSchema` here supports **flat objects of string fields**, including finite enum
 fields. It is not a general JSON Schema validator. The app still owns semantic
 validation (for example, valid calendar dates and available targets). Invalid
 arguments return `invalid_arguments` plus `detail` without dispatching an action.
@@ -109,4 +109,14 @@ operations with no schema skip the generative call entirely.
 
 ## Typed capability runtime
 
-The `TCAHarnessTCA1` package adds generated/explicit feature descriptors and a runtime over the app's existing store. Protocol v2 accepts nested JSON argument objects and supports `inspect` (optional feature `path`) and `cancel` (operation `requestID`) in addition to existing session operations. Inspection returns mounted features, their instance IDs, and currently available operations. The shared schema validator checks types, fields, choices and supported constraints before application decoding. Explicit cancellation hooks are optional; unsupported cancellation returns an error.
+The `TCAHarnessTCA1` package adds generated/explicit feature descriptors and a runtime over the app's existing store. Protocol v2 accepts nested JSON argument objects and supports `inspect` (optional feature `path`) and `cancel` (operation `requestID`) in addition to existing session operations. Inspection returns mounted features, their instance IDs, and currently available operations. Each feature also lists `declaredOperations` (available or not) and `unexposed` action cases with a reason, and `"catalog": true` adds `catalog`, every feature the descriptor can mount. These are additive and keep protocol version 3. The shared schema validator checks types, fields, choices and supported constraints before application decoding. Explicit cancellation hooks are optional; unsupported cancellation returns an error.
+
+## Issues, invariants and network (protocol v3)
+
+Protocol v3 adds two methods and an `issueCount` on every observation; v2 requests and fields are unchanged. The full contract, including how `tca journey`, `tca chaos` and the other commands use it, is in [Testing with the harness](../docs/testing.md#wire-protocol-additions-protocol-version-3).
+
+- **Issues.** `HarnessIssueLog` is a thread-safe, bounded log of `issue`, `invariant` and `network` entries (`seq`, `kind`, `message`, `file`, `line`, `action`). `{"method":"issues","since":N}` returns entries after `N`. Sessions use `HarnessIssueLog.shared` unless given `issues:`. Adapters feed it: the TCA 1 adapter records reported issues and invariant violations, and `HarnessNetwork` records blocked or unmatched requests. Pass `beforeObserve:` to run checks (such as invariants) before each observation.
+- **Network.** `HarnessNetwork.install()` routes `URLSession.shared` through `HarnessURLProtocol`; `HarnessNetwork.configure(_:)` prepends it to a configuration for sessions you create. The mode comes from `TCA_HARNESS_NETWORK` (`block`, `replay`, `record`, `live`; default `live`, which passes requests through and logs them) and cassettes from `TCA_HARNESS_CASSETTES`. `{"method":"network"}` reads the mode, cassette directory, request log (`seq`, `method`, `url`, `status`, `source`, `fault`, `ms`) and pending faults; `{"method":"network","network":{"mode":...,"faults":[...]}}` changes them first. Faults (`status`, `timeout`, `offline`, `malformed`, `delay`) match by method and path and apply `times` times (`-1` for always). Cassettes are one editable JSON file per exchange, `<METHOD>_<path with / as _>_<n>.json`. Sessions read `HarnessNetwork.shared` unless given `network:`.
+
+Like the listener, interception is compiled only with `DEBUG`: in other builds `install()` returns `false`, `configure(_:)` returns the configuration unchanged, and `HarnessNetwork.isAvailable` is `false`.
+

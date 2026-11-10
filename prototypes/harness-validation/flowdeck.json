@@ -1,7 +1,0 @@
-{
-  "workspace": "HarnessValidation.xcodeproj",
-  "scheme": "HarnessValidation",
-  "platform": "macOS",
-  "deviceUdid": "My Mac",
-  "derivedDataPath": ".build"
-}

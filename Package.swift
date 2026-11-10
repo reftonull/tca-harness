@@ -12,7 +12,7 @@ let package = Package(
   dependencies: [
     .package(url: "https://github.com/pointfreeco/swift-composable-architecture", from: "1.13.0"),
     .package(url: "https://github.com/pointfreeco/swift-case-paths", from: "1.5.4"),
-    // Test-only: IssueReportingTestSupport. Same package identity TCA 1 uses.
+    // IssueReporting (issue capture) and, for tests, IssueReportingTestSupport. Same package identity TCA 1 uses.
     .package(url: "https://github.com/pointfreeco/xctest-dynamic-overlay", from: "1.4.0"),
     .package(url: "https://github.com/pointfreeco/swift-macro-testing", from: "0.6.0"),
     .package(url: "https://github.com/swiftlang/swift-syntax", "600.0.0"..<"605.0.0"),
@@ -30,6 +30,8 @@ let package = Package(
       "TCAHarness", "HarnessMacrosPlugin",
       .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
       .product(name: "CasePaths", package: "swift-case-paths"),
+      // IssueReporters.current, for issue capture. Same package identity TCA 1 uses.
+      .product(name: "IssueReporting", package: "xctest-dynamic-overlay"),
     ], path: "TCAHarnessTCA1/Sources/TCAHarnessTCA1"),
     .testTarget(name: "HarnessMacroTests", dependencies: [
       "HarnessMacrosPlugin", .product(name: "MacroTesting", package: "swift-macro-testing"),

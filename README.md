@@ -30,15 +30,26 @@ agent / CLI / test → loopback JSON → embedded runtime → your existing Stor
                          typed feature descriptors (macros or handwritten)
 ```
 
-TCA already enforces the hard part: actions in, state out, one place where state changes. That's the contract Shopify built by hand for [Reflex](https://shopify.engineering/reflex). The harness adds the introspection layer on top of the store you already have.
+TCA already enforces the hard part: actions in, state out, one place where state changes. The harness adds the introspection layer on top of the store you already have, so the same descriptors serve an agent building a feature, a random walk hunting for bugs, and a journey that pins a flow.
 
-## See it in a real app
+[What it catches](#what-it-catches) · [Add it to your app](#add-it-to-your-app-tca-1x) · [Let your agent drive it](#let-your-coding-agent-drive-it) · [Test behaviour](#test-behaviour-not-implementation) · [Testing guide](docs/testing.md) · [Adopting in a large app](docs/adopting.md)
 
-The [isowords integration](examples/isowords/README.md) embeds the harness in the upstream app's original AppDelegate store. A model starts an unlimited game, selects cube faces and submits a word through the actual game reducer.
+## What it catches
 
-**Recorded result: SUN accepted for 12 points.** [Watch the gameplay](examples/isowords/recordings/actual-isowords-gameplay.mp4) · [See the embedding](examples/isowords/EmbeddedIsowordsHarness.swift) · [Review the entry-point patch](examples/isowords/app-entry.patch) · [Browse a recorded run](examples/isowords/recordings/interpretable-run.html)
+The [Shelf example](examples/shelf/README.md) is a small reading-list app with a REST backend and one planted bug per testing pattern, behind `SHELF_BUGS`. `examples/shelf/run_ladder.sh` runs every pattern headless, on the simulator and against a live local backend, and reports which pattern caught which bug. Each one is found without writing a test for it:
 
-isowords is fetched at a pinned revision during setup; its source and assets are not vendored and keep their own license.
+- **A failed save leaves the editor spinning** with no error and no Retry (`tca chaos`).
+- **Save stays tappable while its request is in flight,** so a double tap adds the book twice (`tca explore --races`).
+- **A slow search response overwrites a newer one** (`tca chaos --reorder`).
+- **The unread badge drifts from the list** (an invariant).
+- **Searching sends an analytics request per keystroke** (the step's pinned requests).
+- **A delete response reaches a screen that already closed** (TCA's own runtime warning).
+- **New items are stamped with `Date()`** instead of the date dependency (`tca determinism`).
+- **A view's `onAppear` changes state that headless never sees** (`tca diff`).
+- **The backend renames a field** (a contract check against the live server).
+- **Two vanilla SwiftUI screens** get the same treatment.
+
+With the bugs off, every pattern comes back clean. Earlier experiments, including model-driven play of the isowords game and the same game running headless about 24 times faster than in the simulator, are on the [`archive/experiments`](https://github.com/reftonull/tca-harness/tree/archive/experiments) branch.
 
 ## Add it to your app (TCA 1.x)
 
@@ -61,13 +72,15 @@ try harness.startIfEnabled()
 
 Launch a Debug build with `TCA_HARNESS=1` (and optionally `TCA_HARNESS_PORT`, default 8765). Release builds compile the listener out.
 
+To run the same reducers with no UI, call `try await store.harness(RootFeature.self).runHeadless(port: 8790)` from a small executable. The same descriptors and CLI work with or without a UI, which makes agent loops and behavior tests fast. See [Run headless](TCAHarnessTCA1/README.md#run-headless).
+
+Screens built on plain `@Observable` models use the same descriptors: mount them with `.model(...)`, or wrap them in TCA with `Hosted<Model>` so their calls run as effects and show in the timeline. See [Vanilla SwiftUI models](TCAHarnessTCA1/README.md#vanilla-swiftui-models).
+
 - `@HarnessSchema` generates typed argument schemas for payload actions.
 - `@HarnessIgnore` and redaction keep fields out of observations.
 - Explicit `FeatureDescriptor`s handle unusual scopes, availability rules and completion. App state does not need to be `Codable`.
 
 [Package guide](TCAHarnessTCA1/README.md) · [Protocol and transport](TCAHarness/README.md) · [Agent skill for integrating it](skills/integrate-tca-harness/SKILL.md)
-
-For TCA 2 (`@Feature`, currently a private beta), see [TCAHarnessTCA2](TCAHarnessTCA2/README.md).
 
 ## Use the CLI
 
@@ -84,16 +97,39 @@ tca do setMusicVolume '{"value": 0.25}' --port 8767
 
 `ls` focuses the deepest mounted feature, the way a user only sees the top of the stack, and lists the actions ancestors lend to it (back, dismiss, tab selection). `inspect`, `observe`, `dispatch`, `wait` and `cancel` expose the full protocol with revisions and request IDs.
 
+### Let your coding agent drive it
+
+Agents with a shell (Claude Code, Codex, Cursor) need nothing extra: `tca ls` and `tca do` are the interface. The [drive-tca-app skill](skills/drive-tca-app/SKILL.md) teaches the loop: look, act once, check the new state, and prove results with state rather than descriptions. Claude Code picks up this repo's skills automatically through `.claude/skills`; elsewhere, copy the skill folder into your agent's skills directory.
+
+### Test behaviour, not implementation
+
+A journey names a goal, the steps a user takes (by label) and what must be true afterwards. `tca journey run` replays it on a fresh launch with network fixtures, and every run also catches crashes, reported issues, broken invariants, unexpected requests, stuck effects and dead ends. Agents write journeys by solving the goal with `tca do` while `tca record` captures the steps.
+
+```sh
+tca journey run journeys/*.toml          # launch targets come from harness.toml
+tca explore --runs 50                    # random walks; findings are shrunk to minimal journeys
+tca chaos journeys/add-book.toml         # fail each request in turn
+tca explore --races --runs 30            # double taps and dismissals while requests are in flight (replay latency)
+tca chaos journeys/search.toml --reorder # responses out of order: does a stale one win?
+tca diff journeys/add-book.toml --targets headless,ui
+```
+
+In an app where every screen calls the server, fixtures are the cost that grows with the app, so they're managed like code. `tca fixtures record` runs journeys against a backend (with a read-only guard for production) and sanitizes the result. `match.json` templates ids and ignores volatile parameters, and `tca fixtures coverage --strict` fails when a request was blocked or matched only by fallback. `tca exposure` shows, per feature, which actions an agent can't reach and which operations no run has exercised.
+
+[Testing guide](docs/testing.md) · [Adopting in a large app](docs/adopting.md) · [Command reference](cli/README.md#behaviour-tests) · [test-tca-app skill](skills/test-tca-app/SKILL.md)
+
+The [Shelf example](examples/shelf/README.md) plants eleven bugs behind `SHELF_BUGS`, one for each pattern (two of them races: a double save and a stale search) plus two in vanilla SwiftUI screens (`@Observable` models, one wrapped in TCA with `Hosted`). `examples/shelf/run_ladder.sh` runs every pattern on the headless host, the simulator and a live local backend, and prints which pattern caught which bug.
+
 ### Model-driven goals
 
 `tca run` loops toward a goal: observe, let a model choose one offered operation, fill its arguments, dispatch, repeat until an **app-defined predicate** verifies the result. The model never decides that it succeeded.
 
 ```sh
 tca setup      # pick a provider and store the key in ~/.config/tca-harness/model.env (0600)
-tca run --app --port 8767 --goal 'Start an unlimited solo game' --verify gameReady
+tca run --port 8790 --goal 'Add "Dune" by Frank Herbert to my shelf' --verify 'onShelf:Dune'
 ```
 
-Two providers are supported: [Router](https://router.com) (its `/systemone` choice classifier plus `/responses`), or any OpenAI Responses API-compatible endpoint. [Details](cli/README.md#model-driven-goals)
+Predicates are a `verify:` closure you pass to `store.harness(...)`; the example uses [Shelf's](examples/shelf/Sources/ShelfCore/ShelfHarness.swift). Two providers are supported: [Router](https://router.com) (its `/systemone` choice classifier plus `/responses`), or any OpenAI Responses API-compatible endpoint. [Details](cli/README.md#model-driven-goals)
 
 ### Watch every action live
 
@@ -114,6 +150,7 @@ History is read-only. Payload values are hidden by default and snapshots go thro
 ### Inspect a recorded run
 
 ```sh
+tca run --port 8790 --goal '...' --verify '...' > /tmp/run.jsonl   # or any --report file from journey/explore/chaos
 tca trace --input /tmp/run.jsonl --output /tmp/run.html
 ```
 
@@ -127,7 +164,8 @@ The listener binds `127.0.0.1` only, has no authentication, and exists only in D
 
 Early and experimental. The protocol may change before 1.0.
 
-- **Requirements:** Swift 6.3+, iOS 17+ / macOS 14+, TCA 1.13+ (tested with TCA 1.26 on Swift 6.4). TCA 2 support tracks the private beta.
+- **Requirements:** Swift 6.3+, iOS 17+ / macOS 14+, TCA 1.13+ (tested with TCA 1.26 on Swift 6.4).
+- **Scope:** TCA 1.x apps, including screens built on plain `@Observable` models. Experiments (TCA 2 beta support, the isowords integration, earlier prototypes and design notes) live on the [`archive/experiments`](https://github.com/reftonull/tca-harness/tree/archive/experiments) branch.
 - **Not covered by generated descriptors:** payload actions without an annotation, child state/action names that don't match, and some unusual scopes; use explicit descriptors.
 - **App-defined:** availability, privacy projections, effect completion and cancellation.
 
@@ -137,12 +175,11 @@ Early and experimental. The protocol may change before 1.0.
 | --- | --- |
 | [TCAHarness](TCAHarness) | Model-independent session, JSON schemas, receipts and loopback transport |
 | [TCAHarnessTCA1](TCAHarnessTCA1) | Descriptors, runtime and macros for TCA 1.x (root `Package.swift`) |
-| [TCAHarnessTCA2](TCAHarnessTCA2) | The same for TCA 2; separate package |
 | [cli](cli) | `tca` command-line client, standard-library Python |
-| [examples/isowords](examples/isowords) | Reproducible integration into an existing app |
-| [skills](skills) | Agent skills for integrating the harness and recording app behaviour |
-| [DecisionsTCA](DecisionsTCA), [DecisionsPackage](DecisionsPackage) | TCA 2 task demo app |
-| [prototypes](prototypes/README.md), [recordings](recordings), [docs/research](docs/research) | Earlier experiments, recordings and design notes |
+| [docs](docs) | [Testing guide](docs/testing.md), [adopting in a large app](docs/adopting.md) |
+| [examples/shelf](examples/shelf) | A small app with planted bugs for every testing pattern, including vanilla SwiftUI screens |
+| [skills](skills) | Agent skills: integrate the harness, drive an app, test it, record its behaviour |
+| [scripts/tca](scripts/tca) | Runs the CLI from a checkout without installing it |
 
 ## Contributing
 

@@ -4,14 +4,10 @@ DerivedData/
 **/xcuserdata/
 *.xcuserstate
 __pycache__/
-prototypes/tca-harness/TCAHarnessPrototype.xcodeproj/
-prototypes/isowords/.upstream/
-prototypes/isowords/IsowordsHarness.xcodeproj/
-prototypes/harness-validation/HarnessValidation.xcodeproj/
-examples/isowords/.upstream/
-examples/isowords/IsowordsEmbedded.xcodeproj/
 
 # Libraries do not commit resolved versions
 /Package.resolved
 TCAHarness/Package.resolved
-TCAHarnessTCA2/Package.resolved
+
+# tca record / explore output
+.tca/

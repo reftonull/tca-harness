@@ -29,15 +29,15 @@ Before the real run, record about 3 seconds and check duration and frame rate (`
 ## 4. Record
 
 1. Start the app recording, then the panel recording. Note each one's wall-clock start time (the panel recorder prints `START <epoch>`).
-2. Drive the behavior: by hand, a script, or an agent (e.g. `python3 examples/isowords/play_word.py`).
-3. Optionally walk through the panel afterwards: click the action that proves the behavior, open the relevant tab, and caption it. To script this, run JavaScript in the page ([example tour](examples/isowords-tour.js)). Select rows by action name, since rows shift as new actions arrive.
+2. Drive the behavior: by hand, a script, or an agent (e.g. a series of `tca do` calls, or `tca journey run journeys/add-book.toml --pace 1 --port PORT` in `examples/shelf`).
+3. Optionally walk through the panel afterwards: click the action that proves the behavior, open the relevant tab, and caption it. To script this, run JavaScript in the page ([example tour](examples/devtools-tour.js); set its two action names for your app). Select rows by action name, since rows shift as new actions arrive.
 4. Stop the panel recording, then the app recording right away.
 5. Click **Export JSON** in the panel (or save `GET /api/timeline` pages) to keep the exact action log next to the video.
 
 ## 5. Align and combine
 
 - Work out how far into the app video the panel's first frame is. Start times give an estimate, but launch delay adds error. Cross-check from the ends: offset ≈ app duration − panel duration − delay between the two stops. They agreed to within 0.1s here.
-- Combine side by side, e.g. `ffmpeg -ss OFFSET -i app.mp4 -i panel.mp4 -filter_complex "[0]scale=-2:1080[a];[1]scale=-2:1080[p];[p][a]hstack" -t SECONDS out.mp4`, or [compose.swift](examples/compose.swift) without ffmpeg.
+- Combine side by side, e.g. `ffmpeg -ss OFFSET -i app.mp4 -i panel.mp4 -filter_complex "[0]scale=-2:1080[a];[1]scale=-2:1080[p];[p][a]hstack" -t SECONDS out.mp4`, or [compose.swift](examples/compose.swift) without ffmpeg. It takes any number of panes (e.g. app without the bug, app with it, panel), holds a pane's last frame if it ends early, and can add pane labels and a title bar.
 - Extract frames at two or three visible events (a screen change and the matching row appearing) and look at them. Adjust the offset if they disagree.
 
 ## 6. Check before sharing

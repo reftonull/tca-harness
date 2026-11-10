@@ -1,0 +1,26 @@
+{
+  "request" : {
+    "body" : null,
+    "method" : "GET",
+    "url" : "http://127.0.0.1:8798/catalog?q=Dune"
+  },
+  "response" : {
+    "body" : [
+      {
+        "author" : "Frank Herbert",
+        "title" : "Dune"
+      },
+      {
+        "author" : "Frank Herbert",
+        "title" : "Dune Messiah"
+      }
+    ],
+    "headers" : {
+      "Content-Length" : "100",
+      "Content-Type" : "application/json",
+      "Date" : "Sat, 07 Nov 2026 10:32:17 GMT",
+      "Server" : "BaseHTTP/0.6 Python/3.13.2"
+    },
+    "status" : 200
+  }
+}

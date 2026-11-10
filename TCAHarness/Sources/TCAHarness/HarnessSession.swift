@@ -83,15 +83,73 @@ private struct Request: Decodable {
   var path: String?
   var since: Int?
   var arguments: [String: HarnessJSON]?
+  var network: NetworkUpdate?
+  /// `inspect` only: also return the descriptor's whole feature tree.
+  var catalog: Bool?
+}
+
+/// `{"network":{"mode":"replay","faults":[...],"cassettes":"/abs/dir","latency":{"ms":200}}}`; every field is optional.
+private struct NetworkUpdate: Decodable {
+  var mode: String?
+  var faults: [HarnessFault]?
+  var cassettes: String?
+  var latency: HarnessLatency?
+}
+
+/// An action case a feature has that no operation sends, and why (`ignored`, `unannotated`,
+/// `binding`, `unsupported payload`, `multiple payloads`, or an app-supplied reason).
+public struct HarnessUnexposedAction: Codable, Equatable, Sendable {
+  public let action: String
+  public let reason: String
+  public init(action: String, reason: String) { self.action = action; self.reason = reason }
+}
+
+/// An operation a feature declares, whether or not it is available right now.
+public struct HarnessDeclaredOperation: Codable, Equatable, Sendable {
+  /// The route segment after the feature path, as in candidate IDs.
+  public let id: String
+  public let label: String
+  public init(id: String, label: String) { self.id = id; self.label = label }
+}
+
+/// A feature the descriptor can mount, whether or not it is mounted now. Collection elements have
+/// `{id}` as their segment, e.g. `root/books/{id}`.
+public struct HarnessCatalogFeature: Codable, Equatable, Sendable {
+  public let path: String
+  public let name: String
+  public let declaredOperations: [HarnessDeclaredOperation]
+  public let unexposed: [HarnessUnexposedAction]
+  public init(path: String, name: String, declaredOperations: [HarnessDeclaredOperation], unexposed: [HarnessUnexposedAction]) {
+    self.path = path; self.name = name; self.declaredOperations = declaredOperations; self.unexposed = unexposed
+  }
 }
 
 public struct HarnessFeatureInfo: Codable, Sendable {
   public let path: String
   public let name: String
   public let instanceID: String
+  /// The operations available now.
   public let operations: [HarnessCandidate]
-  public init(path: String, name: String, instanceID: String, operations: [HarnessCandidate]) {
+  /// Every operation the descriptor declares, available or not (`tca exposure`).
+  public let declaredOperations: [HarnessDeclaredOperation]
+  /// Action cases no operation sends (`tca exposure`).
+  public let unexposed: [HarnessUnexposedAction]
+  public init(path: String, name: String, instanceID: String, operations: [HarnessCandidate],
+    declaredOperations: [HarnessDeclaredOperation] = [], unexposed: [HarnessUnexposedAction] = []) {
     self.path = path; self.name = name; self.instanceID = instanceID; self.operations = operations
+    self.declaredOperations = declaredOperations; self.unexposed = unexposed
+  }
+
+  private enum CodingKeys: String, CodingKey { case path, name, instanceID, operations, declaredOperations, unexposed }
+
+  public init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    path = try c.decode(String.self, forKey: .path)
+    name = try c.decode(String.self, forKey: .name)
+    instanceID = try c.decode(String.self, forKey: .instanceID)
+    operations = try c.decode([HarnessCandidate].self, forKey: .operations)
+    declaredOperations = try c.decodeIfPresent([HarnessDeclaredOperation].self, forKey: .declaredOperations) ?? []
+    unexposed = try c.decodeIfPresent([HarnessUnexposedAction].self, forKey: .unexposed) ?? []
   }
 }
 
@@ -100,6 +158,8 @@ private struct Observation<State: Encodable>: Encodable {
   let revision: Int
   let state: State
   let candidates: [HarnessCandidate]
+  /// Issues recorded so far (the latest issue `seq`); fetch them with the `issues` method.
+  let issueCount: Int
 }
 
 private struct Receipt: Encodable {
@@ -116,9 +176,12 @@ private struct Response<State: Encodable>: Encodable {
   var error: String?
   var detail: String?
   var features: [HarnessFeatureInfo]?
+  var catalog: [HarnessCatalogFeature]?
   var protocolVersion: Int?
   var diagnostics: [String]?
   var timeline: HarnessTimelinePage?
+  var issues: [HarnessIssue]?
+  var network: HarnessNetworkSnapshot?
 }
 
 /// Embeddable, model-independent execution session. Closures must address the
@@ -129,8 +192,12 @@ public final class HarnessSession<State: Codable & Equatable> {
   private let readOffers: () -> [HarnessOffer]
   private let verify: (String) -> Bool?
   private let inspect: (() -> [HarnessFeatureInfo])?
+  private let catalog: (() -> [HarnessCatalogFeature])?
   private let diagnostics: () -> [String]
   private let timeline: ((Int) -> HarnessTimelinePage?)?
+  private let issueLog: HarnessIssueLog
+  private let networkState: HarnessNetworkState
+  private let beforeObserve: () -> Void
   private let sessionID = UUID().uuidString
   private var revision = 0
   private var previous: State?
@@ -149,16 +216,29 @@ public final class HarnessSession<State: Codable & Equatable> {
     offers: @escaping () -> [HarnessOffer],
     verify: @escaping (String) -> Bool? = { _ in nil },
     inspect: (() -> [HarnessFeatureInfo])? = nil,
+    catalog: (() -> [HarnessCatalogFeature])? = nil,
     diagnostics: @escaping () -> [String] = { [] },
-    timeline: ((Int) -> HarnessTimelinePage?)? = nil
+    timeline: ((Int) -> HarnessTimelinePage?)? = nil,
+    issues: HarnessIssueLog = .shared,
+    network: HarnessNetworkState = HarnessNetwork.shared,
+    beforeObserve: @escaping () -> Void = {}
   ) {
     readState = snapshot
     readOffers = offers
     self.verify = verify
     self.inspect = inspect
+    self.catalog = catalog
     self.diagnostics = diagnostics
     self.timeline = timeline
+    self.issueLog = issues
+    self.networkState = network
+    self.beforeObserve = beforeObserve
   }
+
+  /// The protocol version reported by `inspect`. Version 3 added `issues`, `network` and `issueCount`;
+  /// `declaredOperations` and `unexposed` on inspected features, and `inspect` with `"catalog": true`,
+  /// were added later without a version change.
+  public static var protocolVersion: Int { 3 }
 
   /// One JSON request in; one JSON response out. Transport is kept separate.
   public func handleJSON(_ data: Data) async -> Data {
@@ -174,10 +254,13 @@ public final class HarnessSession<State: Codable & Equatable> {
   }
 
   private func observe() -> Observation<State> {
+    // Evaluates invariants, so violations are logged before issueCount is read.
+    beforeObserve()
     let state = readState()
     if let previous, previous != state { revision += 1 }
     previous = state
-    return Observation(sessionID: sessionID, revision: revision, state: state, candidates: readOffers().map(\.candidate))
+    return Observation(sessionID: sessionID, revision: revision, state: state, candidates: readOffers().map(\.candidate),
+      issueCount: issueLog.count)
   }
 
   private func receipt(_ id: String) -> Receipt {
@@ -196,9 +279,28 @@ public final class HarnessSession<State: Codable & Equatable> {
     case "inspect":
       guard let inspect else { return failure("inspection_unavailable") }
       let features = inspect().filter { request.path == nil || $0.path == request.path || $0.path.hasPrefix(request.path! + "/") }
-      return Response(observation: observe(), features: features, protocolVersion: 2, diagnostics: diagnostics())
+      return Response(observation: observe(), features: features, catalog: request.catalog == true ? catalog?() : nil,
+        protocolVersion: Self.protocolVersion, diagnostics: diagnostics())
     case "observe":
       return Response(observation: observe())
+    case "issues":
+      let observation = observe()
+      return Response(observation: observation, issues: issueLog.issues(since: max(request.since ?? 0, 0)))
+    case "network":
+      if let update = request.network {
+        var mode: HarnessNetworkMode?
+        if let text = update.mode {
+          guard let value = HarnessNetworkMode(rawValue: text.lowercased()) else {
+            return failure("invalid_network_mode", detail: "mode must be one of block, replay, record, live")
+          }
+          mode = value
+        }
+        if let mode { networkState.mode = mode }
+        if let faults = update.faults { networkState.faults = faults }
+        if let cassettes = update.cassettes { networkState.cassettes = cassettes.isEmpty ? nil : URL(fileURLWithPath: cassettes) }
+        if let latency = update.latency { networkState.latency = latency }
+      }
+      return Response(observation: observe(), network: networkState.snapshot(since: max(request.since ?? 0, 0)))
     case "timeline":
       // Read-only development history; omits the observation to keep pages small.
       guard let page = timeline?(max(request.since ?? 0, 0)) else { return Response(ok: false, error: "timeline_unavailable") }

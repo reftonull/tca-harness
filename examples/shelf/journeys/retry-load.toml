@@ -1,0 +1,20 @@
+name = "Retry after the shelf fails to load"
+goal = "The launch GET /books fails with a 503; Retry loads the three books"
+fixtures = "../fixtures/shelf"
+network = "replay"
+launch_requests = ["GET /books"]
+
+[[faults]]
+match = { method = "GET", path = "/books" }
+kind = "status"
+status = 503
+times = 1
+at = "launch"
+
+[[steps]]
+do = "Retry"
+requests = ["GET /books"]
+
+[checks]
+"the books are shown" = "len(books) == 3"
+"the error is gone" = "not loadError and not isLoading"

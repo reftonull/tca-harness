@@ -1,0 +1,39 @@
+{
+  "request" : {
+    "body" : null,
+    "method" : "GET",
+    "url" : "http://127.0.0.1:8798/books"
+  },
+  "response" : {
+    "body" : [
+      {
+        "addedAt" : 1767225600,
+        "author" : "Ursula K. Le Guin",
+        "id" : "2A3F0C1E-8C55-4E0B-9C5A-0B5D7F3A1101",
+        "isRead" : false,
+        "title" : "The Left Hand of Darkness"
+      },
+      {
+        "addedAt" : 1767312000,
+        "author" : "Susanna Clarke",
+        "id" : "2A3F0C1E-8C55-4E0B-9C5A-0B5D7F3A1102",
+        "isRead" : true,
+        "title" : "Piranesi"
+      },
+      {
+        "addedAt" : 1767398400,
+        "author" : "Andy Weir",
+        "id" : "2A3F0C1E-8C55-4E0B-9C5A-0B5D7F3A1103",
+        "isRead" : false,
+        "title" : "Project Hail Mary"
+      }
+    ],
+    "headers" : {
+      "Content-Length" : "434",
+      "Content-Type" : "application/json",
+      "Date" : "Sat, 07 Nov 2026 09:23:20 GMT",
+      "Server" : "BaseHTTP/0.6 Python/3.13.2"
+    },
+    "status" : 200
+  }
+}

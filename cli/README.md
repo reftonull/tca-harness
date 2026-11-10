@@ -1,6 +1,6 @@
 # tca: the harness CLI
 
-`tca` connects to a TCA app that embeds the harness listener. You can inspect the app, dispatch its typed operations, watch its actions, and optionally run a bounded model loop toward a goal. It needs Python 3.10+ and uses only the standard library.
+`tca` connects to a TCA app that embeds the harness listener. You can inspect the app, dispatch its typed operations, watch its actions, and optionally run a bounded model loop toward a goal. It needs Python 3.11+ and uses only the standard library.
 
 ## Install
 
@@ -46,20 +46,178 @@ State is looked up by walking the path through the observed state tree (object k
 1. An exact operation ID, or an ID without its `@instance` suffix. These match anywhere.
 2. An operation name relative to its feature (`dismiss`, `binding/name`), or its label, compared case-insensitively. Only focused and lent operations are searched; add `--all` to search every operation.
 
-`do` then dispatches at the observed revision with a new request ID, waits up to 5 seconds for the receipt, and prints the new focused view. If the name is ambiguous or matches nothing, `do` lists the choices on stderr and exits with code 2 without dispatching. Rejections (`stale_revision`, `invalid_arguments`, ...) and `failed`/`cancelled` receipts also exit with code 2. Arguments can also be passed with `--arguments`.
+`do` then dispatches at the observed revision with a new request ID, waits up to 5 seconds for the receipt, and prints the new focused view. If the name is ambiguous or matches nothing, `do` lists the choices on stderr and exits with code 2 without dispatching. Rejections (`stale_revision`, `invalid_arguments`, ...) and `failed`/`cancelled` receipts also exit with code 2, except a `cancelled` receipt whose dispatching feature is no longer mounted: navigation such as a game's Solo → Game closes the feature that sent the action, so `do` reports it as sent and exits 0. Arguments can also be passed with `--arguments`.
 
 Output is plain text with no colors or progress lines. Add `--json` for machine-readable output: the view (`focus`, `statePath`, `state`, `operations[]` with `name`, `label`, `id`, `feature`, `scope`, `argumentSchema`), or for `do`, `{ok, candidateID, receipt, error, detail, view}`.
 
-`ls` and `do` always connect to the app.
+`ls` and `do` always connect to the app. While `tca record` is active, each successful `do` is also appended to the journey being recorded (see below).
+
+## Behaviour tests
+
+These commands run user-level tests against fresh launches of the app and apply the generic oracles after every step: **crash** (process exit or dropped connection), **issue** and **invariant** (reported by the app), **network** (a request blocked or without a fixture), **stuck** (a receipt still running after `--wait-ms`, default 5000), **rejected** (an offered operation refused for a reason other than a stale revision or invalid arguments) and **dead end** (nothing offered). The design and file formats are in [docs/testing.md](../docs/testing.md).
+
+Every command prints a short plain-text summary, writes JSON lines with `--report FILE` (open them with `tca trace`), and exits 0 when nothing was found, 1 when something was, and 2 for usage or configuration errors. Findings are written as minimal journeys under `.tca/findings/`. Against a protocol v2 app, the issue, invariant and network oracles are skipped and the summary says so once.
+
+### Targets: `harness.toml`
+
+```toml
+[targets.headless]
+launch = ".build/debug/shelf-headless --port {port}"
+port = "auto"                      # or a fixed port
+ready = "TCA harness listening"    # output line meaning ready; without it the port is polled
+ready_timeout = 30
+restart = "per-run"                # or "never": one process (or an app already on the port) for every run
+env = { SHELF_API = "http://127.0.0.1:8799" }
+stop = "..."                       # optional command run after each process is stopped
+```
+
+The CLI finds `harness.toml` by searching upward from the journey file, then the current directory, and uses `--target NAME` (default `headless`, or the only target). Each run gets its own process group, killed afterwards. The launch command sees `TCA_HARNESS=1`, `TCA_HARNESS_NETWORK`, `TCA_HARNESS_CASSETTES`, `TCA_HARNESS_SEED` and `TCA_HARNESS_PORT` in its environment, plus `TCA_HARNESS_FAULTS` (compact JSON) when the run fails requests at launch. `{env}` expands to the same settings plus the target's `env` as `KEY=value` pairs for launchers that can't pass the environment on.
+
+### `tca journey run`
+
+```sh
+tca journey run journeys/*.toml [--target headless] [--network replay] [--seed 0] [--report run.jsonl]
+tca journey run journeys/add-book.toml --port 8790      # attach to a running app instead of launching
+tca journey run journeys/add-book.toml --target ui --pace 1.2   # pause 1.2s after each step, e.g. to record it
+tca journey run journeys/add-book.toml --target ui --keep       # leave the app running afterwards to inspect or record it
+```
+
+Each step is resolved exactly like `tca do` (label, name or ID among the focused and lent operations), dispatched and waited for. After each step the oracles run and the step's `expect` is checked, and a step's `requests` (for example `requests = ["GET /books", "POST /events"]`) are compared, in any order, with the requests the app logged until it went quiet again. A step that declares `requests = []` must make none, and `launch_requests` covers launch. At the end every `[checks]` expression must hold and `[budget] requests` is compared with the app's request log. `--pace SECONDS` (default 0) sleeps after each step and once more before the final checks, so a person or a screen recording can follow the run; it doesn't change what is checked. `--keep` leaves the app launched for the last journey running and prints its port and how to stop it. A launched app's output goes to a log file in the temp directory, so it survives the CLI exiting. Attaching with `--port` to an app that already uses the journey's fixtures doesn't reload them, so ordered recordings (`_1`, `_2`, …) carry on where the app is. Output is one line per passing journey and the first problem for a failing one:
+
+```text
+FAIL  Add a book  (journeys/add-book.toml)
+  step 2 "Set titel": no offered operation matches
+  current view:
+    Editor (root/shelf/editor)  revision 1
+    ...
+  goal: Add a book called Dune and see it on the shelf
+  remaining steps: "Set titel", "Save"
+  hint: re-solve it: `tca record start journeys/add-book.toml`, reach the goal with `tca ls`/`tca do`, then `tca record stop`
+```
+
+A request mismatch names both sides:
+
+```text
+FAIL  Mark a book as read  (journeys/mark-read.toml)
+  requests after step 3 "Mark as read": expected [PUT /books/{id}], made [PUT /books/2A3F0C1E-8C55-4E0B-9C5A-0B5D7F3A1103, GET /books] (unexpected GET /books)
+```
+
+Patterns are `METHOD /path`, where `{name}` is one path segment and `*` matches anything; a pattern without `?` ignores the query (`GET /books?*` matches any query). Faults with `at = "launch"` are passed in `TCA_HARNESS_FAULTS`, so they fail requests the app makes before the CLI connects. A journey with a goal but no steps fails as unsolved with the same hint. Check expressions allow attribute access, indexing, comparisons, `and`/`or`/`not`, arithmetic, generator expressions and `len`, `any`, `all`, `sum`, `min`, `max`, `sorted`, `set`; missing keys read as `None`.
+
+### `tca record`
+
+```sh
+tca record start journeys/add-book.toml --goal "Add a book called Dune and see it on the shelf"
+tca do "Add book" --port 8790
+tca do "Set title" '{"value":"Dune"}' --port 8790
+tca do Save --port 8790
+tca record stop --check "Dune is on the shelf=any(b.title == 'Dune' for b in shelf.books)"
+```
+
+`start` writes `.tca/recording.json` in the current directory; run `tca do` from the same directory. Each successful `do` appends its step by label (falling back to the name or route when the label is ambiguous), with the requests the app made until the next `do` as its `requests` (`stop` waits for quiet to fill in the last step). Paths are templated (`PUT /books/{id}`) from `match.json` or, for numeric, UUID and long hex segments, by shape. Requests made before the first `do` are written as `launch_requests`, so start on a fresh launch. `stop` writes the journey, keeping the existing file's other keys (fixtures, network, checks, budget) so re-solving a broken journey only replaces its steps. Checks are validated before anything is written.
+
+### `tca explore`
+
+```sh
+tca explore [--target headless] [--runs 50] [--steps 40] [--seed N] [--fixtures DIR | --journey FILE] [--shrink-trials 100]
+```
+
+Each run launches the app, then repeatedly picks a random offered operation and generates arguments from its schema: strings from a corpus with empty, whitespace, long, unicode and markup values (within `minLength`/`maxLength`), numbers at their bounds, enums, booleans, nulls for optional values, and nested arrays and objects. `--journey FILE` starts every walk from that journey's end state and uses its fixtures. The first finding of a run is shrunk with delta debugging, relaunching for every trial, to the shortest step list that reproduces the same finding, then written to `.tca/findings/<kind>-<n>.toml`. Findings are deduplicated by kind and message (or operation). The walk is reproducible from `--seed`.
+
+```text
+explore: 50 run(s) of up to 40 step(s) on headless, seed 3: 1 finding(s)
+  KIND       STEPS    JOURNEY                         MESSAGE
+  invariant  23 -> 2  .tca/findings/invariant-1.toml  no duplicate books (x5)
+```
+
+### `tca chaos`
+
+```sh
+tca chaos journeys/add-book.toml [--faults status500,timeout,offline,malformed,slow]
+```
+
+Runs the journey once in replay mode to learn its requests, then reruns it once per request and fault with that request failed (the Nth occurrence of a repeated request through the fault's `skip`). Launch requests are failed on a fresh launch through `TCA_HARNESS_FAULTS` (rows marked `launch`; the way forward is the first step). A rerun passes when no oracle fires and, within 5 s, the journey's next step or a retry of the failed step is offered (any operation if the journey is finished). Checks don't have to hold. Each failure becomes a journey with a `[[faults]]` entry that reproduces it. Requires protocol v3.
+
+### Races: `tca explore --races` and `tca chaos --reorder`
+
+```sh
+tca explore --races [--latency 200 --jitter 150] ...   # don't wait while something is in flight
+tca chaos journeys/discover.toml --reorder [--reorder-ms 1000]
+```
+
+`--races` dispatches the next operation while the previous one is still running (biased toward the same operation and toward dismissals) and records each such step with `no_wait = true` and `after_ms`; findings also record the replay latency. `--reorder` holds back the first of two or more same-endpoint requests made by a step or a race of `no_wait` steps, and fails when an oracle or check fires or the final state differs from the in-order run. Every runner takes `--latency MS` and `--jitter MS` (replay latency, seeded). See [Races](../docs/testing.md#races).
+
+### `tca fixtures coverage` and `tca fixtures record`
+
+```sh
+tca fixtures coverage journeys/*.toml [--target headless] [--fixtures DIR] [--strict]
+tca fixtures coverage --report explore.jsonl --report chaos.jsonl          # from earlier runs, any command
+tca fixtures record journeys/*.toml --target live [--into fixtures/raw] [--sanitize fixtures/sanitize.py]
+```
+
+Every logged request says how it was answered: `exact`, `ordered` (one of several equal recordings, by occurrence), `template` (a cassette recorded for the same `match.json` path template), `path` (fallback: the latest cassette for the path, because query or body differed), `synthetic` (a `match.json` rule such as a terminal page), `fault`, `blocked` or `live`. `coverage` runs the journeys (or reads `request` events from `--report` files) and prints a row per endpoint (method and templated path) with counts per kind, the cassettes nothing used, and each request that fell back or was blocked, with the journey and step. `--strict` exits 1 if there are any; a failed journey always exits 1.
+
+`record` runs each journey with `--network record` on the target (respecting the app's live guard, whose name it prints; refused requests are listed and not recorded), then the `--sanitize` script once with the cassette directories as arguments, then the coverage report for the journeys replayed against their own fixtures. See [docs/testing.md](../docs/testing.md#matching-rules) for the `match.json` rules that remove fallbacks.
+
+### `tca exposure`
+
+```sh
+tca exposure [--port N | --target T] [--journeys 'journeys/*.toml'] [--reports explore.jsonl ...] [--json] [--min-exercised PCT]
+```
+
+How much of the app an agent can reach, and which reachable operations no run has exercised. For every feature path it prints the operations the descriptor declares (available now or not) with how many dispatches ran each one, then the action cases no operation sends, grouped by reason. Features come from four places:
+
+- **The catalog.** `inspect` with `"catalog": true` returns every feature the root descriptor can mount, mounted or not, with collection elements as `{id}` (`root/books/{id}`). A feature nothing mounted is marked `(not reached)` and listed at the bottom.
+- **A live app**: `--port N` attaches; `--target T` (or, with no other source, the default target) launches it with the network blocked and inspects it once it is quiet.
+- **`--journeys`**: runs them (on `--target`, or attached with `--port`) and counts what they mount and dispatch.
+- **`--reports`**: JSON-lines reports of earlier runs from any command (`journey run`, `explore`, `chaos`, ... `--report FILE`). Reports carry a `catalog` event and a `mounts` event whenever a run reaches a feature it hadn't, so features only a random walk reached still get their unexposed actions. Older reports work too: their dispatches count by route, and their features are marked as never inspected.
+
+An operation counts as exercised when a `dispatch` event has a receipt (it ran); routes are compared without the `@instance` suffix. Paths and operation names are templated with the catalog's patterns, else by shape like request paths (numeric, UUID and long hex segments become `{id}`), so the rows of a list are one feature. The totals line gives features reached, exposed operations, the share exercised and unexposed actions by reason. `--min-exercised PCT` exits 1 below that share; a failed journey also exits 1. `--json` prints `{features: [{path, name, reached, operations: [{name, label, exercised}], unexposed: [{action, reason}]}], totals, runs}`.
+
+On Shelf, with its first eight journeys and a 20-run explore report (`tca explore --fixtures fixtures/shelf --runs 20 --seed 1 --report /tmp/explore.jsonl`):
+
+```text
+$ tca exposure --journeys 'journeys/*.toml' --reports /tmp/explore.jsonl
+exposure: 7 feature(s) from 8 journey run(s), 1 report(s)
+
+  root  Shelf
+    OPERATION  LABEL          EXERCISED
+    add        Add book       51
+    refresh    Refresh        44
+    retry      Retry          .
+    ...
+    unexposed (ignored): task, markShelfSeen, searchDebounced, booksResponse, saveResponse
+  ...
+  root/goal  Goal
+    OPERATION  LABEL      EXERCISED
+    setGoal    Set goal   20
+    save       Save goal  7
+    retry      Retry      .
+
+totals: 7 of 7 feature(s) reached, 26 exposed operation(s), 23 exercised (88.5%); 10 unexposed action(s): ignored 10
+```
+
+The three gaps were Retry buttons that only appear after a failed load. `tca chaos` checks that they are offered but doesn't press them; the three `retry-*` journeys, each with a `[[faults]]` entry, press them. The first eight journeys alone exercised 17 (65%); with the retry journeys, 20 (77%). [Adopting in a large app](../docs/adopting.md#how-much-of-the-app-can-an-agent-reach) explains how to read the report.
+
+Where the unexposed list comes from: `@HarnessFeature` records every action case it didn't turn into an operation or a child scope (`ignored` for `@HarnessIgnore`, `unannotated`, `binding`, `unsupported payload`, `multiple payloads`), and explicit descriptors add entries with `.unexposed("case", reason: "...")`. An entry disappears once an operation sends that case. See the [package guide](../TCAHarnessTCA1/README.md#exposure).
+
+### `tca determinism` and `tca diff`
+
+```sh
+tca determinism journeys/add-book.toml [--runs 3] [--seed 0]
+tca diff journeys/add-book.toml --targets headless,ui
+```
+
+Both capture the root state at launch and after every step and report the first step where it differs, with up to ten differing JSON paths (`shelf.books[0].id: "book-1" vs "9f2c..."`). `sessionID` and `revision` are ignored. Determinism compares fresh launches with the same seed; diff compares two targets, typically the headless host against the app in the simulator.
 
 ## Lower-level commands
 
 ```sh
-tca inspect --app --port 8767 [--path root/game]
-tca observe --app --port 8767
-tca dispatch --app --port 8767 --candidate 'EXACT_ID' --arguments '{"value":0}'
-tca wait --app --port 8767 --request-id 'RECEIPT_REQUEST_ID'
-tca cancel --app --port 8767 --request-id 'RECEIPT_REQUEST_ID'
+tca inspect --port 8767 [--path root/game]
+tca observe --port 8767
+tca dispatch --port 8767 --candidate 'EXACT_ID' --arguments '{"value":0}'
+tca wait --port 8767 --request-id 'RECEIPT_REQUEST_ID'
+tca cancel --port 8767 --request-id 'RECEIPT_REQUEST_ID'
 ```
 
 These take operation IDs from a current observation:
@@ -69,7 +227,7 @@ These take operation IDs from a current observation:
 - `cancel` only works if the application provides a cancellation action.
 - These commands print JSON event lines.
 
-In a checkout, leaving out `--app` builds the historical headless demo instead (see below). An installed `tca` has no demo, so it always connects to the app.
+Every command connects to a running app or headless host on `--port` (default 8765). `--app`, which older scripts pass, is accepted and ignored.
 
 ## Check an integration
 
@@ -77,7 +235,7 @@ In a checkout, leaving out `--app` builds the historical headless demo instead (
 tca doctor --port 8767
 ```
 
-With no command, `tca` runs doctor on port 8765. Doctor always connects to the app. It never builds the headless host and never loads model credentials.
+With no command, `tca` runs doctor on port 8765. Doctor is read-only and never loads model credentials.
 
 - It reports protocol and capability checks, plus runtime configuration diagnostics.
 - No available operations is reported as a warning, not an error.
@@ -88,10 +246,10 @@ With no command, `tca` runs doctor on port 8765. Doctor always connects to the a
 `run` loops toward a goal. Each step it observes the app, asks a model to choose one offered operation (or `none`), and, if that operation has an argument schema, asks a model to fill the arguments. It stops when an app-defined predicate verifies the goal:
 
 ```sh
-tca run --app --port 8767 --goal 'Start an unlimited solo game' --verify gameReady
+tca run --port 8790 --goal 'Add "Dune" by Frank Herbert to my shelf' --verify 'onShelf:Dune'
 ```
 
-Verification predicates belong to the app, not the model. The loop has these safeguards:
+Verification predicates belong to the app, not the model: pass a `verify:` closure to `store.harness(...)` that answers named conditions from state (return `nil` for unknown ones). The example above uses [Shelf's](../examples/shelf/Sources/ShelfCore/ShelfHarness.swift) `onShelf:TITLE`. `shell` is an interactive variant: it lists the offered operations by number and lets you dispatch one, or type `goal TEXT` to see a single model-chosen step. The loop has these safeguards:
 
 - A choice that wasn't offered is rejected.
 - If argument generation fails or returns the wrong fields, nothing is dispatched.
@@ -137,11 +295,11 @@ Keep credentials out of the repository.
 ## Inspect a run visually
 
 ```sh
-python3 examples/isowords/run_goals.py > /tmp/run.jsonl
+tca run --port 8790 --goal 'Add "Dune" by Frank Herbert to my shelf' --verify 'onShelf:Dune' > /tmp/run.jsonl
 tca trace --input /tmp/run.jsonl --output /tmp/run.html
 ```
 
-Open the generated file in a modern browser. It works offline, needs no app connection or model credentials, and has no JavaScript dependencies. A [saved isowords run](../examples/isowords/recordings/interpretable-run.html) is included.
+`run` prints the JSONL trace on stdout; start Shelf's headless host first (`cd examples/shelf && swift run shelf-headless --port 8790`). `--report` files from `tca journey run`, `explore` and the other runners open the same way. Open the generated file in a modern browser. It works offline, needs no app connection or model credentials, and has no JavaScript dependencies.
 
 Select a goal, then an event, to inspect:
 
@@ -157,7 +315,7 @@ Events and their contents:
 - New events have a schema version, sequence number, wall-clock timestamp, and monotonic `tMs`.
 - Model-driven runs record the projected observation used for each decision, plus `model`, `provider`, and `latencyMs`.
 - Dispatch events record arguments and the returned observation.
-- The isowords suite also records predicate checks, readiness waits, and pacing.
+- Verification results and pacing (`--step-delay`) are recorded too.
 - These files contain projected app state.
 
 Older JSONL traces still open. They show event order rather than invented timestamps, and they say when snapshots or alternatives are missing. Goal-end summaries are not treated as full state snapshots.
@@ -193,14 +351,12 @@ These tests need no app, model credentials, network, or Swift build. They cover:
 
 - read-only doctor and protocol diagnosis
 - `ls`/`do` against a fake host
+- check expressions, including refused inputs, and the TOML writer
+- targets, journeys, recording, explore and shrinking, chaos, determinism and diff end to end against [a fake protocol v3 app](tests/fake_app.py) with planted bugs
+- request patterns and per-step expectations, launch faults (journeys and chaos), fixture coverage and the recording sweep
+- `exposure` from a live app, journey runs and reports (including reports from before `mounts` events)
 - both providers against a mocked network
 - `setup`
 - the devtools relay and connection failures
 
-The devtools panel checks drive `devtools.html` against a recorded isowords timeline in jsdom. They run when Node can `require("jsdom")` and are skipped otherwise. To enable them, run `npm install jsdom` in a scratch directory and set `NODE_PATH` to its `node_modules`.
-
-## TCA 2 task experiment
-
-In a checkout, running without `--app` builds and launches the historical headless task host in `prototypes/tca-harness`. That demo requires private TCA 2 access, XcodeGen, and FlowDeck. You don't need it to use the CLI against an existing app.
-
-Task-specific demo commands are documented in [the prototype guide](../prototypes/tca-harness/README.md). The isowords scripts load `cli/tca.py` directly and don't need the task host or TCA 2. They pin Router model IDs, so run them with Router credentials.
+The devtools panel checks drive `devtools.html` against a recorded timeline in jsdom. They run when Node can `require("jsdom")` and are skipped otherwise. To enable them, run `npm install jsdom` in a scratch directory and set `NODE_PATH` to its `node_modules`.

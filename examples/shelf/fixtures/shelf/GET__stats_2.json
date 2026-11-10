@@ -1,0 +1,35 @@
+{
+  "request" : {
+    "body" : null,
+    "method" : "GET",
+    "url" : "http://127.0.0.1:8799/stats"
+  },
+  "response" : {
+    "body" : {
+      "byAuthor" : [
+        {
+          "author" : "Andy Weir",
+          "count" : 1
+        },
+        {
+          "author" : "Susanna Clarke",
+          "count" : 1
+        },
+        {
+          "author" : "Ursula K. Le Guin",
+          "count" : 1
+        }
+      ],
+      "read" : 1,
+      "total" : 3,
+      "unread" : 2
+    },
+    "headers" : {
+      "Content-Length" : "174",
+      "Content-Type" : "application/json",
+      "Date" : "Sat, 07 Nov 2026 08:59:21 GMT",
+      "Server" : "BaseHTTP/0.6 Python/3.13.2"
+    },
+    "status" : 200
+  }
+}

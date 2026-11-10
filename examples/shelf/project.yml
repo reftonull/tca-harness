@@ -1,0 +1,44 @@
+# xcodegen spec for the Shelf iOS app: SwiftUI views (App/) over ShelfCore from this directory's
+# Package.swift. `xcodegen generate` writes ShelfApp.xcodeproj (ignored by Git).
+name: ShelfApp
+options:
+  deploymentTarget:
+    iOS: '17.0'
+packages:
+  Shelf:
+    path: .
+  Harness:
+    path: ../..
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    CODE_SIGNING_ALLOWED: NO
+targets:
+  ShelfApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Shelf
+        UILaunchScreen: {}
+        # server.py is plain HTTP on 127.0.0.1.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.laksh.ShelfApp
+        TARGETED_DEVICE_FAMILY: '1'
+        GENERATE_INFOPLIST_FILE: NO
+    dependencies:
+      - package: Shelf
+        product: ShelfCore
+      - package: Harness
+        product: TCAHarnessTCA1
+schemes:
+  ShelfApp:
+    build:
+      targets:
+        ShelfApp: all

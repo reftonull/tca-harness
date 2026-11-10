@@ -10,13 +10,26 @@ public final class HarnessRuntime<State, Action> {
   private let verify: (State, String) -> Bool?
   private let timeline: HarnessTimeline?
   private let graph = RuntimeGraph()
+  /// Where invariant violations are recorded and what the session serves through `issues`.
+  public let issues: HarnessIssueLog
+  private let network: HarnessNetworkState
+  /// Last result per invariant name; absent means holding (or not mounted).
+  private var invariantHolds: [String: Bool] = [:]
 
   public init(descriptor: FeatureDescriptor<State, Action>, read: @escaping () -> State,
     send: @escaping (Action) -> Void, verify: @escaping (State, String) -> Bool? = { _, _ in nil },
-    timeline: HarnessTimeline? = nil) {
+    timeline: HarnessTimeline? = nil, issues: HarnessIssueLog = .shared,
+    network: HarnessNetworkState = HarnessNetwork.shared) {
     self.descriptor = descriptor; self.read = read; self.send = send; self.verify = verify
+    self.issues = issues; self.network = network
     self.timeline = timeline?.isEnabled == true ? timeline : nil
     if let timeline = self.timeline {
+      issues.setActionProvider { [weak timeline] in timeline?.currentActionPath }
+      if descriptor.hasInvariants {
+        timeline.setAfterReduce { [weak self] value in
+          if let state = value as? State { self?.checkInvariants(state) }
+        }
+      }
       // Each entry shows the features and operations mounted after that action.
       // Projected entries use the descriptor's observation, the same view agents get.
       timeline.setReaders(observe: { [descriptor] value in
@@ -37,8 +50,27 @@ public final class HarnessRuntime<State, Action> {
     verify: { [weak self] condition in
       guard let self else { return nil }; return self.verify(self.read(), condition)
     }, inspect: { [weak self] in self?.inspect() ?? [] },
+    catalog: { [weak self] in self?.catalog() ?? [] },
     diagnostics: { [weak self] in self?.diagnostics ?? ["Runtime was released; retain the StoreHarness attachment alongside the store"] },
-    timeline: timeline.map { timeline in { timeline.page(since: $0) } })
+    timeline: timeline.map { timeline in { timeline.page(since: $0) } },
+    issues: issues, network: network,
+    beforeObserve: { [weak self] in self?.checkInvariants() })
+
+  /// Evaluates the descriptor's invariants against the store's current state.
+  public func checkInvariants() {
+    guard descriptor.hasInvariants else { return }
+    checkInvariants(read())
+  }
+
+  /// Records an `invariant` issue for each invariant that went from holding to violated.
+  func checkInvariants(_ state: State) {
+    var next: [String: Bool] = [:]
+    for (name, holds) in descriptor.evaluateInvariants(state) {
+      if !holds, invariantHolds[name] ?? true { issues.record(kind: "invariant", message: name) }
+      next[name] = holds
+    }
+    invariantHolds = next
+  }
 
   public func snapshot() -> HarnessValue { descriptor.observation(read()) }
   public func offers() -> [HarnessOffer] {
@@ -47,6 +79,8 @@ public final class HarnessRuntime<State, Action> {
     return graph.offers.map { $0.intercepting { candidate, perform in try timeline.asAgent(candidate.id, perform) } }
   }
   public func inspect() -> [HarnessFeatureInfo] { refresh(); return graph.features }
+  /// Every feature the descriptor can mount, mounted or not (`inspect` with `"catalog": true`).
+  public func catalog() -> [HarnessCatalogFeature] { descriptor.catalog() }
   public var diagnostics: [String] { refresh(); return graph.diagnostics }
 
   private func refresh() {

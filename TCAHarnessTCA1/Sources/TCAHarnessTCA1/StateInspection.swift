@@ -3,7 +3,7 @@ import Foundation
 import TCAHarness
 
 /// Bounded structural observation. App State need not conform to Codable.
-public indirect enum HarnessValue: Codable, Equatable {
+public indirect enum HarnessValue: Codable, Equatable, Sendable {
   case object([String: HarnessValue])
   case array([HarnessValue])
   case string(String)
@@ -34,6 +34,22 @@ public indirect enum HarnessValue: Codable, Equatable {
 }
 
 protocol StateWrapper { var inspectedWrappedValue: Any? { get } }
+
+/// A value that supplies its own snapshot when reached by reflection, such as `Hosted.State`, whose
+/// model would otherwise be an opaque reference.
+protocol HarnessSnapshotProviding { var harnessSnapshot: HarnessValue { get } }
+
+enum HarnessSnapshotContext {
+  /// True while the timeline snapshots captured states. State holding a reference (a hosted model)
+  /// then answers with what it recorded at reduce time, not the object's current values.
+  @TaskLocal static var recorded = false
+}
+
+/// Closures are behavior, not state: a model's injected client (`struct API { var fetch: () async
+/// throws -> T }`) is left out of its snapshot instead of filling it with opaque entries.
+private func isFunction(_ value: Any, _ mirror: Mirror) -> Bool {
+  mirror.displayStyle == nil && mirror.children.isEmpty && String(describing: type(of: value)).contains("->")
+}
 extension PresentationState: StateWrapper {
   var inspectedWrappedValue: Any? { wrappedValue }
 }
@@ -59,28 +75,44 @@ func stateAtPath(_ root: Any, _ path: [String]) -> Any? {
 }
 
 public enum StateInspection {
-  public static func snapshot(_ state: Any, depth: Int = 7, budget: Int = 1800, redacting: Set<String> = ["token", "accessToken", "refreshToken", "password", "apiKey", "authorization"]) -> HarnessValue {
+  /// A bounded structural snapshot of `state`. Class instances are opaque unless `reflectingObjects`
+  /// is set, which reads their stored properties (as for `@Observable` models), once per object.
+  public static func snapshot(_ state: Any, depth: Int = 7, budget: Int = 1800, redacting: Set<String> = ["token", "accessToken", "refreshToken", "password", "apiKey", "authorization"],
+    reflectingObjects: Bool = false) -> HarnessValue {
     var budget = budget
+    var visited = Set<ObjectIdentifier>()
     let redacted = Set(redacting.map { $0.lowercased() })
-    func visit(_ raw: Any, _ remaining: Int) -> HarnessValue {
+    // nil means "leave this field out": a closure, or a struct made only of closures.
+    func visit(_ raw: Any, _ remaining: Int) -> HarnessValue? {
       budget -= 1
       guard budget >= 0, remaining >= 0 else { return .string("<truncated>") }
       guard let value = unwrapState(raw) else { return .null }
+      if let provider = value as? HarnessSnapshotProviding { return provider.harnessSnapshot }
       switch value {
       case let x as Bool: return .bool(x)
       case let x as String: return .string(String(x.prefix(500)))
       case let x as Int: return .number(Double(x))
       case let x as Double: return x.isFinite ? .number(x) : .string(String(x))
       case let x as Float: return x.isFinite ? .number(Double(x)) : .string(String(x))
-      case let x as Date: return .string(ISO8601DateFormatter().string(from: x))
+      case let x as Date:
+        // Milliseconds, so two different instants within the same second still differ.
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return .string(formatter.string(from: x))
       case let x as UUID: return .string(x.uuidString)
       default: break
       }
       let mirror = Mirror(reflecting: value)
-      if mirror.displayStyle == .class { return .string("<opaque \(String(describing: type(of: value)))>") }
+      if isFunction(value, mirror) { return nil }
+      if mirror.displayStyle == .class {
+        guard reflectingObjects else { return .string("<opaque \(String(describing: type(of: value)))>") }
+        guard visited.insert(ObjectIdentifier(value as AnyObject)).inserted else {
+          return .string("<cycle \(String(describing: type(of: value)))>")
+        }
+      }
       if mirror.displayStyle == .enum {
         guard let child = mirror.children.first else { return .string(String(describing: value)) }
-        return .object(["case": .string(child.label ?? "unknown"), "value": visit(child.value, remaining - 1)])
+        return .object(["case": .string(child.label ?? "unknown"), "value": visit(child.value, remaining - 1) ?? .null])
       }
       if mirror.displayStyle == .dictionary {
         var entries: [String: HarnessValue] = [:]
@@ -88,23 +120,27 @@ public enum StateInspection {
           let values = Array(Mirror(reflecting: pair.value).children)
           if values.count == 2 {
             let key = String(describing: values[0].value)
-            entries[key] = redacted.contains(key.lowercased()) ? .string("<redacted>") : visit(values[1].value, remaining - 1)
+            entries[key] = redacted.contains(key.lowercased()) ? .string("<redacted>") : visit(values[1].value, remaining - 1) ?? .null
           }
         }
         return .object(entries)
       }
       if let collection = value as? any Collection {
-        return .array(collectionValues(collection).prefix(60).map { visit($0, remaining - 1) })
+        return .array(collectionValues(collection).prefix(60).map { visit($0, remaining - 1) ?? .null })
       }
       var result: [String: HarnessValue] = [:]
+      var omitted = 0
       for child in mirror.children.prefix(100) {
-        guard let label = child.label, !label.contains("observationRegistrar") else { continue }
+        // Skip macro bookkeeping such as `_$observationRegistrar`.
+        guard let label = child.label, !label.contains("observationRegistrar"), !label.hasPrefix("_$") else { continue }
         let key = fieldName(label)
-        result[key] = redacted.contains(key.lowercased()) ? .string("<redacted>") : visit(child.value, remaining - 1)
+        if redacted.contains(key.lowercased()) { result[key] = .string("<redacted>"); continue }
+        if let field = visit(child.value, remaining - 1) { result[key] = field } else { omitted += 1 }
       }
+      if result.isEmpty && omitted > 0 { return nil }
       return result.isEmpty ? .string("<opaque \(String(describing: type(of: value)))>") : .object(result)
     }
-    return visit(state, depth)
+    return visit(state, depth) ?? .null
   }
 }
 

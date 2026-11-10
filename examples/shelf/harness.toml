@@ -1,0 +1,39 @@
+# How `tca journey run`, `explore`, `chaos`, `determinism` and `diff` launch Shelf (docs/testing.md#targets).
+# Every run gets a fresh process. SHELF_BUGS, if set in your shell, reaches every target.
+
+# Rung 1: ShelfCore's reducers in a native macOS process. Build with `swift build` (debug) first.
+[targets.headless]
+launch = ".build/debug/shelf-headless --port {port}"
+port = "auto"
+ready = "TCA harness listening"
+restart = "per-run"
+
+# Rung 2: the SwiftUI app on the iPhone 17 Pro simulator. Build with `flowdeck build --config flowdeck.json`.
+# FlowDeck replaces any running copy, then the app listens once its first load finishes; ready
+# means both (the line, then the port), so a run never talks to the previous instance.
+[targets.ui]
+launch = 'flowdeck run --no-build --config flowdeck.json --launch-env "TCA_HARNESS=1 SHELF_BUGS=${SHELF_BUGS:-} {env}"'
+port = 8792
+ready = "App Launched Successfully"
+restart = "per-run"
+ready_timeout = 90
+stop = "flowdeck stop dev.laksh.ShelfApp"
+
+# Rung 3: the headless host against the live backend (`python3 server.py`).
+[targets.live]
+launch = ".build/debug/shelf-headless --port {port}"
+port = "auto"
+ready = "TCA harness listening"
+env = { SHELF_API = "http://127.0.0.1:8799" }
+
+# Rung 3 with its own fresh server.py (port 8798) per run, for re-recording fixtures/shelf:
+#   tca fixtures record journeys/*.toml --target record      (or ./record_fixtures.sh)
+# The server starts in the run's process group, so it is stopped with the app and every journey
+# records against the seed books.
+[targets.record]
+launch = """python3 server.py --quiet --port 8798 & \
+until python3 -c "import socket; socket.create_connection(('127.0.0.1', 8798), 0.2)" 2>/dev/null; do sleep 0.05; done; \
+exec .build/debug/shelf-headless --port {port}"""
+port = "auto"
+ready = "TCA harness listening"
+env = { SHELF_API = "http://127.0.0.1:8798" }

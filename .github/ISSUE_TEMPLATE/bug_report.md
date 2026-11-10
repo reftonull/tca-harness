@@ -11,7 +11,7 @@ about: Something in the harness, macros or CLI doesn't work
 
 **Versions**
 - TCA version:
-- Harness package (TCA1 / TCA2) and commit:
+- Harness commit:
 - Swift / Xcode:
 - Platform (simulator, macOS, device):
 

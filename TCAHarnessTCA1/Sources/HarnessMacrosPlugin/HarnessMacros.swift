@@ -90,8 +90,14 @@ public struct HarnessFeatureMacro: MemberMacro, ExtensionMacro {
       return (name, type)
     }, uniquingKeysWith: { first, _ in first })
 
+    // Every case that doesn't become an operation or a child scope, and why; `tca exposure` reports them.
+    var unexposed: [(action: String, reason: String)] = []
     for member in action.memberBlock.members {
-      guard let cases = member.decl.as(EnumCaseDeclSyntax.self), !has(cases.attributes, "HarnessIgnore") else { continue }
+      guard let cases = member.decl.as(EnumCaseDeclSyntax.self) else { continue }
+      if has(cases.attributes, "HarnessIgnore") {
+        unexposed += cases.elements.map { ($0.name.text, "ignored") }
+        continue
+      }
       let exposed = has(cases.attributes, "HarnessOperation")
       for element in cases.elements {
         let name = element.name.text
@@ -102,11 +108,13 @@ public struct HarnessFeatureMacro: MemberMacro, ExtensionMacro {
             expression += "\n.operation(\(String(reflecting: name)), label: \(title), action: .\(name))"
           } else {
             diagnose(element, "Action '\(name)' is not exposed; add @HarnessOperation or @HarnessIgnore to declare intent", in: context, severity: .warning)
+            unexposed.append((name, "unannotated"))
           }
           continue
         }
         guard let parameters, parameters.count == 1, let parameter = parameters.first else {
           diagnose(element, "Action '\(name)' has multiple payloads; wrap them in a @HarnessSchema struct or add @HarnessIgnore", in: context, severity: exposed ? .error : .warning)
+          if !exposed { unexposed.append((name, "multiple payloads")) }
           continue
         }
         let type = parameter.type.trimmedDescription
@@ -118,7 +126,7 @@ public struct HarnessFeatureMacro: MemberMacro, ExtensionMacro {
             : "\n.operation(\(String(reflecting: name)), label: \(title), arguments: \(type).self, action: { .\(name)(\(argument)) })"
           continue
         }
-        if type == "BindingAction<State>" { continue }
+        if type == "BindingAction<State>" { unexposed.append((name, "binding")); continue }
         if type.hasSuffix(".Action"), let field = properties[name] {
           let child = String(type.dropLast(".Action".count))
           let method = field.hasSuffix("?") ? "optional" : "child"
@@ -134,10 +142,15 @@ public struct HarnessFeatureMacro: MemberMacro, ExtensionMacro {
           expression += "\n.stack(\(String(reflecting: name)), state: \\.\(name), action: \\.\(name), descriptor: \(child).harnessDescriptor)"
         } else {
           diagnose(element, "Cannot derive action '\(name)'; add @HarnessOperation with a HarnessInput payload, @HarnessIgnore, or compose an explicit descriptor", in: context, severity: .warning)
+          unexposed.append((name, "unsupported payload"))
         }
       }
     }
-    return [DeclSyntax(stringLiteral: "@MainActor public static var harnessDescriptor: FeatureDescriptor<State, Action> {\n\(expression)\n}")]
+    for (name, reason) in unexposed {
+      expression += "\n.unexposed(\(String(reflecting: name)), reason: \(String(reflecting: reason)))"
+    }
+    // `customizeHarnessDescriptor` defaults to identity; features override it to add invariants.
+    return [DeclSyntax(stringLiteral: "@MainActor public static var harnessDescriptor: FeatureDescriptor<State, Action> {\ncustomizeHarnessDescriptor(\n\(expression)\n)\n}")]
   }
 }
 

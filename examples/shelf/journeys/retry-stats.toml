@@ -1,0 +1,23 @@
+name = "Retry after Reading stats fail to load"
+goal = "GET /stats times out on open; Retry shows the totals"
+fixtures = "../fixtures/shelf"
+network = "replay"
+launch_requests = ["GET /books"]
+
+[[faults]]
+match = { method = "GET", path = "/stats" }
+kind = "timeout"
+times = 1
+
+[[steps]]
+do = "Reading stats"
+expect = "stats.error and not stats.summary and not stats.isLoading"
+requests = ["GET /stats"]
+
+[[steps]]
+do = "Retry"
+requests = ["GET /stats"]
+
+[checks]
+"the totals are shown" = "stats.summary.total == 3"
+"the error is gone" = "not stats.error and not stats.isLoading"

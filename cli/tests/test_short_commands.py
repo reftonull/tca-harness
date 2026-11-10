@@ -26,7 +26,7 @@ VOLUME = {'type': 'object', 'additionalProperties': False, 'required': ['value']
 
 
 class FakeHost:
-    """Isowords-shaped: Home presents a Settings sheet; Home lends the sheet's close operation."""
+    """A game-shaped app: Home presents a Settings sheet; Home lends the sheet's close operation."""
 
     def __init__(self, settings_open=True, wait_status='succeeded'):
         self.settings_open = settings_open
@@ -36,7 +36,7 @@ class FakeHost:
         self.observation = self.observe()
 
     def features(self):
-        features = [('root', 'isowords', ROOT), ('root/home', 'Home', HOME)]
+        features = [('root', 'App', ROOT), ('root/home', 'Home', HOME)]
         if self.settings_open:
             features.append(('root/home/settings', 'Settings', SETTINGS))
         return features
@@ -103,6 +103,14 @@ def dispatched(host):
 
 
 class FocusTests(unittest.TestCase):
+    def test_duplicate_row_actions_show_their_routes(self):
+        rows = [candidate('root/books/' + i, 'I-' + i, 'open', 'Open book') for i in ('a', 'b')]
+        observation = {'sessionID': 's', 'revision': 1, 'state': {'books': [{'id': 'a'}, {'id': 'b'}]}, 'candidates': rows}
+        view = cli.focus_view(observation, [('root', 'Shelf'), ('root/books/a', 'Book'), ('root/books/b', 'Book')])
+        text = cli.format_view(view)
+        self.assertIn('open  - Open book  [root/books/a/open]', text)
+        self.assertIn('open  - Open book  [root/books/b/open]', text)
+
     def test_focuses_the_deepest_feature_with_lent_ancestor_operations(self):
         host = FakeHost()
         view = cli.focus_view(host.observe(), cli.mounted_features(host))
@@ -238,6 +246,25 @@ class DoTests(unittest.TestCase):
         self.assertIn('wait_timeout', err)
         self.assertIn('Settings (root/home/settings)', out)
 
+    def test_navigation_that_closes_the_dispatching_feature_is_not_a_failure(self):
+        # As in a real game app: Solo's startUnlimited mounts Game and unmounts Solo, so the receipt reads `cancelled`.
+        class Navigating(FakeHost):
+            def call(self, method, **arguments):
+                response = super().call(method, **arguments)
+                if method == 'dispatch' and 'disableHaptics' in arguments['candidateID']:
+                    self.settings_open = False
+                    response = dict(response, observation=self.observe(), receipt=dict(response['receipt'], status='cancelled'))
+                return response
+        code, out, err = run(cli.do_command, Navigating(), 'disableHaptics')
+        self.assertEqual(code, 0, err)
+        self.assertTrue(out.startswith('disableHaptics: sent; root/home/settings closed (receipt cancelled)\n\nHome (root/home)'))
+        code, out, _ = run(cli.do_command, Navigating(), 'disableHaptics', as_json=True)
+        result = json.loads(out)
+        self.assertEqual((code, result['ok'], result['receipt']['featureClosed']), (0, True, True))
+        # A cancelled receipt while the feature stays mounted is still a failure.
+        code, _, _ = run(cli.do_command, FakeHost(wait_status='cancelled'), 'setMusicVolume', {'value': 1})
+        self.assertEqual(code, 2)
+
     def test_rejected_dispatch_reports_the_error(self):
         class Rejecting(FakeHost):
             def call(self, method, **arguments):
@@ -254,9 +281,9 @@ class DoTests(unittest.TestCase):
 class ArgumentParsingTests(unittest.TestCase):
     def main(self, argv, host):
         from unittest.mock import patch
-        with patch.object(cli, 'Host', return_value=host), patch.object(cli, 'build') as build:
+        with patch.object(cli, 'Host', return_value=host) as connect:
             code, out, err = run(cli.main, argv)
-        build.assert_not_called()
+        self.assertEqual(connect.call_count, 1)
         self.assertTrue(host.closed)
         return code, out, err
 
@@ -270,6 +297,16 @@ class ArgumentParsingTests(unittest.TestCase):
         code, out, _ = self.main(['ls', '--json'], FakeHost())
         self.assertEqual(code, 0)
         self.assertEqual(json.loads(out)['focus'], 'root/home/settings')
+
+    def test_app_flag_is_accepted_and_ignored(self):
+        with_flag = self.main(['ls', '--json', '--app'], FakeHost())
+        without = self.main(['ls', '--json'], FakeHost())
+        self.assertEqual(with_flag, without)
+
+    def test_removed_demo_commands_are_rejected(self):
+        for command in ('demo', 'build', 'protocol', 'hybrid-demo', 'arguments-demo'):
+            with self.assertRaises(SystemExit):
+                run(cli.main, [command])
 
     def test_do_rejects_non_object_arguments(self):
         with self.assertRaises(SystemExit):
