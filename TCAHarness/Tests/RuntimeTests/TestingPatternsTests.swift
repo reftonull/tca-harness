@@ -2,7 +2,7 @@ import ComposableArchitecture
 import Foundation
 import IssueReporting
 import Network
-@testable import TCAHarnessTCA1
+@testable import TCAHarness
 import Testing
 
 // MARK: Fixtures

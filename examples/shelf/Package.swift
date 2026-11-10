@@ -26,7 +26,7 @@ let package = Package(
       name: "ShelfCore",
       dependencies: [
         .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
-        .product(name: "TCAHarnessTCA1", package: harness),
+        .product(name: "TCAHarness", package: harness),
       ],
       // Uses the protocol v3 APIs (invariants, HarnessNetwork, harnessDeterministic). See ShelfHarness.swift.
       swiftSettings: [.define("SHELF_HARNESS_V3")]
@@ -35,7 +35,7 @@ let package = Package(
       name: "shelf-headless",
       dependencies: [
         "ShelfCore",
-        .product(name: "TCAHarnessTCA1", package: harness),
+        .product(name: "TCAHarness", package: harness),
       ]
     ),
   ],

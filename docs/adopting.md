@@ -1,6 +1,6 @@
 # Adopting the harness in a large app
 
-This is a plan for a large TCA 1.x app that is mostly server-driven: most screens load something over REST, and some screens are vanilla SwiftUI. It is ordered so that each step pays for itself before the next, and nothing requires writing tests up front. Numbers quoted come from the [Shelf](../examples/shelf/README.md) example.
+This is a plan for a large TCA app that is mostly server-driven: most screens load something over REST, and some screens are vanilla SwiftUI. It is ordered so that each step pays for itself before the next, and nothing requires writing tests up front. Numbers quoted come from the [Shelf](../examples/shelf/README.md) example.
 
 ## What to expect
 
@@ -99,7 +99,7 @@ The [Shelf ladder](../examples/shelf/README.md) shows which pattern catches whic
 
 ## Vanilla SwiftUI screens
 
-Screens built on `@Observable` models use the same descriptors. Mount them inside the TCA app with `.model("name", { $0.model }, descriptor:)`, or wrap them in `Hosted<Model>`. With `Hosted`, the store owns their lifecycle: calls run as effects, are cancelled on dismissal and appear in the timeline. See [Vanilla SwiftUI models](../TCAHarnessTCA1/README.md#vanilla-swiftui-models).
+Screens built on `@Observable` models use the same descriptors. Mount them inside the TCA app with `.model("name", { $0.model }, descriptor:)`, or wrap them in `Hosted<Model>`. With `Hosted`, the store owns their lifecycle: calls run as effects, are cancelled on dismissal and appear in the timeline. See [Vanilla SwiftUI models](../TCAHarness/README.md#vanilla-swiftui-models).
 
 ## Rules worth keeping
 

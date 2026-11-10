@@ -4,8 +4,8 @@ Thanks for helping out. Issues and pull requests are welcome.
 
 ## Layout
 
-- `TCAHarness/`: model-independent session, JSON protocol and loopback transport. No TCA dependency.
-- `TCAHarnessTCA1/`: descriptors, runtime and macros for TCA 1.x. Built by the root `Package.swift`.
+- `TCAHarnessCore/`: model-independent session, JSON protocol and loopback transport. No TCA dependency.
+- `TCAHarness/`: descriptors, runtime and macros for TCA apps, and `@Observable` model support. Built by the root `Package.swift`.
 - `cli/`: the `tca` command-line client (Python, standard library only).
 - `skills/`: agent skills for integrating, driving, testing and recording an app.
 - `docs/`: the testing guide and notes on adopting the harness in a large app.
@@ -14,9 +14,9 @@ Thanks for helping out. Issues and pull requests are welcome.
 ## Running the checks
 
 ```sh
-swift test                                       # TCAHarness + TCAHarnessTCA1, macro and runtime tests
+swift test                                       # TCAHarness and TCAHarnessCore: macro and runtime tests
 swift test -c release -Xswiftc -enable-testing   # the same with the listener compiled out
-(cd TCAHarness && swift build)                   # transport package on its own
+(cd TCAHarnessCore && swift build)               # the core package on its own
 python3 -m unittest discover -s cli/tests
 (cd examples/shelf && ./run_ladder.sh --skip-ui) # every testing pattern on the headless host
 ```

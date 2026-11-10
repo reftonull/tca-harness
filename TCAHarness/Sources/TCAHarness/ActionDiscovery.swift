@@ -1,7 +1,7 @@
 import CasePaths
 import ComposableArchitecture
 import Foundation
-import TCAHarness
+import TCAHarnessCore
 
 private protocol CasePayload { static var payloadType: Any.Type { get } }
 extension Case: CasePayload { static var payloadType: Any.Type { Value.self } }

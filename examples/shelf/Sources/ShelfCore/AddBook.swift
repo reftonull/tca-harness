@@ -1,6 +1,6 @@
 import ComposableArchitecture
 import Foundation
-import TCAHarnessTCA1
+import TCAHarness
 
 /// The "Add book" sheet. The shelf performs the request (it owns the list), so this feature only
 /// edits the draft, guards against submitting twice and shows the outcome. After a save the sheet

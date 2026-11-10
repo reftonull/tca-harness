@@ -1,6 +1,6 @@
 import ComposableArchitecture
 import Foundation
-import TCAHarness
+import TCAHarnessCore
 
 /// Bounded structural observation. App State need not conform to Codable.
 public indirect enum HarnessValue: Codable, Equatable, Sendable {

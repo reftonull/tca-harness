@@ -1,6 +1,6 @@
 import ComposableArchitecture
 import Foundation
-import TCAHarnessTCA1
+import TCAHarness
 
 /// One book: mark it read, or delete it. Operations are declared in `ShelfHarness.swift`.
 @HarnessFeature

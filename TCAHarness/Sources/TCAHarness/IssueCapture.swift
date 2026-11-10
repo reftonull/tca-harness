@@ -1,6 +1,6 @@
 import Foundation
 import IssueReporting
-import TCAHarness
+import TCAHarnessCore
 
 /// Records reported issues (`reportIssue`, TCA runtime warnings, `unimplemented` dependencies) in a
 /// ``HarnessIssueLog``. It is added alongside the existing reporters, so Xcode still shows them.

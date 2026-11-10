@@ -4,11 +4,12 @@
 
 First public release candidate.
 
+- Renamed the products: `TCAHarnessTCA1` is now `TCAHarness` (what apps link and `import`), and the model-independent core is `TCAHarnessCore`. Directories follow: `TCAHarness/` and `TCAHarnessCore/`.
 - Trimmed to the TCA 1.x core. Removed `TCAHarnessTCA2` (TCA 2 private beta; it no longer built against the beta), the isowords and Critical Maps examples, the TCA 2 task demo app (`DecisionsTCA`, `DecisionsPackage`), `prototypes/`, root `recordings/`, `docs/research/` and unused `assets/`. All of it is preserved on the [`archive/experiments`](https://github.com/reftonull/tca-harness/tree/archive/experiments) branch.
 - `tca`: removed the prototype-only commands `demo`, `arguments-demo`, `hybrid-demo`, `build` and `protocol`, the `--expect-task` option, and the subprocess mode that built and launched a headless task host when `--app` was left out. Every command now connects to a running app or headless host on `--port`; `--app` is still accepted and ignored. `shell` and `run` (with `--verify`) work as before.
 - Example: Shelf answers `verify` conditions (`onShelf:TITLE`, `allRead`), so `tca run --verify` has a target in the repository.
-- `TCAHarness`: session protocol (`observe`, `dispatch`, `wait`, `verify`, `cancel`), receipts, revisions and loopback transport.
-- `TCAHarnessTCA1`: `@HarnessFeature`, `@HarnessSchema` and explicit `FeatureDescriptor`s for TCA 1.x, plus `harnessTimeline()` for the live devtools panel.
+- `TCAHarnessCore`: session protocol (`observe`, `dispatch`, `wait`, `verify`, `cancel`), receipts, revisions and loopback transport.
+- `TCAHarness`: `@HarnessFeature`, `@HarnessSchema` and explicit `FeatureDescriptor`s for TCA 1.x, plus `harnessTimeline()` for the live devtools panel.
 - `tca` CLI: `doctor`, `ls`/`do`, `inspect`, `observe`, `dispatch`, `wait`, `cancel`, `devtools`, `trace`, and a bounded model loop (`run`) that works with Router or any OpenAI Responses-compatible endpoint (`tca setup`).
 - The listener is compiled out of Release builds.
 - `HarnessLiveGuard` (`HarnessNetwork.shared.liveGuard = .readOnly(hosts:)`): `record` and `live` refuse anything but GET/HEAD to the listed hosts; the `network` method can't remove it.

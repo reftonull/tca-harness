@@ -1,7 +1,7 @@
 import ComposableArchitecture
 import ShelfCore
 import SwiftUI
-import TCAHarnessTCA1
+import TCAHarness
 
 @main
 struct ShelfApp: App {

@@ -1,6 +1,6 @@
 import ComposableArchitecture
 import Foundation
-import TCAHarness
+import TCAHarnessCore
 
 /// Generated features supply their descriptor without requiring read/send closures.
 public protocol HarnessFeatureProvider: Reducer {

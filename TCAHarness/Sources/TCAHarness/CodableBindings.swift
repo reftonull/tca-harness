@@ -1,6 +1,6 @@
 import Foundation
 import CoreFoundation
-import TCAHarness
+import TCAHarnessCore
 
 @MainActor
 public enum CodableBindings {

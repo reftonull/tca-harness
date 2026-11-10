@@ -1,7 +1,7 @@
 import ComposableArchitecture
 import Foundation
 import ShelfCore
-import TCAHarnessTCA1
+import TCAHarness
 
 /// Shelf's reducers with no UI, served on the harness port. ShelfCore imports neither SwiftUI nor
 /// UIKit, so this is a plain macOS executable.
