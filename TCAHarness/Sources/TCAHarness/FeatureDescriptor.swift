@@ -1,7 +1,7 @@
 import CasePaths
 import ComposableArchitecture
 import Foundation
-import TCAHarness
+import TCAHarnessCore
 
 /// A typed description of a feature; no store or model is owned here.
 @MainActor

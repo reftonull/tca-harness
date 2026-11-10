@@ -32,7 +32,7 @@ agent / CLI / test → loopback JSON → embedded runtime → your existing Stor
 
 TCA already enforces the hard part: actions in, state out, one place where state changes. The harness adds the introspection layer on top of the store you already have, so the same descriptors serve an agent building a feature, a random walk hunting for bugs, and a journey that pins a flow.
 
-[What it catches](#what-it-catches) · [Add it to your app](#add-it-to-your-app-tca-1x) · [Let your agent drive it](#let-your-coding-agent-drive-it) · [Test behaviour](#test-behaviour-not-implementation) · [Testing guide](docs/testing.md) · [Adopting in a large app](docs/adopting.md)
+[What it catches](#what-it-catches) · [Add it to your app](#add-it-to-your-app) · [Let your agent drive it](#let-your-coding-agent-drive-it) · [Test behaviour](#test-behaviour-not-implementation) · [Testing guide](docs/testing.md) · [Adopting in a large app](docs/adopting.md)
 
 ## What it catches
 
@@ -51,12 +51,12 @@ The [Shelf example](examples/shelf/README.md) is a small reading-list app with a
 
 With the bugs off, every pattern comes back clean. Earlier experiments, including model-driven play of the isowords game and the same game running headless about 24 times faster than in the simulator, are on the [`archive/experiments`](https://github.com/reftonull/tca-harness/tree/archive/experiments) branch.
 
-## Add it to your app (TCA 1.x)
+## Add it to your app
 
-Add this repository as a Swift package and link **TCAHarnessTCA1**. Annotate your features:
+Add this repository as a Swift package and link **TCAHarness**. Annotate your features:
 
 ```swift
-import TCAHarnessTCA1
+import TCAHarness
 
 @HarnessFeature
 @Reducer
@@ -72,15 +72,15 @@ try harness.startIfEnabled()
 
 Launch a Debug build with `TCA_HARNESS=1` (and optionally `TCA_HARNESS_PORT`, default 8765). Release builds compile the listener out.
 
-To run the same reducers with no UI, call `try await store.harness(RootFeature.self).runHeadless(port: 8790)` from a small executable. The same descriptors and CLI work with or without a UI, which makes agent loops and behavior tests fast. See [Run headless](TCAHarnessTCA1/README.md#run-headless).
+To run the same reducers with no UI, call `try await store.harness(RootFeature.self).runHeadless(port: 8790)` from a small executable. The same descriptors and CLI work with or without a UI, which makes agent loops and behavior tests fast. See [Run headless](TCAHarness/README.md#run-headless).
 
-Screens built on plain `@Observable` models use the same descriptors: mount them with `.model(...)`, or wrap them in TCA with `Hosted<Model>` so their calls run as effects and show in the timeline. See [Vanilla SwiftUI models](TCAHarnessTCA1/README.md#vanilla-swiftui-models).
+Screens built on plain `@Observable` models use the same descriptors: mount them with `.model(...)`, or wrap them in TCA with `Hosted<Model>` so their calls run as effects and show in the timeline. See [Vanilla SwiftUI models](TCAHarness/README.md#vanilla-swiftui-models).
 
 - `@HarnessSchema` generates typed argument schemas for payload actions.
 - `@HarnessIgnore` and redaction keep fields out of observations.
 - Explicit `FeatureDescriptor`s handle unusual scopes, availability rules and completion. App state does not need to be `Codable`.
 
-[Package guide](TCAHarnessTCA1/README.md) · [Protocol and transport](TCAHarness/README.md) · [Agent skill for integrating it](skills/integrate-tca-harness/SKILL.md)
+[Package guide](TCAHarness/README.md) · [Protocol and transport](TCAHarnessCore/README.md) · [Agent skill for integrating it](skills/integrate-tca-harness/SKILL.md)
 
 ## Use the CLI
 
@@ -165,7 +165,7 @@ The listener binds `127.0.0.1` only, has no authentication, and exists only in D
 Early and experimental. The protocol may change before 1.0.
 
 - **Requirements:** Swift 6.3+, iOS 17+ / macOS 14+, TCA 1.13+ (tested with TCA 1.26 on Swift 6.4).
-- **Scope:** TCA 1.x apps, including screens built on plain `@Observable` models. Experiments (TCA 2 beta support, the isowords integration, earlier prototypes and design notes) live on the [`archive/experiments`](https://github.com/reftonull/tca-harness/tree/archive/experiments) branch.
+- **Scope:** TCA apps (1.13 and later), including screens built on plain `@Observable` models. Experiments (TCA 2 beta support, the isowords integration, earlier prototypes and design notes) live on the [`archive/experiments`](https://github.com/reftonull/tca-harness/tree/archive/experiments) branch.
 - **Not covered by generated descriptors:** payload actions without an annotation, child state/action names that don't match, and some unusual scopes; use explicit descriptors.
 - **App-defined:** availability, privacy projections, effect completion and cancellation.
 
@@ -173,8 +173,8 @@ Early and experimental. The protocol may change before 1.0.
 
 | Path | Purpose |
 | --- | --- |
-| [TCAHarness](TCAHarness) | Model-independent session, JSON schemas, receipts and loopback transport |
-| [TCAHarnessTCA1](TCAHarnessTCA1) | Descriptors, runtime and macros for TCA 1.x (root `Package.swift`) |
+| [TCAHarness](TCAHarness) | What apps link: descriptors, macros, runtime, `@Observable` model support (root `Package.swift`) |
+| [TCAHarnessCore](TCAHarnessCore) | Model-independent session, JSON schemas, receipts and loopback transport |
 | [cli](cli) | `tca` command-line client, standard-library Python |
 | [docs](docs) | [Testing guide](docs/testing.md), [adopting in a large app](docs/adopting.md) |
 | [examples/shelf](examples/shelf) | A small app with planted bugs for every testing pattern, including vanilla SwiftUI screens |

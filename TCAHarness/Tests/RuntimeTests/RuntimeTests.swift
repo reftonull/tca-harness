@@ -1,7 +1,7 @@
 import ComposableArchitecture
 import Foundation
 import IssueReportingTestSupport
-@testable import TCAHarnessTCA1
+@testable import TCAHarness
 import Testing
 
 @HarnessSchema

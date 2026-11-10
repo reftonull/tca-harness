@@ -1,7 +1,7 @@
 import ComposableArchitecture
 import Foundation
+@testable import TCAHarnessCore
 @testable import TCAHarness
-@testable import TCAHarnessTCA1
 import Testing
 
 // MARK: Vanilla SwiftUI-style models

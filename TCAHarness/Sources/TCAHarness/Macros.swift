@@ -1,4 +1,4 @@
-import TCAHarness
+import TCAHarnessCore
 
 /// Generates a harness descriptor for a `@Reducer` from its locally declared `State` and `Action`.
 ///

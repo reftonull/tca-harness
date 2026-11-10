@@ -1,6 +1,6 @@
 import ComposableArchitecture
 import Foundation
-import TCAHarnessTCA1
+import TCAHarness
 
 /// Everything the harness sees of Shelf, in one place.
 ///

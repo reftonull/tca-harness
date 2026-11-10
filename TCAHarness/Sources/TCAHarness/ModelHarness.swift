@@ -1,6 +1,6 @@
 import ComposableArchitecture
 import Foundation
-import TCAHarness
+import TCAHarnessCore
 
 // Plain `@Observable` models, the vanilla SwiftUI way, use the same descriptors, sessions and CLI as
 // TCA features. A model descriptor is a `FeatureDescriptor` whose state is the model object and whose

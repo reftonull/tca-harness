@@ -6,38 +6,40 @@ let package = Package(
   name: "TCAHarness",
   platforms: [.iOS(.v17), .macOS(.v14)],
   products: [
+    // What apps link: descriptors, macros, runtime and attachment for TCA stores and @Observable models.
     .library(name: "TCAHarness", targets: ["TCAHarness"]),
-    .library(name: "TCAHarnessTCA1", targets: ["TCAHarnessTCA1"]),
+    // The model-independent session, protocol and transport, for custom runtimes.
+    .library(name: "TCAHarnessCore", targets: ["TCAHarnessCore"]),
   ],
   dependencies: [
     .package(url: "https://github.com/pointfreeco/swift-composable-architecture", from: "1.13.0"),
     .package(url: "https://github.com/pointfreeco/swift-case-paths", from: "1.5.4"),
-    // IssueReporting (issue capture) and, for tests, IssueReportingTestSupport. Same package identity TCA 1 uses.
+    // IssueReporting (issue capture) and, for tests, IssueReportingTestSupport. Same package identity TCA uses.
     .package(url: "https://github.com/pointfreeco/xctest-dynamic-overlay", from: "1.4.0"),
     .package(url: "https://github.com/pointfreeco/swift-macro-testing", from: "0.6.0"),
     .package(url: "https://github.com/swiftlang/swift-syntax", "600.0.0"..<"605.0.0"),
   ],
   targets: [
-    .target(name: "TCAHarness", path: "TCAHarness/Sources/TCAHarness"),
+    .target(name: "TCAHarnessCore", path: "TCAHarnessCore/Sources/TCAHarnessCore"),
     .macro(name: "HarnessMacrosPlugin", dependencies: [
       .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
       .product(name: "SwiftDiagnostics", package: "swift-syntax"),
       .product(name: "SwiftSyntax", package: "swift-syntax"),
       .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
       .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
-    ], path: "TCAHarnessTCA1/Sources/HarnessMacrosPlugin"),
-    .target(name: "TCAHarnessTCA1", dependencies: [
-      "TCAHarness", "HarnessMacrosPlugin",
+    ], path: "TCAHarness/Sources/HarnessMacrosPlugin"),
+    .target(name: "TCAHarness", dependencies: [
+      "TCAHarnessCore", "HarnessMacrosPlugin",
       .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
       .product(name: "CasePaths", package: "swift-case-paths"),
-      // IssueReporters.current, for issue capture. Same package identity TCA 1 uses.
+      // IssueReporters.current, for issue capture.
       .product(name: "IssueReporting", package: "xctest-dynamic-overlay"),
-    ], path: "TCAHarnessTCA1/Sources/TCAHarnessTCA1"),
+    ], path: "TCAHarness/Sources/TCAHarness"),
     .testTarget(name: "HarnessMacroTests", dependencies: [
       "HarnessMacrosPlugin", .product(name: "MacroTesting", package: "swift-macro-testing"),
-    ], path: "TCAHarnessTCA1/Tests/HarnessMacroTests"),
+    ], path: "TCAHarness/Tests/HarnessMacroTests"),
     .testTarget(name: "RuntimeTests", dependencies: [
-      "TCAHarnessTCA1", .product(name: "IssueReportingTestSupport", package: "xctest-dynamic-overlay"),
-    ], path: "TCAHarnessTCA1/Tests/RuntimeTests"),
+      "TCAHarness", .product(name: "IssueReportingTestSupport", package: "xctest-dynamic-overlay"),
+    ], path: "TCAHarness/Tests/RuntimeTests"),
   ]
 )

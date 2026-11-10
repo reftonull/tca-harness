@@ -1,6 +1,6 @@
 import ComposableArchitecture
 import Foundation
-import TCAHarnessTCA1
+import TCAHarness
 
 /// "Find books": searches the server's catalog. Each submitted search sends `GET /catalog?q=`;
 /// a newer search cancels the one in flight, so a slow response for an older query can't replace

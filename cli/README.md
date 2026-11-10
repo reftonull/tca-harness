@@ -199,7 +199,7 @@ totals: 7 of 7 feature(s) reached, 26 exposed operation(s), 23 exercised (88.5%)
 
 The three gaps were Retry buttons that only appear after a failed load. `tca chaos` checks that they are offered but doesn't press them; the three `retry-*` journeys, each with a `[[faults]]` entry, press them. The first eight journeys alone exercised 17 (65%); with the retry journeys, 20 (77%). [Adopting in a large app](../docs/adopting.md#how-much-of-the-app-can-an-agent-reach) explains how to read the report.
 
-Where the unexposed list comes from: `@HarnessFeature` records every action case it didn't turn into an operation or a child scope (`ignored` for `@HarnessIgnore`, `unannotated`, `binding`, `unsupported payload`, `multiple payloads`), and explicit descriptors add entries with `.unexposed("case", reason: "...")`. An entry disappears once an operation sends that case. See the [package guide](../TCAHarnessTCA1/README.md#exposure).
+Where the unexposed list comes from: `@HarnessFeature` records every action case it didn't turn into an operation or a child scope (`ignored` for `@HarnessIgnore`, `unannotated`, `binding`, `unsupported payload`, `multiple payloads`), and explicit descriptors add entries with `.unexposed("case", reason: "...")`. An entry disappears once an operation sends that case. See the [package guide](../TCAHarness/README.md#exposure).
 
 ### `tca determinism` and `tca diff`
 
@@ -328,7 +328,7 @@ State differences describe observations, not proof that an action caused them; a
 tca devtools --port 8767 [--http-port 8780]
 ```
 
-This serves a panel on `http://127.0.0.1:8780` that polls the app's timeline through the harness connection. The app must apply `.harnessTimeline()` to its root reducer; see the [package guide](../TCAHarnessTCA1/README.md#record-a-timeline-for-devtools) for privacy and cost.
+This serves a panel on `http://127.0.0.1:8780` that polls the app's timeline through the harness connection. The app must apply `.harnessTimeline()` to its root reducer; see the [package guide](../TCAHarness/README.md#record-a-timeline-for-devtools) for privacy and cost.
 
 The server binds to loopback and rejects requests whose `Host` is not `127.0.0.1` or `localhost`, so other web pages can't read app state through it.
 

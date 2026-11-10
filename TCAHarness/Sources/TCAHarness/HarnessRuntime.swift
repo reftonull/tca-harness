@@ -1,5 +1,5 @@
 import Foundation
-import TCAHarness
+import TCAHarnessCore
 
 /// Mounts descriptors against an existing live store. Models and transport stay outside.
 @MainActor

@@ -1,6 +1,6 @@
 import ComposableArchitecture
 import Foundation
-import TCAHarnessTCA1
+import TCAHarness
 
 /// The reading list: loads books, shows an unread badge and a "new" dot, searches, and presents the
 /// Add book sheet and a book's detail. It owns the list, so it performs saves.
