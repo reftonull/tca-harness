@@ -248,15 +248,18 @@ All commands print a short plain-text summary, write JSON lines with `--report` 
 - **fixtures record** runs each journey with `--network record` on the given target (cassettes go to the journey's `fixtures`, or `--into DIR`), prints what was written, what the live guard refused, and the guard's name (with a note when the app sets none). Then it runs `--sanitize` once (a `.py` file runs with this Python; the cassette directories are its arguments and the first is in `TCA_HARNESS_CASSETTES`), and replays the journeys for the coverage report (`--no-coverage` skips it). Each journey records in its own process, so recordings of the same endpoint by different journeys share a name and the last one wins.
 
 ```text
-fixtures coverage: 6 run(s), 0 failed; 26 request(s) to 5 endpoint(s)
-  ENDPOINT                                REQUESTS  EXACT  ORDERED  SYNTHETIC
-  GET /api/ride                           6         6      .        .
-  GET /api/v1/timelines/tag/CriticalMass  4         3      .        1
-  GET /locations                          6         6      .        .
-  GET /messages                           9         .      9        .
-  POST /messages                          1         1      .        .
-cassettes in fixtures/criticalmaps: 8 of 9 used
-  unused: PUT__locations_1.json
+fixtures coverage: 11 run(s), 0 failed; 32 request(s) to 9 endpoint(s)
+  ENDPOINT            REQUESTS  EXACT  ORDERED  FAULT
+  DELETE /books/{id}  1         1      .        .
+  GET /books          12        11     .        1
+  GET /catalog        2         2      .        .
+  GET /goal           3         2      .        1
+  GET /stats          4         .      3        1
+  POST /books         3         2      .        1
+  POST /events        5         5      .        .
+  PUT /books/{id}     1         1      .        .
+  PUT /goal           1         1      .        .
+cassettes in fixtures/shelf: 11 of 11 used
 ```
 
 ## Races
@@ -336,10 +339,10 @@ A cassette directory can hold `match.json`, read on every request (edits apply t
   "path_templates": ["/books/{id}", "/rides/{id}/attendees"],
   "paths": {
     "/events": {"ignore_body": true},
-    "/api/ride": {"ignore_query": ["centerLatitude", "centerLongitude"]}
+    "/nearby": {"ignore_query": ["lat", "lon"]}
   },
   "pagination": [
-    {"path": "/api/v1/timelines/tag/{tag}", "cursor": "max_id", "terminal": {"status": 200, "body": []}}
+    {"path": "/feed/{tag}", "cursor": "max_id", "terminal": {"status": 200, "body": []}}
   ]
 }
 ```

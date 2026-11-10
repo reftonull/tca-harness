@@ -248,7 +248,7 @@ public enum HarnessMatch: String, Codable, Sendable, CaseIterable {
 /// {
 ///   "ignore_query": ["t"],
 ///   "path_templates": ["/books/{id}", "/rides/{id}/attendees"],
-///   "paths": {"/events": {"ignore_body": true}, "/api/ride": {"ignore_query": ["lat", "lon"]}},
+///   "paths": {"/events": {"ignore_body": true}, "/nearby": {"ignore_query": ["lat", "lon"]}},
 ///   "pagination": [{"path": "/timeline", "cursor": "max_id", "terminal": {"status": 200, "body": []}}]
 /// }
 /// ```

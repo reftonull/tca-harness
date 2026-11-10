@@ -157,15 +157,6 @@ tca fixtures record journeys/*.toml --target live [--into fixtures/raw] [--sanit
 
 Every logged request says how it was answered: `exact`, `ordered` (one of several equal recordings, by occurrence), `template` (a cassette recorded for the same `match.json` path template), `path` (fallback: the latest cassette for the path, because query or body differed), `synthetic` (a `match.json` rule such as a terminal page), `fault`, `blocked` or `live`. `coverage` runs the journeys (or reads `request` events from `--report` files) and prints a row per endpoint (method and templated path) with counts per kind, the cassettes nothing used, and each request that fell back or was blocked, with the journey and step. `--strict` exits 1 if there are any; a failed journey always exits 1.
 
-```text
-fixtures coverage: 6 run(s), 0 failed; 26 request(s) to 5 endpoint(s)
-  ENDPOINT        REQUESTS  EXACT  ORDERED  PATH
-  GET /api/ride   6         .      .        6
-  ...
-fallback matches (7): no cassette for the exact request, so the latest one for its path answered. ...
-  GET /api/ride?centerLongitude=13.4206...&centerLatitude=52.5289...  -> GET__api_ride_1.json  (journeys/launch.toml at launch)
-```
-
 `record` runs each journey with `--network record` on the target (respecting the app's live guard, whose name it prints; refused requests are listed and not recorded), then the `--sanitize` script once with the cassette directories as arguments, then the coverage report for the journeys replayed against their own fixtures. See [docs/testing.md](../docs/testing.md#matching-rules) for the `match.json` rules that remove fallbacks.
 
 ### `tca exposure`
@@ -206,7 +197,7 @@ exposure: 7 feature(s) from 8 journey run(s), 1 report(s)
 totals: 7 of 7 feature(s) reached, 26 exposed operation(s), 23 exercised (88.5%); 10 unexposed action(s): ignored 10
 ```
 
-The three gaps were Retry buttons that only appear after a failed load. `tca chaos` checks that they are offered but doesn't press them; the three `retry-*` journeys, each with a `[[faults]]` entry, press them. The first eight journeys alone exercised 17 (65%); with the retry journeys, 20 (77%). [Adopting in a large app](../docs/adopting.md#step-1-attach-and-look-around-a-day) has the Critical Maps output and what it means.
+The three gaps were Retry buttons that only appear after a failed load. `tca chaos` checks that they are offered but doesn't press them; the three `retry-*` journeys, each with a `[[faults]]` entry, press them. The first eight journeys alone exercised 17 (65%); with the retry journeys, 20 (77%). [Adopting in a large app](../docs/adopting.md#how-much-of-the-app-can-an-agent-reach) explains how to read the report.
 
 Where the unexposed list comes from: `@HarnessFeature` records every action case it didn't turn into an operation or a child scope (`ignored` for `@HarnessIgnore`, `unannotated`, `binding`, `unsupported payload`, `multiple payloads`), and explicit descriptors add entries with `.unexposed("case", reason: "...")`. An entry disappears once an operation sends that case. See the [package guide](../TCAHarnessTCA1/README.md#exposure).
 

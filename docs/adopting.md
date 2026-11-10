@@ -1,16 +1,15 @@
 # Adopting the harness in a large app
 
-This is a plan for a large TCA 1.x app that is mostly server-driven: most screens load something over REST, and some screens are vanilla SwiftUI. It is ordered so that each step pays for itself before the next, and nothing requires writing tests up front. The costs quoted come from integrating [Critical Maps](../examples/criticalmaps/README.md), a production app with about 20 features and a live backend, and from the [Shelf](../examples/shelf/README.md) example.
+This is a plan for a large TCA 1.x app that is mostly server-driven: most screens load something over REST, and some screens are vanilla SwiftUI. It is ordered so that each step pays for itself before the next, and nothing requires writing tests up front. Numbers quoted come from the [Shelf](../examples/shelf/README.md) example.
 
-## What it cost on a real app
+## What to expect
 
-| | Critical Maps |
-| --- | --- |
-| Changes to the app | 2 small patches: the root store gets `.harnessTimeline()` and keeps the attachment; the package manifest adds Mac Catalyst for the headless host. Reducers and views untouched |
-| Harness code | One file of about 550 lines: descriptors for 5 screen areas, invariants, run dependencies (network routing, fixed location, isolated storage) |
-| Headless host | About 70 lines, mostly replaying what views send on appear |
-| Fixtures | 9 cassettes and one `match.json`, recorded with 8 read-only GETs and sanitized by a script |
-| Result | 6 journeys at about 1 s each, and 6 real bugs found by explore, chaos and the headless-vs-simulator diff |
+Integrating an existing app usually needs:
+
+- **Small changes to the app.** The root store gets `.harnessTimeline()` and keeps the attachment. Reducers and views stay as they are.
+- **One harness file.** It holds the descriptors for the screens you expose, a few invariants, and the run dependencies: network routing, fixed location and clock, isolated storage.
+- **A small headless host**, if you want headless runs: an executable that builds the store, sends what views send on appear, and calls `runHeadless`.
+- **Recorded fixtures** for the screens you exercise, plus a `match.json` for what varies between runs.
 
 ## Step 1: attach and look around (a day)
 
@@ -26,71 +25,24 @@ Annotate features with `@HarnessFeature`. Actions named `…ButtonTapped` are ex
 
 Where it gets harder in a real app:
 
-- **Internal state.** Explicit descriptors can't use key paths to internal properties from another module. Critical Maps read three of them by reflection.
+- **Internal state.** Explicit descriptors can't use key paths to internal properties from another module. Read them by reflection, or make them public to the harness module.
 - **State the views own.** Toggles bound straight to `@Shared` from a view, map state written by `MKMapView`, and focus have no action. Expose a binding action that writes the same storage, or accept that only the simulator rung sees it.
-- **Payload actions.** Actions with arguments need `@HarnessOperation` or an explicit operation with a `@HarnessSchema` input. Operations can also build their action from what's on screen (`action: { state in .select(state.ride) }`).
+- **Payload actions.** Actions with arguments need `@HarnessOperation` or an explicit operation with a `@HarnessSchema` input. Operations can also build their action from what's on screen (`action: { state in .select(state.item) }`).
+- **View lifecycle.** A headless host has no views, so it must send what they send: `.task`/`onAppear` when a screen appears, and a sheet's `onDismiss` when it goes away. Otherwise logic that only runs on those actions only runs on the simulator rung.
+- **Time.** Long timers (polling, refresh intervals) are easier to drive with explicit operations ("Let a minute pass") than to wait out.
 
 ### How much of the app can an agent reach?
 
-`tca exposure` answers that per feature path. The descriptor's catalog lists every feature it can mount, so screens no run has reached show up too. Each feature lists the operations it declares, how many dispatches ran each, and the action cases no operation sends, with why. `@HarnessFeature` fills that list itself (`ignored`, `unannotated`, `binding`, `unsupported payload`, `multiple payloads`). Explicit descriptors declare their own with `.unexposed("case", reason: "...")`. On day one, run it against the app (`tca exposure --port 8767`) and read the unexposed list as a to-do list. On a hundred screens, sort it by reason: `unannotated` and `unsupported payload` are decisions nobody has made yet; `ignored` is a decision someone made.
+`tca exposure` answers that per feature path. The descriptor's catalog lists every feature it can mount, so screens no run has reached show up too. Each feature lists:
+- the operations it declares, and how many dispatches ran each
+- the action cases no operation sends, with why
 
-Critical Maps on day one, with its first six journeys (`tca exposure --journeys 'journeys/*.toml'`, trimmed):
+`@HarnessFeature` fills that last list itself (`ignored`, `unannotated`, `binding`, `unsupported payload`, `multiple payloads`). Explicit descriptors declare their own with `.unexposed("case", reason: "...")`.
 
-```text
-exposure: 13 feature(s) from 6 journey run(s)
-
-  root  Critical Maps
-    OPERATION       LABEL                                                    EXERCISED
-    openSocial      Open chat and Mastodon                                   2
-    openSettings    Open settings                                            3
-    showRides       Show upcoming rides                                      1
-    tracking        Change map tracking (follow, follow with heading, free)  .
-    shareRide       Share the next ride                                      .
-    closeShare      Close the share sheet                                    .
-    halfway         Let 30 seconds pass (the app posts your location)        .
-    fullCycle       Let a minute pass (the app refreshes riders)             .
-    swipeDownRides  Swipe the upcoming rides down                            1
-    unexposed (lifecycle): onAppear, onDisappear, didBecomeActive
-    unexposed (effect): fetchLocations, postLocation, fetchChatMessages, nextRide
-    unexposed (response): fetchLocationsResponse, postLocationResponse, fetchChatMessagesResponse
-    unexposed (sheet onDismiss): dismissEventList, dismissDestination, whatsNewDismissed
-    unexposed (binding): binding
-    unexposed (opens Apple Maps): map.routeToEvent
-    unexposed (map gesture): map.updateCenterRegion
-  ...
-  root/settings/privacyZones  Privacy zones  (not reached)
-    OPERATION  LABEL                          EXERCISED
-    toggle     Turn privacy zones on or off   .
-    toggleMap  Show or hide zones on the map  .
-    unexposed (needs a map drag): addZoneButtonTapped, destination
-    unexposed (needs a zone): deleteZone, toggleZoneActive, selectZone, alert
-    unexposed (binding): binding
-  ...
-  root/whatsNew  What's New
-    OPERATION  LABEL             EXERCISED
-    continue   Continue          6
-    close      Close What's New  .
-
-totals: 12 of 13 feature(s) reached, 53 exposed operation(s), 21 exercised (39.6%); 38 unexposed action(s): effect 10, response 7, lifecycle 6, needs a zone 4, sheet onDismiss 3, binding 2, system file picker 2, needs a map drag 2, opens Apple Maps 1, map gesture 1
-not reached (1): root/settings/privacyZones
-```
-
-What that shows, and what to do about it:
-
-- **Worth exposing: sheet dismissal.** Each sheet's `onDismiss` sends `whatsNewDismissed`, `dismissDestination` or `dismissEventList`. The headless host never does, so on headless, Close on What's New closes the sheet without marking it seen; in the app, `whatsNewDismissed` saves `lastSeenWhatsNewVersion`. That is logic only the UI rung runs. The host should send the `onDismiss` action when a sheet's destination goes away, as it already sends `onAppear`. Only Upcoming rides offers a swipe-down: adding one to What's New, Social and Settings gives `explore --races` the dismissal paths that [finding 6](../examples/criticalmaps/README.md) races on.
-- **Worth exposing: privacy zones.** The screen is in the catalog but no journey opens it, and creating, activating or deleting a zone isn't reachable at all, because creation takes a map drag (`CreateZoneFeature.setMapCenter`). An "Add a zone here" operation that sends `setMapCenter` with the fixed location and then `createZone` would make the rule that matters testable: no location is posted from inside an active zone.
-- **Worth a journey: exposed but never run.** 32 of 53 operations, among them the app's core loop (`halfway` posts your location, `fullCycle` refetches riders), map tracking, the share sheet, observation mode and the chat's Dismiss error. Explore reaches most of them at random; a journey pins the important ones.
-- **Fine to leave:** `lifecycle`, `effect` and `response` (23 cases) are sent by views on appear or by the app's own effects; the host sends the lifecycle ones and the time operations drive the timer. The GPX importer needs the system file picker. Route to event calls `MKMapItem.openInMaps` directly rather than through a dependency, so it can't be recorded like the links are. `updateCenterRegion` comes from `MKMapView`. The two `binding` cases are the rides sheet's detent and the privacy-zone toggles, which are exposed through their actions.
-
-#### Closing the gaps, then letting the patterns hunt
-
-What was done with that list, in the order a team would do it ([the Critical Maps README](../examples/criticalmaps/README.md) has the details):
-
-1. **Host fidelity.** The headless host sends each sheet's `onDismiss` action once the sheet's destination is gone, next to the `onAppear` it already replayed. Close on What's New now marks it seen on headless as in the app (`whatsNewSeen == '4.10.1'`, checked on both rungs). What's New, chat and settings got "Swipe down to close" operations, labelled so `explore --races` counts them as dismissals.
-2. **Privacy zones.** The create sheet is a child feature whose "Place the zone at your position" sends the `setMapCenter` a map tap sends, with the fixed coordinate; each zone row can be switched or deleted. The invariant that matters, "no location is posted from inside an active privacy zone", wraps `apiService.postRiderLocation` in the harness dependencies and checks the zones when the app makes the call, so it doesn't depend on when a request completes. Two recorded journeys pin `requests = []` for "Let 30 seconds pass" while a zone protects you and `["PUT /locations"]` once it's gone or switched off.
-3. **Journeys for what was never run**, recorded with `tca record` so every step pins its requests: the core loop, observation mode, map tracking and sharing, Mastodon links, a failed chat send.
-
-Afterwards the same command reports 16 of 16 features reached and 46 of 70 operations exercised (65.7%, up from 21 of 53). Two new bugs came out of the newly reachable surface. Pressing "Dismiss the error" after a failed send did nothing; on the simulator, the error comes back after the next successful send (no `ifLet` for the chat alert). And the info overlay's "in a privacy zone" status is only recomputed on a GPS fix, so it can claim you're protected while the location is posted again. Explore and chaos on the new journeys found no new bugs. They did surface one invariant that compared an internal copy of the riders nobody sees, which was fixed.
+On day one, run it against the app (`tca exposure --port 8767`) and read the unexposed list as a to-do list. On a hundred screens, sort it by reason: `unannotated` and `unsupported payload` are decisions nobody has made yet; `ignored` is a decision someone made. Typical outcomes:
+- **Worth exposing:** whole screens no run reaches, and flows that need a gesture the harness can't make. For those, add an operation that sends the same actions the gesture would.
+- **Worth a journey:** exposed operations no run has exercised, especially the app's core loop.
+- **Fine to leave:** lifecycle, effect and response actions that views and effects send themselves, and actions that only call out to the system (file pickers, opening another app).
 
 ## Step 2: route the network (a day per backend)
 
@@ -102,10 +54,10 @@ HarnessNetwork.install()                                  // also covers URLSess
 HarnessNetwork.shared.liveGuard = .readOnly(hosts: ["api.example.com"])   // before recording from a real backend
 ```
 
-From then on every harness run blocks the network unless told otherwise. Record fixtures by running journeys against a backend (`tca fixtures record journeys/*.toml --target live --sanitize sanitize.py`), with the live guard refusing anything but reads. Then write `match.json` for what varies between runs:
+From then on every harness run blocks the network unless told otherwise. Record fixtures by running journeys against a backend with `tca fixtures record journeys/*.toml --target live --sanitize sanitize.py`. The live guard refuses anything but reads. Then write `match.json` for what varies between runs:
 
 - `path_templates` for ids: `/books/{id}` turned Shelf's 39 per-id cassettes into 5.
-- `ignore_query` for volatile parameters: Critical Maps adds random noise to coordinates, so its ride query never matched exactly until `centerLatitude`/`centerLongitude` were ignored.
+- `ignore_query` for volatile parameters such as timestamps, coordinates or random cache-busters, which otherwise never match exactly.
 - `ignore_body` for writes whose acknowledgement doesn't depend on the body.
 - `pagination` with a terminal page, instead of hand-written empty pages.
 
@@ -121,19 +73,29 @@ Rules a user would notice if broken: a badge that disagrees with its list, dupli
 
 ## Step 4: journeys for the core flows (recorded, not written)
 
-Have an agent do the flow with `tca do` while `tca record` captures it. A recorded journey pins the steps by label, the checks on what the user sees, and the requests each step makes (`requests = ["GET /cards", "POST /cards/{id}/lock"]`), which is the contract a server-driven screen most often breaks. When a flow changes, the run fails with the current screen and the goal, and an agent re-solves it.
+Have an agent do the flow with `tca do` while `tca record` captures it. A recorded journey pins:
+- the steps, by label
+- the checks on what the user sees
+- the requests each step makes (`requests = ["GET /cards", "POST /cards/{id}/lock"]`), which is the contract a server-driven screen most often breaks
 
-To pick the flows, and to see what is still uncovered once they exist, run `tca exposure --journeys 'journeys/*.toml' --reports explore.jsonl`. On Shelf the first eight journeys exercised 17 of 26 operations (65%), and a 20-run explore report brought that to 23 (88%). The three left were Retry buttons that only appear after a failed load. `tca chaos` checks they are offered but doesn't press them, so each got a journey with a `[[faults]]` entry that taps Retry (`retry-load`, with the fault `at = "launch"`, `retry-stats`, `retry-goal`): the eleven journeys exercise 20 (77%). `--min-exercised 75` makes it a gate.
+When a flow changes, the run fails with the current screen and the goal, and an agent re-solves it.
+
+To pick the flows, and to see what is still uncovered once they exist, run `tca exposure --journeys 'journeys/*.toml' --reports explore.jsonl`. On Shelf:
+- **Journeys alone:** the first eight journeys exercised 17 of 26 operations (65%).
+- **Adding explore:** a 20-run explore report brought that to 23 (88%).
+- **The last gaps:** the three left were Retry buttons that only appear after a failed load. `tca chaos` checks they are offered but doesn't press them, so each got a journey with a `[[faults]]` entry that taps Retry (`retry-load` with the fault `at = "launch"`, `retry-stats`, `retry-goal`). The eleven journeys exercise 20 (77%).
+
+`--min-exercised 75` makes it a gate.
 
 ## Step 5: let the patterns find bugs (headless)
 
-The headless host runs the real reducers with no UI. Modules that import UIKit build for Mac Catalyst. The host must send what views send on appear. At about 70 actions per second:
+The headless host runs the real reducers with no UI. Modules that import UIKit build for Mac Catalyst. At about 70 actions per second:
 
-- `tca explore` walks random operations with generated arguments and shrinks each finding to a minimal journey.
-- `tca chaos` fails each request in turn (including at launch) and flags the user being stranded.
+- `tca explore` walks random operations with generated arguments and shrinks each finding to a minimal journey. `--races` dispatches while requests are in flight.
+- `tca chaos` fails each request in turn (including at launch) and flags the user being stranded. `--reorder` delivers responses out of order.
 - `tca determinism` and `tca diff` (headless vs simulator) find hidden nondeterminism and logic that only runs when views exist.
 
-On Critical Maps these found a chat that never shows new messages while open, location tracking that never starts after allowing access, a Mastodon error screen that sticks after a successful reload, a settings toggle that never stops the GPS, a broken accessibility escape, and a sheet closed by the previous sheet's late dismissal.
+The [Shelf ladder](../examples/shelf/README.md) shows which pattern catches which kind of bug: stuck saves, double submits, stale searches, badges that drift, responses delivered to closed screens.
 
 ## Vanilla SwiftUI screens
 
@@ -144,4 +106,4 @@ Screens built on `@Observable` models use the same descriptors. Mount them insid
 - Don't record from a production backend without `liveGuard`, and don't commit raw recordings.
 - Seed what varies (`harnessDeterministic()`), isolate storage per run, and fix the location and clock, so runs are reproducible.
 - Check what the user sees, not internals. Labels and published state change less often than code.
-- Keep the generic oracles on everywhere. Most of the Critical Maps findings came from invariants, issues and stuck effects, not from journey checks.
+- Keep the generic oracles on everywhere. Invariants, reported issues and stuck effects catch most bugs, more than journey checks do.

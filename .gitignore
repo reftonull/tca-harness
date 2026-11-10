@@ -11,6 +11,3 @@ TCAHarness/Package.resolved
 
 # tca record / explore output
 .tca/
-examples/criticalmaps/.upstream/
-examples/criticalmaps/CriticalMapsEmbedded.xcodeproj/
-examples/criticalmaps/fixtures/raw/

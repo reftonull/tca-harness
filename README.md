@@ -32,23 +32,24 @@ agent / CLI / test → loopback JSON → embedded runtime → your existing Stor
 
 TCA already enforces the hard part: actions in, state out, one place where state changes. The harness adds the introspection layer on top of the store you already have, so the same descriptors serve an agent building a feature, a random walk hunting for bugs, and a journey that pins a flow.
 
-[What it found in a real app](#what-it-found-in-a-real-app) · [Add it to your app](#add-it-to-your-app-tca-1x) · [Let your agent drive it](#let-your-coding-agent-drive-it) · [Test behaviour](#test-behaviour-not-implementation) · [Testing guide](docs/testing.md) · [Adopting in a large app](docs/adopting.md)
+[What it catches](#what-it-catches) · [Add it to your app](#add-it-to-your-app-tca-1x) · [Let your agent drive it](#let-your-coding-agent-drive-it) · [Test behaviour](#test-behaviour-not-implementation) · [Testing guide](docs/testing.md) · [Adopting in a large app](docs/adopting.md)
 
-## What it found in a real app
+## What it catches
 
-[Critical Maps](examples/criticalmaps/README.md) is a production TCA app with a live public backend. Attaching the harness took two small patches and one descriptor file. Then the [testing patterns](docs/testing.md), run headless and on the simulator with recorded, read-only fixtures, found ten real bugs. Each one is kept as a minimal journey that fails on upstream:
+The [Shelf example](examples/shelf/README.md) is a small reading-list app with a REST backend and one planted bug per testing pattern, behind `SHELF_BUGS`. `examples/shelf/run_ladder.sh` runs every pattern headless, on the simulator and against a live local backend, and reports which pattern caught which bug. Each one is found without writing a test for it:
 
-- The open chat never shows new messages; they come back as an unread badge after closing it.
-- Location tracking never starts after a new user allows access.
-- Mastodon stays on its error screen after a successful reload.
-- Refreshing while the next page loads appends the stale page (a race found by `tca chaos --reorder`).
-- A second tap on Send while posting sends the message twice (a race).
-- The privacy indicator keeps saying "protected" after the zone is deleted.
-- …and four more. [All ten, with reproductions](examples/criticalmaps/README.md#findings); videos of the first six on the simulator are in [#3](https://github.com/reftonull/tca-harness/pull/3).
+- **A failed save leaves the editor spinning** with no error and no Retry (`tca chaos`).
+- **Save stays tappable while its request is in flight,** so a double tap adds the book twice (`tca explore --races`).
+- **A slow search response overwrites a newer one** (`tca chaos --reorder`).
+- **The unread badge drifts from the list** (an invariant).
+- **Searching sends an analytics request per keystroke** (the step's pinned requests).
+- **A delete response reaches a screen that already closed** (TCA's own runtime warning).
+- **New items are stamped with `Date()`** instead of the date dependency (`tca determinism`).
+- **A view's `onAppear` changes state that headless never sees** (`tca diff`).
+- **The backend renames a field** (a contract check against the live server).
+- **Two vanilla SwiftUI screens** get the same treatment.
 
-An earlier [isowords integration](https://github.com/reftonull/tca-harness/tree/archive/experiments/examples/isowords), kept on the `archive/experiments` branch, has a model playing the real game through its store and the same game running headless about 24 times faster (4 s instead of 100 s).
-
-Critical Maps is fetched at a pinned revision during setup. Its source isn't vendored and keeps its own license.
+With the bugs off, every pattern comes back clean. Earlier experiments, including model-driven play of the isowords game and the same game running headless about 24 times faster than in the simulator, are on the [`archive/experiments`](https://github.com/reftonull/tca-harness/tree/archive/experiments) branch.
 
 ## Add it to your app (TCA 1.x)
 
@@ -176,7 +177,6 @@ Early and experimental. The protocol may change before 1.0.
 | [TCAHarnessTCA1](TCAHarnessTCA1) | Descriptors, runtime and macros for TCA 1.x (root `Package.swift`) |
 | [cli](cli) | `tca` command-line client, standard-library Python |
 | [docs](docs) | [Testing guide](docs/testing.md), [adopting in a large app](docs/adopting.md) |
-| [examples/criticalmaps](examples/criticalmaps) | A production app with a live backend: integration, journeys, findings |
 | [examples/shelf](examples/shelf) | A small app with planted bugs for every testing pattern, including vanilla SwiftUI screens |
 | [skills](skills) | Agent skills: integrate the harness, drive an app, test it, record its behaviour |
 | [scripts/tca](scripts/tca) | Runs the CLI from a checkout without installing it |

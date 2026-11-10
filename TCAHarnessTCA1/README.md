@@ -57,7 +57,7 @@ let descriptor = Parent.harnessDescriptor
             descriptor: Editor.harnessDescriptor)
 ```
 
-Adapters cover ordinary children, optional children, presentation wrappers, identified collections, and navigation stacks. Enum destinations/computed scopes use `child(_:state:action:descriptor:)` with typed projection/embedding closures. Macros generate standard adapters from locally declared, explicitly typed State fields and matching Action payload syntax (`Child.Action`, `PresentationAction<Child.Action>`, `IdentifiedActionOf<Child>`, `StackActionOf<Child>`). They do not inspect another macro's expansion or infer arbitrary reducer-body semantics. External and unusual layouts use explicit descriptors, as the [Critical Maps example](../examples/criticalmaps/CriticalMapsHarness.swift) demonstrates.
+Adapters cover ordinary children, optional children, presentation wrappers, identified collections, and navigation stacks. Enum destinations/computed scopes use `child(_:state:action:descriptor:)` with typed projection/embedding closures. Macros generate standard adapters from locally declared, explicitly typed State fields and matching Action payload syntax (`Child.Action`, `PresentationAction<Child.Action>`, `IdentifiedActionOf<Child>`, `StackActionOf<Child>`). They do not inspect another macro's expansion or infer arbitrary reducer-body semantics. External and unusual layouts use explicit descriptors.
 
 ## Attach to the existing store
 
@@ -91,7 +91,7 @@ Things a headless host has to do itself:
 - **Run loop.** `async main` services the main actor but not `RunLoop.main`. If your features schedule timers on `RunLoop.main` (for example a `mainRunLoop` dependency), start `runHeadless` in a `Task` and call `RunLoop.main.run()` instead.
 - **Platform.** The host must compile your feature modules. Features that import UIKit can be built for Mac Catalyst (`swift build --triple arm64-apple-ios-macabi`), which runs as a plain macOS process.
 
-**Release builds.** Like `start(port:)`, `runHeadless` exists in every build but throws in builds compiled without `DEBUG`, because the listener is compiled out. The error says how to fix it: build with the debug configuration (`swift build`), or add `-Xswiftc -DDEBUG` to an optimized build. A headless host is a development tool, and this keeps release builds free of the listener. The [Shelf](../examples/shelf/Sources/shelf-headless/ShelfHeadless.swift) and [Critical Maps](../examples/criticalmaps/headless) headless hosts run this way.
+**Release builds.** Like `start(port:)`, `runHeadless` exists in every build but throws in builds compiled without `DEBUG`, because the listener is compiled out. The error says how to fix it: build with the debug configuration (`swift build`), or add `-Xswiftc -DDEBUG` to an optimized build. A headless host is a development tool, and this keeps release builds free of the listener. The [Shelf](../examples/shelf/Sources/shelf-headless/ShelfHeadless.swift) headless host runs this way.
 
 ## Record a timeline for devtools
 
@@ -166,7 +166,7 @@ let session = URLSession(configuration: HarnessNetwork.configure(.ephemeral))   
 
 `TCA_HARNESS_NETWORK` picks the mode (`live` by default, which passes requests through and logs them) and `TCA_HARNESS_CASSETTES` the cassette directory.
 
-To record fixtures from a service other people use, set a live guard in-process: `HarnessNetwork.shared.liveGuard = .readOnly(hosts: ["api.example.com"])`. In `record` and `live` only GET and HEAD to those hosts (and their subdomains) reach the network; anything else fails as if offline, is logged with source `blocked` and reported as a `network` issue. Clients can switch the mode over the wire but can't change the guard, and `reset()` keeps it. `HarnessLiveGuard(name:allows:)` takes any rule. The [Critical Maps example](../examples/criticalmaps/README.md) records from production this way. The session's `network` method reads the request log and changes the mode and faults at run time. Interception is compiled only with `DEBUG`. Formats and fault kinds are in [Testing with the harness](../docs/testing.md#wire-protocol-additions-protocol-version-3) and the [core README](../TCAHarness/README.md#issues-invariants-and-network-protocol-v3).
+To record fixtures from a service other people use, set a live guard in-process: `HarnessNetwork.shared.liveGuard = .readOnly(hosts: ["api.example.com"])`. In `record` and `live` only GET and HEAD to those hosts (and their subdomains) reach the network; anything else fails as if offline, is logged with source `blocked` and reported as a `network` issue. Clients can switch the mode over the wire but can't change the guard, and `reset()` keeps it. `HarnessLiveGuard(name:allows:)` takes any rule. The session's `network` method reads the request log and changes the mode and faults at run time. Interception is compiled only with `DEBUG`. Formats and fault kinds are in [Testing with the harness](../docs/testing.md#wire-protocol-additions-protocol-version-3) and the [core README](../TCAHarness/README.md#issues-invariants-and-network-protocol-v3).
 
 ## Deterministic dependencies
 

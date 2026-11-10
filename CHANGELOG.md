@@ -4,7 +4,7 @@
 
 First public release candidate.
 
-- Trimmed to the TCA 1.x core. Removed `TCAHarnessTCA2` (TCA 2 private beta; it no longer built against the beta), the isowords example, the TCA 2 task demo app (`DecisionsTCA`, `DecisionsPackage`), `prototypes/`, root `recordings/`, `docs/research/` and unused `assets/`. All of it is preserved on the [`archive/experiments`](https://github.com/reftonull/tca-harness/tree/archive/experiments) branch.
+- Trimmed to the TCA 1.x core. Removed `TCAHarnessTCA2` (TCA 2 private beta; it no longer built against the beta), the isowords and Critical Maps examples, the TCA 2 task demo app (`DecisionsTCA`, `DecisionsPackage`), `prototypes/`, root `recordings/`, `docs/research/` and unused `assets/`. All of it is preserved on the [`archive/experiments`](https://github.com/reftonull/tca-harness/tree/archive/experiments) branch.
 - `tca`: removed the prototype-only commands `demo`, `arguments-demo`, `hybrid-demo`, `build` and `protocol`, the `--expect-task` option, and the subprocess mode that built and launched a headless task host when `--app` was left out. Every command now connects to a running app or headless host on `--port`; `--app` is still accepted and ignored. `shell` and `run` (with `--verify`) work as before.
 - Example: Shelf answers `verify` conditions (`onShelf:TITLE`, `allRead`), so `tca run --verify` has a target in the repository.
 - `TCAHarness`: session protocol (`observe`, `dispatch`, `wait`, `verify`, `cancel`), receipts, revisions and loopback transport.
@@ -14,8 +14,6 @@ First public release candidate.
 - `HarnessLiveGuard` (`HarnessNetwork.shared.liveGuard = .readOnly(hosts:)`): `record` and `live` refuse anything but GET/HEAD to the listed hosts; the `network` method can't remove it.
 - `FeatureDescriptor.operation(_:label:available:completion:cancel:action:)` with `action: (State) -> Action`, for actions that carry the value on screen.
 - Journeys, explore, chaos and the other runners wait for launch effects to settle (the post-run quiet rule) before the first step.
-- Example: Critical Maps, a production app, integrated with a read-only guard against its live service.
-- Example: Critical Maps closes the gaps `tca exposure` showed. The headless host sends each sheet's `onDismiss`, and swipe-down operations close What's New, chat and settings. Privacy zones can be created at the fixed position, switched and deleted, and the invariant "no location is posted from inside an active privacy zone" checks each post against the zones at the moment the app makes it. Nine new journeys cover the core loop and the operations no run had pressed. Features reached went from 12 to 16 of 16, operations exercised from 21 of 53 to 46 of 70, and two new findings came out (the chat error returns after a successful send; the privacy indicator goes stale).
 - Example: Shelf journeys press Retry after a failed load on the shelf (launch fault), Reading stats and Reading goal.
 - Example: Shelf plants `double-save` as the realistic race (Save tappable while its POST is in flight), found by `tca explore --races`, and `stale-search` (a catalog search that doesn't cancel the one in flight), found by `tca chaos --reorder`.
 - Fixture tooling for server-driven apps:
